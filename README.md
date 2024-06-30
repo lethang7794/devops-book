@@ -4,6 +4,7 @@ Read the book at [Fundamentals of DevOps and Software Delivery | O'Reilly Librar
 
 ## Notes
 
+- [Preface](/preface.md)
 - [Chapter 1: An Introduction to DevOps and Software Delivery](/chap-01.md)
 - [Chapter 2: How to Manage Your Infrastructure as Code](/chap-02.md)
 - [Chapter 3: How to Deploy Many Apps: Orchestration, VMs, Containers, and Serverless](/chap-03.md)
