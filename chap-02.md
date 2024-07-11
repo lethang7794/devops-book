@@ -13,7 +13,7 @@ The problems of ClickOps:
 - Deployments are error-prone → Bugs, outages...
 - Only one person knows how to deploy → If that person is overloaded, everything takes ages; there is also _bus factor_
 
-### Infrastructure as Code (IaC)
+### Infrastructure as Code
 
 Infrastructure as Code (IaC)
 : You write & execute code to define, deploy, update, destroy your infrastructure
@@ -151,7 +151,7 @@ Configuration Management Tools
 : e.g. Chef, Puppet, Ansible
 : Appear before cloud computing → Designed with the assumption that:
 : - someone else had set up the hardware, e.g. Ops team racked the servers in data center.
-: - primary purpose is to handle the software: OS, dependencies, your app (deploy, update).
+: - primary purpose is to handle the software - configure the servers: OS, dependencies, your app (deploy, update).
 
 > [!NOTE]
 > The configuration management tools can also deploy & manage servers or other infrastructure.
@@ -375,7 +375,19 @@ With immutable infrastructure paradigm:
 
 - Instead of long-running physical servers,
   - you use short-lived virtual servers (that will be replaced every time you do an update).
-  -
+- Once you've deployed a server, you've never make changes to it again.
+  - If you need to update something, even it's just a new version of your application
+    - you deploy a new server.
+
+> [!TIP]
+> Cattle vs pets
+
+|               | Cattle                                                                                                                                                   | Pet                                                                                                                 |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Examples      | 🐄🐃                                                                                                                                                     | 🐶🐱                                                                                                                |
+| Paradigm      | _Immutable_ infrastructure                                                                                                                               | _Mutable_ infrastructure                                                                                            |
+| What it mean? | Treat a server like a _cattle_:<br> - each one is indistinguishable to others, with random, sequential IDs <br> - kill them off & replace them regularly | Treat a server like a _pet_:<br> - give it unique name<br> - (take care of it) & keeps it alive as long as possible |
+|               |                                                                                                                                                          |                                                                                                                     |
 
 > [!NOTE]
 > Immutable infrastructure paradigm is inspired by:
@@ -383,7 +395,7 @@ With immutable infrastructure paradigm:
 > - Function programming:
 >   - Variables are immutable
 >     - After you set a variable to a value, you can't change that variable again.
->     - If you need to change something, you create a new variable.
+>     - If you need to update something, you create a new variable.
 >   - It's a lot easier to reason about your code.
 
 > [!IMPORTANT]
@@ -396,9 +408,167 @@ With immutable infrastructure paradigm:
 
 ## Server Templating Tools
 
-## What is Server Templating Tools
+### What is Server Templating Tools
+
+Server Templating Tools
+: e.g. Docker, Packer, Vagrant
+: instead of:
+: 1. launching servers
+: 2. configure them (by running the same code on each)
+: you:
+: 1. create an _image_ of a server that captures a fully self-contained “**snapshot**” of the
+operating system (OS), the software, the files, and all other relevant details.
+: 2. use some other IaC to install that image on all of your servers.
+
+#### Two types of image tools - Virtual machine and container
+
+##### Virtual machine
+
+virtual machine (VM)
+: a VM emulates an entire computer system, including the hardware (and of course the software)
+
+VM image
+: the blueprint for a VM
+: defined with tools: Packer, Vagrant
+
+hypervisor
+: aka virtualizer
+: a type of computer software/firmware/hardware that creates & runs virtual machines.
+
+---
+
+- You run a _hypervisor_[^7] with the _VM image_ to create a VM that virtualize/emulate
+
+  - the underlying hardware: CPU, memory, hard driver, networking...
+  - the software: OS, dependencies, apps...
+
+- Pros and cons of VM:
+
+  |      | VM                                                                                  |                                                                                       |
+  | ---- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+  | Pros | - Each VM is _fully isolated_ from the host machine & other VM.                     | <- Can run any 3rd-party code without worry of malicious actions                      |
+  |      | - All VMs from the same VM image will run exactly the same way in all environments. | e.g. Your PC, a QA server, a production server.                                       |
+  | Cons | - _Overhead_ of CPU/memory usage.                                                   | <- For each VM, the hypervisor needs to virtual all hardware & running a guest OS ... |
+  |      | - Overhead of startup time.                                                         | <- ... that whole OS needs to start.                                                  |
+
+##### Container
+
+container
+: a _container_ emulates the _user space_[^8] of an OS
+
+container image
+: the blueprint for a container
+
+container engine
+: a Container Engine takes a Container Image
+: - (simulates an user space with memory, mount points & networking)
+: - turns it into a Container (aka running processes)
+: e.g. Docker, cri-o, Podman
+
+---
+
+|      | VM                                                                                                |                                                                                                                       |
+| ---- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Pros | - Each container is _partial isolated_ from the host machine & other containers.                  | <- ☑️ Good enough to run your application code.                                                                       |
+|      | - All containers from the same container image will run exactly the same way in all environments. | e.g. Your PC, a QA server, a production server.                                                                       |
+|      | - No overhead of CPU/memory usage & startup time.                                                 | <- For all containers, the container engine only needs to virtual a user space (instead of all hardware & a guest OS) |
+| Cons | - Each container is only _partial isolated_ from the host machine & other containers.             | <- ❌ Not good enough to run any 3rd-party code without worry about malicious actions.                                |
 
 ### Example: Create a VM Image Using Packer
+
+In this example, you will use Packer to create a VM image for AWS (called an Amazon Machine Image - AMI)
+
+- Create a Packer template
+
+  ```hcl
+  # examples/ch2/packer/sample-app.pkr.hcl
+  packer {
+    required_plugins { # 0️⃣
+      amazon = {
+        version = ">= 1.3.1"
+        source  = "github.com/hashicorp/amazon"
+      }
+    }
+  }
+
+  source "amazon-ebs" "amazon_linux" { # 1️⃣
+    ami_name        = "sample-app-packer-${uuidv4()}"
+    ami_description = "Amazon Linux 2023 AMI with a Node.js sample app."
+    instance_type   = "t2.micro"
+    region          = "us-east-2"
+    source_ami      = "ami-0900fe555666598a2"
+    ssh_username    = "ec2-user"
+  }
+
+  build { # 2️⃣
+    sources = ["source.amazon-ebs.amazon_linux"]
+
+    provisioner "file" { # 3️⃣
+      source      = "app.js"
+      destination = "/home/ec2-user/app.js"
+    }
+
+    provisioner "shell" { # 4️⃣
+      inline = [
+        "curl -fsSL https://rpm.nodesource.com/setup_21.x | sudo bash -",
+        "sudo yum install -y nodejs"
+      ]
+      pause_before = "30s"
+    }
+  }
+  ```
+
+  - 0️⃣ - **Plugin**: Use the `Amazon` plugin[^9] to build Amazon Machine Image (AMI)
+  - 1️⃣ - **Builder**: Use the `amazon-ebs` builder to create EBS-backed AMIs by
+    - (launching a source AMI)
+    - (re-packaging it into a new AMI after provisioning[^10])
+  - 2️⃣ - **Build steps**:
+    - After provision the EC2 instance, Packer connects to the server and runs the build steps in the order specified in the Packer template.
+    - (When all the builds steps have finished, Packer will take a snapshot of the servers and use it to create an AMI)
+  - 3️⃣ - **File provisioner**: Copy the files to the server.
+  - 4️⃣ - **Shell provisioner**: Execute shell commands on the server.
+
+  > [!NOTE]
+  > The Packer template is nearly identical to the Bash script & Ansible playbook,
+  >
+  > - except it doesn't actually run the app.
+
+- Install Packer
+
+- Install Packer plugins (used in the Packer template)
+
+  ```bash
+  packer init sample-app.pkr.hcl
+  ```
+
+  > [!NOTE]
+  > Packer can create images for many cloud providers, e.g. AWS, Azure, GCP.
+  > The code for each providers is
+  >
+  > - not in the Packer binary itself
+  > - but in a separate plugin (that the `packer init` command can install)
+
+- Build image from Packer template
+
+  ```bash
+  packer build sample-app.pkr.hcl
+  ```
+
+  > [!NOTE]
+  > The result of running Packer is not a server running your app, but the _image_ of the server.
+  >
+  > - This image will be used by another IaC tolls to launch one or more servers (running the image)
+  > - The app will be run when the image is deployed (or the server is launched).
+
+### Get your hands dirty with Packer
+
+1. What happens if you run packer build on this template a second time? Why?
+
+2. Figure out how to update the Packer template so it builds images that
+
+   - not only can run on AWS,
+   - but also can run on other clouds (e.g., Azure or GCP)
+     - or on your own computer (e.g., VirtualBox or Docker).
 
 ### How Server Templating Tools Stack Up
 
@@ -485,7 +655,7 @@ With immutable infrastructure paradigm:
   - Provisioning + server templating
   - Provisioning + server templating + orchestration
 
-<!-- [EC2 Console]: https://console.aws.amazon.com/ec2/home -→
+[EC2 Console]: https://console.aws.amazon.com/ec2/home
 
 [^1]: _CRUD_ stands for create, read, update, delete.
 [^2]: A code is _idempotence_ when it can be re-run multiple times and still produce the desired result
@@ -508,10 +678,20 @@ With immutable infrastructure paradigm:
     - Templates: to be dynamically filled in data
     - Other configurations that will be applied to the server:
 
-```
+[^7]: Popular hypervisors: VMware, VirtualBox, Parallels
+[^8]:
+    On most modern operating systems, code runs in one of two “spaces”: kernel space or user space.
 
-```
+    - Code running in kernel space has _direct_, unrestricted access to all of the **hardware**.
+      - There are no
+        - security restrictions (i.e., you can execute any CPU instruction, access any part of the hard drive, write to any address in memory)
+        - or safety restrictions (e.g., a crash in kernel space will typically crash the entire computer),
+      - so kernel space is generally reserved for the lowest-level, most trusted functions of the OS (typically called the kernel).
+    - Code running in user space does not have any direct access to the hardware and must use APIs exposed by the OS kernel instead.
+      - These APIs can enforce
+        - security restrictions (e.g., user permissions)
+        - and safety (e.g., a crash in a user space app typically affects only that app),
+      - so just about all application code runs in user space.
 
-```
-
-```
+[^9]: https://developer.hashicorp.com/packer/integrations/hashicorp/amazon
+[^10]: The amazon-ebs builder builds an AMI by launching an EC2 instance from a source AMI, provisioning that running machine, and then creating an AMI from that machine.
