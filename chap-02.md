@@ -350,19 +350,19 @@ xxx.us-east-2.compute.amazonaws.com : ok=5    changed=4    failed=0
 
 ### How Configuration Management Tools Stack Up
 
-| Aspect                       | Configuration Management Tools                            | Explain, examples                                                                                                              |
-| ---------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| CRUD                         | Most supports 3/4 CRUD operation:                         |                                                                                                                                |
-|                              | - Create                                                  | ✅                                                                                                                             |
-|                              | - Read                                                    | 😢 Hit or miss, e.g. For Ansible, you need to manually give each resource a unique name or tag                                 |
-|                              | - Update                                                  | 😢 Hit or miss                                                                                                                 |
-|                              | - (Don't support delete)                                  | ❌                                                                                                                             |
-| Scale                        | - Designed for managing multiple servers.                 | Increase the number of instances, and Ansible will configure all of them.                                                      |
-|                              | - Some has builtin support for*rolling deployments*       | If you have 20 servers → update Ansible role → re-run Ansible → Ansible rolls out the change in batch, and ensure no downtime. |
-| Idempotency & error handling | Some tasks are idempotent                                 | `yum`                                                                                                                          |
-|                              | Some task are not idempotent                              | Some task using `shell` module                                                                                                 |
-| Consistency                  | Consistent ← Predictable structure code with conventions. | Docs, file layout, named parameters, secret managements...                                                                     |
-| Verbosity                    | Concise ← DSL                                             | The Ansible code may have the same length with Bash, but handles a lot of things: CRU, scaling...                              |
+| Aspect                       | Configuration Management Tools                           | Explain, examples                                                                                                              |
+| ---------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| CRUD                         | Most supports 3/4 CRUD operation:                        |                                                                                                                                |
+|                              | - Create                                                 | ✅                                                                                                                             |
+|                              | - Read                                                   | 😢 Hit or miss, e.g. For Ansible, you need to manually give each resource a unique name or tag                                 |
+|                              | - Update                                                 | 😢 Hit or miss                                                                                                                 |
+|                              | - (Don't support delete)                                 | ❌                                                                                                                             |
+| Scale                        | - Designed for managing multiple servers.                | Increase the number of instances, and Ansible will configure all of them.                                                      |
+|                              | - Some has builtin support for*rolling deployments*      | If you have 20 servers → update Ansible role → re-run Ansible → Ansible rolls out the change in batch, and ensure no downtime. |
+| Idempotency & error handling | Some tasks are idempotent                                | `yum`                                                                                                                          |
+|                              | Some task are not idempotent                             | Some task using `shell` module                                                                                                 |
+| Consistency                  | Consistent, predictable structure code with conventions. | Docs, file layout, named parameters, secret managements...                                                                     |
+| Verbosity                    | Concise ← DSL                                            | The Ansible code may have the same length with Bash, but handles a lot of things: CRU, scaling...                              |
 
 #### Drawbacks of configuration management tools
 
@@ -554,6 +554,18 @@ In this example, you will use Packer to create a VM image for AWS (called an Ama
   packer build sample-app.pkr.hcl
   ```
 
+  <details><summary>Output</summary>
+
+  ```bash
+  ==> Builds finished. The artifacts of successful builds are:
+    --> amazon-ebs.amazon_linux: AMIs were created:
+    us-east-2: ami-XXXXXXXXXXXXXXXXX
+  ```
+
+  - The `ami-XXX` value is the ID of the AMI that was created from the Packer template.
+
+  </details>
+
   > [!NOTE]
   > The result of running Packer is not a server running your app, but the _image_ of the server.
   >
@@ -572,23 +584,55 @@ In this example, you will use Packer to create a VM image for AWS (called an Ama
 
 ### How Server Templating Tools Stack Up
 
-| Aspect                       | Server Templating Tools |
-| ---------------------------- | ----------------------- |
-| CRUD                         |                         |
-| Scale                        |                         |
-| Idempotency & error handling |                         |
-| Consistency                  |                         |
-| Verbosity                    |                         |
+| Aspect                       | Server Templating Tools                                  |                                                                                  |
+| ---------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| CRUD                         | Only supports Create                                     | → Create's all a server templating tool needs[^11]                               |
+| Scale                        | Very well                                                | e.g. The same image can be used to launch 1 or 1000 servers.                     |
+| Idempotency & error handling | Idempotent by design                                     | → If there is an error, just rerun & try again.                                  |
+| Consistency                  | Consistent, predictable structure code with conventions. | e.g. Docs, file layout, named parameters, secret managements...                  |
+| Verbosity                    | Very concise                                             | ← Use an DSL; don't have to deal with all CRUD operations; idempotent "for free" |
+
+> [!WARNING]
+> Server templating tools cannot be used in isolated (because it only supports create).
+>
+> - If you use a server templating tool, you need another tool to support all CRUD operations, e.g. a provisioning tool
+
+> [!NOTE]
+> All server templating tools will create images but for slightly different purposes:
+>
+> - Packer: create VM images run on production servers, e.g. AMI
+> - Vagrant: create VM images run on development computers, e.g. VirtualBox image
+> - Docker: create container images of individual applications, which can be run any where as long as that computer has installed an container engine.
 
 > [!IMPORTANT]
 > Key takeaway #2.3
 > Server templating tools are
 >
-> - great for managing the configuration of servers with immutable infrastructure practices.
+> - great for managing the configuration of servers with _immutable infrastructure_ practices.
+>   - (but needs to be used with another provisioning tools)
 
 ## Provisioning Tools
 
-## What is Provisioning Tools
+### What is Provisioning Tools
+
+provisioning tool
+: e.g. OpenTofu/Terraform, CloudFormation, OpenStack Heat, Pulumi...
+: a provisioning tool is responsible for
+: - deploying
+: - managing (all CRUD operations)
+: the servers & other infrastructure in the clouds:
+: - (servers), databases, caches, load balances, queues, monitoring
+: - subnet configurations, firewall settings, routing rules, TLS certificates
+: - ...
+
+> [!NOTE]
+> What are the different between ad-hoc script, configuration management tools, server templating tools & provisioning tools?
+>
+> - Configuration management tools: manage **configurations** of servers
+> - Server templating tools: manage **configurations** of servers with immutable infrastructure practices
+> - Provisioning tools: deploy & manage the **servers** (& other infrastructure)
+
+### How Provisioning Tools work
 
 ### Example: Deploy an EC2 Instance Using OpenTofu
 
@@ -640,12 +684,12 @@ In this example, you will use Packer to create a VM image for AWS (called an Ama
 
 - Pick the right IaC tool for the job:
 
-  | IaC tool                           | Great for                                    | Not for                           |
-  | ---------------------------------- | -------------------------------------------- | --------------------------------- |
-  | **Ad-hoc scripts**                 | Small, one-off tasks                         | Managing IaC                      |
-  | **Configuration management tools** | Managing configuration of servers            | Deploying servers/infrastructure. |
-  | **Server templating tools**        | Managing configuration of*immutable* servers |                                   |
-  | **Provision tools**                | Deploying & managing servers/infrastructure  |                                   |
+  | IaC tool                           | Great for                                                                 | Not for                           |
+  | ---------------------------------- | ------------------------------------------------------------------------- | --------------------------------- |
+  | **Ad-hoc scripts**                 | Small, one-off tasks                                                      | Managing IaC                      |
+  | **Configuration management tools** | Managing configuration of servers                                         | Deploying servers/infrastructure. |
+  | **Server templating tools**        | Managing configuration of servers with immutable infrastructure practices |                                   |
+  | **Provision tools**                | Deploying & managing servers/infrastructure                               |                                   |
 
 - You usually needs to use multiple IaC tools together to manage your infrastructure.
 
@@ -695,3 +739,15 @@ In this example, you will use Packer to create a VM image for AWS (called an Ama
 
 [^9]: https://developer.hashicorp.com/packer/integrations/hashicorp/amazon
 [^10]: The amazon-ebs builder builds an AMI by launching an EC2 instance from a source AMI, provisioning that running machine, and then creating an AMI from that machine.
+[^11]:
+    Server templating is a key component to the shift to immutable infrastructure.
+
+    With server templating tool, if you need to roll out a change, (instead of updating the existing server), you:
+
+    - create a new image
+    - deploy that image to a new server
+
+    With server templating,
+
+    - you're always creating new images
+    - (there's never a reason to read/update/delete)
