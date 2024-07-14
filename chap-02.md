@@ -23,27 +23,30 @@ Infrastructure as Code (IaC)
 
 ---
 
-- With modern DevOps, you can manage almost everything as code:
-  | Task | How to manage as code | Example | Chapter |
-  | ------------------------------ | ------------------------------------------- | ---------------------------------------------------- | ---------------- |
-  | **Provision servers** | Provisioning tools | Use `OpenTofu` to deploy a server | This chapter (2) |
-  | **Configure servers** | Configuration management & templating tools | Use `Packer` to create an image of a server | This chapter (2) |
-  | **Configure apps** | Configuration files & services | Read configuration from a `JSON` file during boot | |
-  | **Configure networking** | Provisioning tools, service discovery | Use `Kubernetes`'s **service discovery** | |
-  | **Build apps** | Build systems, continuous integration | Build your app with `npm` | |
-  | **Test apps** | Automated tests, continuous integration | Write automated tests using `Jest` | |
-  | **Deploy apps** | Automated deployment, continuous delivery | Do a**rolling deployment** with `Kubernetes` | Chapter 3 |
-  | **Scale apps** | Auto scaling | Set up**auto scaling policies** in `AWS` | Chapter 3 |
-  | **Recover from outages** | Auto healing | Set up**liveness probes** in `Kubernetes` | Chapter 3 |
-  | **Manage databases** | Schema migrations | Use `Flyway` to update your database schema | |
-  | **Test for compliance** | Automated tests, policy as code | Check compliance using `Open Policy Agent (OPA)` | |
+- With modern DevOps, you can **manage** almost everything as code:
+
+  | Task                     | How to manage as code                       | Example                                           | Chapter          |
+  | ------------------------ | ------------------------------------------- | ------------------------------------------------- | ---------------- |
+  | **Provision servers**    | Provisioning tools                          | Use `OpenTofu` to deploy a server                 | This chapter (2) |
+  | **Configure servers**    | Configuration management & templating tools | Use `Packer` to create an image of a server       | This chapter (2) |
+  | **Configure apps**       | Configuration files & services              | Read configuration from a `JSON` file during boot |                  |
+  | **Configure networking** | Provisioning tools, service discovery       | Use `Kubernetes`'s **service discovery**          |                  |
+  | **Build apps**           | Build systems, continuous integration       | Build your app with `npm`                         |                  |
+  | **Test apps**            | Automated tests, continuous integration     | Write automated tests using `Jest`                |                  |
+  | **Deploy apps**          | Automated deployment, continuous delivery   | Do a**rolling deployment** with `Kubernetes`      | Chapter 3        |
+  | **Scale apps**           | Auto scaling                                | Set up**auto scaling policies** in `AWS`          | Chapter 3        |
+  | **Recover from outages** | Auto healing                                | Set up**liveness probes** in `Kubernetes`         | Chapter 3        |
+  | **Manage databases**     | Schema migrations                           | Use `Flyway` to update your database schema       |                  |
+  | **Test for compliance**  | Automated tests, policy as code             | Check compliance using `Open Policy Agent (OPA)`  |                  |
+
 - For infrastructure, there are 4 type of IaC tools:
-  | IaC tool | Example |
-  | ---------------------------------------- | ---------------------------------------------- |
-  | **Ad-hoc scripts** | Use a `Bash` script to deploy a server. |
-  | **Configuration management tools** | Use `Ansible` to deploy a server. |
-  | **Server templating tools** | Use `Packer` to create an image of a server. |
-  | **Provision tools** | Use `OpenTofu` to deploy a server. |
+
+  | IaC tool                           | Example                                      |
+  | ---------------------------------- | -------------------------------------------- |
+  | **Ad-hoc scripts**                 | Use a `Bash` script to deploy a server.      |
+  | **Configuration management tools** | Use `Ansible` to deploy a server.            |
+  | **Server templating tools**        | Use `Packer` to create an image of a server. |
+  | **Provision tools**                | Use `OpenTofu` to deploy a server.           |
 
 ### The Benefits of IaC
 
@@ -131,7 +134,7 @@ in [example in chap 1 that deploy an app using AWS](/chap-01.md#example-deployin
 | IaC category criteria            | Ad Hoc script                                                                           | Example                                                                                                                                                          |
 | -------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | CRUD[^1]                         | - Only handle basically create`<br>` - Hard to have full CRUD                           | If you run the script a second time, the script will try to`<br>`- create a new security group`<br>`- without knowing that the security group is already exists. |
-| Scale                            | Hard, need to figure everything out yourself                                            | - Keep track of everything`<br>` - Connect everything together `<br>` - Deployment strategies.                                                                   |
+| Scale                            | Scale Hard, need to figure everything out yourself                                      | - Keep track of everything`<br>` - Connect everything together `<br>` - Deployment strategies.                                                                   |
 | Idempotency[^2] & error handling | Most ad hoc scripts:`<br>` - are not idempotent `<br>` - don't handle errors gracefully | - A script runs → Error → Partial state → Forget what it has done → Rerun the script → Another error.                                                            |
 | Consistency                      | No consistency                                                                          | You can:`<br>` - use any programming language you want`<br>` - write the code however you want.                                                                  |
 | Verbosity                        | Very verbose                                                                            | You need to do everything yourself (CRUD, idempotency, error handling), which make the code very verbose.                                                        |
@@ -587,7 +590,7 @@ In this example, you will use Packer to create a VM image for AWS (called an Ama
 | Aspect                       | Server Templating Tools                                  |                                                                                  |
 | ---------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | CRUD                         | Only supports Create                                     | → Create's all a server templating tool needs[^11]                               |
-| Scale                        | Very well                                                | e.g. The same image can be used to launch 1 or 1000 servers.                     |
+| Scale                        | Scale very well                                          | e.g. The same image can be used to launch 1 or 1000 servers.                     |
 | Idempotency & error handling | Idempotent by design                                     | → If there is an error, just rerun & try again.                                  |
 | Consistency                  | Consistent, predictable structure code with conventions. | e.g. Docs, file layout, named parameters, secret managements...                  |
 | Verbosity                    | Very concise                                             | ← Use an DSL; don't have to deal with all CRUD operations; idempotent "for free" |
@@ -634,29 +637,803 @@ provisioning tool
 
 ### How Provisioning Tools work
 
+Under the hood, provisioning tools work by
+
+- translating the code you write
+  - into API calls to the cloud providers you're using
+
+e.g. If you write OpenTofu/Terraform code to create a server in AWS, when you run OpenTofu, it will:
+
+- Parse your code
+- (Based on the the configuration you specified,) make a number of APIs calls to AWS
+  - to create an EC2 instance
+
+> [!NOTE]
+> By making APIs to cloud providers, provisioning tools bring in many advantages:
+>
+> - You don't need to setup master servers.
+> - You don't need to setup connection to the servers ← Take advantages of the authentication mechanism of cloud providers.
+
 ### Example: Deploy an EC2 Instance Using OpenTofu
 
-### Example: Update and Destroy Infrastructure Using OpenTofu
+> [!TIP]
+> Terraform vs OpenTofu
+>
+> - `Terraform` is a popular provisioning tool that HashiCorp open sourced in 2014 under Mozilla Public Licenses (MPL) 2.0.
+>   - In 2024, HashiCorp switched `Terraform` to non-open source Business Source License (BSL).
+> - As a result, the community fork `Terraform` under the named `OpenTofu`, which remains open source under the MPL 2.0 license.
 
-### Example: Deploy an EC2 Instance Using an OpenTofu Module
+---
 
-### Example: Deploy an EC2 Instance Using an OpenTofu Module from GitHub
+To deploy an EC2 Instance using OpenTofu, you
+
+- write an OpenTofu _module_
+
+  - in HCL[^12],
+  - in _configuration files_ with a `.tf` extension (instead of `.pkr.hcl` for Packer template)
+
+  > [!NOTE]
+  > An OpenTofu module is a folder with all `.tf` files in that folder:
+  >
+  > - No matter are the name of these `.tf` files.
+  > - But there are some conventions, e.g.
+  >   - `main.tf`: Main resources
+  >   - `variables.tf`: Input variables
+  >   - `outputs.tf`: Output variables
+
+- use that OpenTofu module (run OpenTofu code) to deploy the EC2 instance.
+
+---
+
+For this example, the OpenTofu module for an EC2 instance looks like this:
+
+1.  `main.tf`: Main resources
+
+    ```terraform
+    # examples/ch2/tofu/ec2-instance/main.tf
+    provider "aws" {                                               # 1️⃣
+      region = "us-east-2"
+    }
+
+    resource "aws_security_group" "sample_app" {                   # 2️⃣
+      name        = "sample-app-tofu"
+      description = "Allow HTTP traffic into the sample app"
+    }
+
+    resource "aws_security_group_rule" "allow_http_inbound" {      # 3️⃣
+      type              = "ingress"
+      protocol          = "tcp"
+      from_port         = 8080
+      to_port           = 8080
+      security_group_id = aws_security_group.sample_app.id
+      cidr_blocks       = ["0.0.0.0/0"]
+    }
+
+    resource "aws_instance" "sample_app" {                         # 4️⃣
+      ami                    = var.ami_id                          # 4️⃣1️⃣
+      instance_type          = "t2.micro"
+      vpc_security_group_ids = [aws_security_group.sample_app.id]
+      user_data              = file("${path.module}/user-data.sh") # 4️⃣2️⃣
+
+      tags = {
+        Name = "sample-app-tofu"
+      }
+    }
+    ```
+
+    <details><summary>What the OpenTofu code do?</summary>
+
+    - 1️⃣ - **Use AWS provider**: to work with AWS cloud provider.
+
+      > [!NOTE]
+      > OpenTofu can works with many _providers_, e.g. AWS, Azure, GCP...
+      >
+      > - An OpenTofu provider is like a Packer plugin.
+
+      > [!TIP]
+      > AWS has data centers all over the world, grouped into regions.
+      >
+      > - An AWS `region` is a separate **geographic area**, e.g. `us-east-1` (Virginia), `us-east-2` (Ohio), `eu-west-1` (Ireland), `ap-southeast-1` (Singapore)
+      >   - Within each region, there are multiple **isolated data center**s, called `Availability Zones` (`AZs`)
+
+    - 2️⃣ - **Create a security group**: to control the network traffic go in & out the EC2 instance
+
+      > [!NOTE]
+      > For each type of provider, there are
+      >
+      > - several kinds of _resources_ that you can create
+      >   - e.g. servers, databases, load balancers, firewall settings...
+      >
+      > ***
+      >
+      > The syntax for creating a resource (of a provider) in OpenTofu is as follows:
+      >
+      > - ```terraform
+      >   resource "<PROVIDER>_<TYPE>" "<NAME>" {
+      >     [CONFIG ...]
+      >   }
+      >   ```
+      >
+      >   with:
+      >
+      >   - `PROVIDER`: name of the provider, e.g. `aws`
+      >   - `TYPE`: type of the resource (of that provider) to create, e.g. `instance` (an AWS EC2 instance)
+      >   - `NAME`: an identifier you can use in OpenTofu code to refer to this resource, e.g. `my_instance`
+      >   - `CONFIG`: one or more `arguments` that specific to that resource.
+
+    - 3️⃣ - **Create a rule for the security group**: to allow inbound HTTP request on port 8080.
+    - 4️⃣ - **Create an EC2 instance**: that uses the previous security group, and have a `Name` tag of `sample-app-tofu`.
+
+           - 4️⃣1️⃣ - **Set the AMI**: to `var.ami_id`, which is a reference to an `input variable` named `ami_id` in `variables.tf`.
+           - 4️⃣2️⃣ - **Set the user data**: to a file named `user-data.sh`, which is in the OpenTofu module's directory, next to other `.tf` files.
+
+    </details>
+
+2.  `variables.tf`: Input variables
+
+    ```terraform
+    # examples/ch2/tofu/ec2-instance/variables.tf
+    variable "ami_id" {
+      description = "The ID of the AMI to run."
+      type        = string
+    }
+    ```
+
+    > [!NOTE]
+    > The input variables allow an OpenTofu module
+    >
+    > - to be customized when that module is used to provision resources.
+
+    <details><summary>Example explain</summary>
+
+    - The input variable `ami_id` allow you to pass in the ID of an AMI that will be used to run the EC2 instance.
+      - You will pass in `ID` of the AMI you build Packer template in previous section.
+
+    </details>
+
+3.  `outputs.tf`: Output variables
+
+    ```terraform
+    # examples/ch2/tofu/ec2-instance/outputs.tf
+    output "instance_id" {
+      description = "The ID of the EC2 instance"
+      value       = aws_instance.sample_app.id
+    }
+
+    output "security_group_id" {
+      description = "The ID of the security group"
+      value       = aws_security_group.sample_app.id
+    }
+
+    output "public_ip" {
+      description = "The public IP of the EC2 instance"
+      value       = aws_instance.sample_app.public_ip
+    }
+    ```
+
+    > [!NOTE]
+    > The output variables can be used to log & share values betweens OpenTofu modules.
+
+4.  (Not about OpenTofu) The application & the user data
+
+    - The application: is already included in the AMI (built from the Packer template in previous section).
+    - The EC2 instance user data (to start the app)
+
+      ```bash
+      # examples/ch2/tofu/ec2-instance/user-data.sh
+      #!/usr/bin/env bash
+      nohup node /home/ec2-user/app.js &
+      ```
+
+---
+
+After writing the OpenTofu module code, you need to run that module code to deploy the EC2 instance:
+
+1. Install OpenTofu
+2. Install any providers used in OpenTofu code
+
+   ```bash
+   tofu init
+   ```
+
+3. Apply the OpenTofu code to deploy the EC2 instance
+
+   - Run the `apply` command
+
+     ```bash
+     tofu apply
+     ```
+
+   - The `tofu apply` command will prompt you for the `ami_id` value and you paste in the value via the CLI
+
+     ```bash
+     var.ami_id
+       The ID of the AMI to run.
+
+       Enter a value:
+     ```
+
+     <details>
+     <summary>
+
+     Alternative to provide the values via the CLI prompt, you can do it via `-var` flag, environment variables, or _variable definitions file_.
+
+     </summary>
+
+     - `-var` flag:
+
+       ```bash
+       tofu apply -var ami_id=<YOUR_AMI_ID>
+       ```
+
+     - Environment variable `TF_VAR_<var_name>`
+
+       ```bash
+       export TF_VAR_ami_id=<YOUR_AMI_ID>
+       tofu apply
+       ```
+
+     - _Variable definition file_ (a file named `terraform.tfvars`)
+
+       - Define `terraform.tfvars`
+
+         ```tfvars
+         # ch2/tofu/ec2-instance/terraform.tfvars
+         ami_id = "<YOUR_AMI_ID>"
+         ```
+
+       - Run `tofu apply` and OpenTofu will automatically find the `ami_id` value.
+
+     </details>
+
+   - The `tofu apply` command will then
+
+     - show you the `execution plan` (`plan` for short)...
+
+       ```bash
+       OpenTofu will perform the following actions:
+       ```
+
+       <details><summary>
+
+       ...Details of the actions...
+
+       </summary>
+
+       ```bash
+         # aws_instance.sample_app will be created
+         + resource "aws_instance" "sample_app" {
+             + ami                                  = "ami-0ee5157dd67ca79fc"
+             + instance_type                        = "t2.micro"
+             ... (truncated) ...
+           }
+
+         # aws_security_group.sample_app will be created
+         + resource "aws_security_group" "sample_app" {
+             + description            = "Allow HTTP traffic into the sample app"
+             + name                   = "sample-app-tofu"
+             ... (truncated) ...
+           }
+
+         # aws_security_group_rule.allow_http_inbound will be created
+         + resource "aws_security_group_rule" "allow_http_inbound" {
+             + from_port                = 8080
+             + protocol                 = "tcp"
+             + to_port                  = 8080
+             + type                     = "ingress"
+             ... (truncated) ...
+           }
+       ```
+
+       </details>
+
+       ```bash
+       Plan: 3 to add, 0 to change, 0 to destroy.
+
+       Changes to Outputs:
+         + instance_id       = (known after apply)
+         + public_ip         = (known after apply)
+         + security_group_id = (known after apply)
+       ```
+
+       > [!NOTE]
+       > The plan output is similar to the output of the `diff` command of Linux and `git diff`:
+       >
+       > Anything with:
+       >
+       > - a plus sign (`+`) will be created
+       > - a minus sign (`–`) will be deleted
+       > - a tilde sign (`~`) will be modified in place
+
+       > [!TIP]
+       > The plan output can also be generated by running `tofu plan`.
+
+     - ...prompt you for confirmation
+
+       ```bash
+       Do you want to perform these actions?
+         OpenTofu will perform the actions described above.
+         Only 'yes' will be accepted to approve.
+
+         Enter a value:
+       ```
+
+     - If you type `yes` and hit `Enter`, OpenTofu will proceed:
+
+       ```bash
+         Enter a value: yes
+       ```
+
+       <details>
+       <summary>Output</summary>
+
+       ```bash
+       aws_security_group.sample_app: Creating...
+       aws_security_group.sample_app: Creation complete after 2s
+       aws_security_group_rule.allow_http_inbound: Creating...
+       aws_security_group_rule.allow_http_inbound: Creation complete after 0s
+       aws_instance.sample_app: Creating...
+       aws_instance.sample_app: Still creating... [10s elapsed]
+       aws_instance.sample_app: Still creating... [20s elapsed]
+       aws_instance.sample_app: Creation complete after 22s
+
+       Apply complete! Resources: 3 added, 0 changed, 0 destroyed.
+
+       Outputs:
+
+       instance_id = "i-0a4c593f4c9e645f8"
+       public_ip = "3.138.110.216"
+       security_group_id = "sg-087227914c9b3aa1e"
+       ```
+
+       - The 3 output variables from `outputs.tf` is shown at the end.
+
+       </details>
+
+### Example: Update Infrastructure Using OpenTofu
+
+- Make a change to the configuration - add a `Test` tag with the value of `"update"`
+
+  ```terraform
+  resource "aws_instance" "sample_app" {
+
+    # ... (other params omitted) ...
+
+    tags = {
+      Name = "sample-app-tofu"
+      Test = "update"
+    }
+  }
+  ```
+
+- Run `tofu apply` command again
+
+  ```bash
+  tofu apply
+  ```
+
+  <details><summary>Output</summary>
+
+  ```bash
+  aws_security_group.sample_app: Refreshing state...
+  aws_security_group_rule.allow_http_inbound: Refreshing state...
+  aws_instance.sample_app: Refreshing state...
+
+  OpenTofu used the selected providers to generate the following execution plan.
+  Resource actions are indicated with the following symbols:
+    ~ update in-place
+
+  OpenTofu will perform the following actions:
+
+    # aws_instance.sample_app will be updated in-place
+    ~ resource "aws_instance" "sample_app" {
+        id = "i-0738de27643533e98"
+      ~ tags = {
+            "Name" = "sample-app-tofu"
+          + "Test" = "update"
+        }
+        # (31 unchanged attributes hidden)
+
+        # (8 unchanged blocks hidden)
+      }
+
+  ```
+
+  </details>
+
+  ```bash
+  Plan: 0 to add, 1 to change, 0 to destroy.
+
+  Do you want to perform these actions?
+  OpenTofu will perform the actions described above.
+  Only 'yes' will be accepted to approve.
+
+  Enter a value:
+  ```
+
+- OpenTofu will update the EC2 instance after you type `yes` and press `Enter`
+
+---
+
+> [!NOTE]
+> How OpenTofu know which infrastructure to update?
+>
+> - Every time you run OpenTofu, it records information about the infrastructure it created/updated?
+>   - in an OpenTofu _state file_.
+
+> [!NOTE]
+> How OpenTofu manages the information about the infrastructure it has created/updated?
+>
+> - OpenTofu manages state using _backends_:
+>   - The default backend is `local backend`:
+>     - State is stored locally in a `terraform.tfstate` file (in the same folder as the OpenTofu module)
+
+---
+
+- For the previous example and this example:
+  - When you run `apply` the first on the tofu module:
+    - OpenTofu records in the files the IDs of the EC2 instance, security group, security group rules, and any other resources it created
+  - When you run `apply` again:
+    - OpenTofu updates it view of the world (`Refreshing state...`):
+      - OpenTofu performs a diff of
+        - the current state (in state file)
+        - the desired state (in your OpenTofu code)
+      - OpenTofu then show its execution plan: the actions it will perform (to transform the current state to the desired state).
+
+### Example: Destroy Infrastructure Using OpenTofu
+
+- To destroy everything you've deployed with an OpenTofu module, you use `destroy` command
+
+  ```bash
+  tofu destroy
+  ```
+
+  <details><summary>Detail of the actions</summary>
+
+  ```bash
+
+  OpenTofu will perform the following actions:
+
+    # aws_instance.sample_app will be destroyed
+    - resource "aws_instance" "sample_app" {
+        - ami                                  = "ami-0ee5157dd67ca79fc" -> null
+        - associate_public_ip_address          = true -> null
+        - id                                   = "i-0738de27643533e98" -> null
+        ... (truncated) ...
+      }
+
+    # aws_security_group.sample_app will be destroyed
+    - resource "aws_security_group" "sample_app" {
+        - id                     = "sg-066de0b621838841a" -> null
+        ... (truncated) ...
+      }
+
+    # aws_security_group_rule.allow_http_inbound will be destroyed
+    - resource "aws_security_group_rule" "allow_http_inbound" {
+        - from_port              = 8080 -> null
+        - protocol               = "tcp" -> null
+        - to_port                = 8080 -> null
+        ... (truncated) ...
+      }
+  ```
+
+  </details>
+
+  ```bash
+  Plan: 0 to add, 0 to change, 3 to destroy.
+
+  Changes to Outputs:
+
+  - instance_id = "i-0738de27643533e98" -> null
+  - public_ip = "18.188.174.48" -> null
+  - security_group_id = "sg-066de0b621838841a" -> null
+
+  ```
+
+  ```bash
+  Do you really want to destroy all resources?
+    OpenTofu will destroy all your managed infrastructure, as shown above.
+    There is no undo. Only 'yes' will be accepted to confirm.
+
+    Enter a value:
+  ```
+
+- Type `yes` and hit `Enter` to confirm that you want OpenTofu to execute its _destroy plan_.
+
+> [!CAUTION]
+> Be careful when you run `destroy` in production.
+>
+> - It's a one way door 🚪. There's no `"undo"`.
+
+### Get your hands dirty with OpenTofu - Part 1
+
+1. How would you have to tweak the OpenTofu code if you wanted to run multiple EC2 instances?
+2. Figure out how to configure the EC2 instance with an EC2 key pair so you can connect to it over SSH.
+
+### Example: Deploy an EC2 Instance Using an OpenTofu "Reusable Module"
+
+> [!NOTE]
+> OpenTofu _modules_ are **containers** for multiple resources that are used together.
+>
+> There are 2 types modules in OpenTofu:
+>
+> - _root module_: any module on which you run `apply` directly.
+> - _reusable module_: a module meant to be included in others modules (root modules, reusable modules).
+
+---
+
+So far, you've only used the root module - the `ec2-instance` module.
+
+In this example, you will transform the `ec2-instance` as a root module into a reusable module.
+
+- Create 3 folders: `modules`, `live`, `sample-app`:
+
+  ```bash
+  mkdir -p examples/ch2/tofu/modules         # For reusable modules
+  mkdir -p examples/ch2/tofu/live            # For root modules
+  mkdir -p examples/ch2/tofu/live/sample-app # The sample-app (root module) that use the ec2-instance reusable module
+  ```
+
+- Move the `ec2-instance` module into the `modules` folder:
+
+  ```bash
+  mkdir -p example/ch2/tofu/modules
+  mv ch2/tofu/ec2-instance ch2/tofu/modules/ec2-instance
+  ```
+
+- In the `sample-app` folder, create `main.tf` for the main resources of the sample app:
+
+  ```terraform
+  # examples/ch2/tofu/live/sample-app/main.tf
+  module "sample_app_1" {                 # 1️⃣
+    source = "../../modules/ec2-instance" # 2️⃣
+
+    # TODO: fill in with your own AMI ID!
+    ami_id = "ami-09a9ad4735def0515"      # 3️⃣
+  }
+  ```
+
+  <details><summary>What does the code do?</summary>
+
+  - 1️⃣ - **`module` block**: calls a reusable module from a parent module.
+  - 2️⃣ - **`source` parameter**: path to a local directory containing the child module's configuration files, e.g. `../../modules/ec2-instance`
+  - 3️⃣ - **other parameters** that will be passed to the module as input variables, e.g. `ami_id`
+
+  </details>
+
+  If you run `apply` on `sample-app` module, OpenTofu will use the `ec2-instance` module to to create an EC2 instance (, security group and security group rules)
+
+  > [!NOTE]
+  > Modules are the main way to _package_ & _reuse_ resource configurations with OpenTofu.
+  >
+  > e.g.
+  >
+  > - Create multiple resources that meant to be used together (module ~ **package**)
+  > - Create same type of resource multiple times (module ~ **function**)
+
+  > [!TIP]
+  > What happen if you run a root module multiple times?
+  >
+  > - It will create/update the resources in that root module.
+
+  > [!TIP]
+  > So how do you reuse a module to create a group of resources multiple times?
+  >
+  > - You can't re-apply a root module to do that.
+  > - You need to apply a root module that call another reusable module multiple times.
+  >
+  >   e.g.
+  >
+  >   ```terraform
+  >   module "sample_app_1" {
+  >     source = "../../modules/ec2-instance"
+  >
+  >     ami_id = "ami-XXXXXXXXXXXXXXXXX"
+  >   }
+  >
+  >   module "sample_app_2" {
+  >     source = "../../modules/ec2-instance"
+  >
+  >     ami_id = "ami-XXXXXXXXXXXXXXXXX"
+  >   }
+  >   ```
+
+- _Namespace_ all the resources created by the `ec2-instance` module.
+
+  - Introduce a `name` input variable to use as the base name for resources of the `ec2-instance` module
+
+    ```terraform
+    # examples/ch2/tofu/modules/ec2-instance/variables.tf
+    variable "name" {
+      description = "The base name for the instance and all other resources"
+      type        = string
+    }
+    ```
+
+  - Update the `ec2-instance` module to use the `name` input variable everywhere that was hard-coded:
+
+    ```terraform
+    resource "aws_security_group" "sample_app" {
+      name        = var.name
+      description = "Allow HTTP traffic into ${var.name}"
+    }
+
+    resource "aws_instance" "sample_app" {
+
+      # ... (other params omitted) ...
+
+      tags = {
+        Name = var.name
+      }
+    }
+    ```
+
+  - Back to `sample-app/main.tf`, set the `name` input to different values in each module block
+
+    ```terraform
+    # examples/ch2/tofu/live/sample-app/main.tf
+    module "sample_app_1" {
+      source = "../../modules/ec2-instance"
+
+      ami_id = "ami-XXXXXXXXXXXXXXXXX"
+
+      name = "sample-app-tofu-1"
+    }
+
+    module "sample_app_2" {
+      source = "../../modules/ec2-instance"
+
+      ami_id = "ami-XXXXXXXXXXXXXXXXX"
+
+      name = "sample-app-tofu-2"
+    }
+    ```
+
+- Move the `provider` block (from the `ec2-instance` module) to the `sample-app` root module:
+
+  ```terraform
+  # examples/ch2/tofu/live/sample-app/main.tf
+  provider "aws" {
+    region = "us-east-2"
+  }
+
+  module "sample_app_1" {
+    # ...
+  }
+  module "sample_app_2" {
+    # ...
+  }
+  ```
+
+  > [!NOTE]
+  > Typically, reusable module
+  >
+  > - do _not_ declare `provider` blocks,
+  > - but _inherit_ from root module. ← Any user of this reusable module can configure the provider in different ways for different usages.
+
+- Finally, proxy the output variables from the `ec2-instance` module
+
+  ```terraform
+  output "sample_app_1_public_ip" {
+    value = module.sample_app_1.public_ip
+  }
+
+  output "sample_app_2_public_ip" {
+    value = module.sample_app_2.public_ip
+  }
+
+  output "sample_app_1_instance_id" {
+    value = module.sample_app_1.instance_id
+  }
+
+  output "sample_app_2_instance_id" {
+    value = module.sample_app_2.instance_id
+  }
+  ```
+
+---
+
+The reusable module `ec2-instance` is ready, let's init & apply the `example-app`
+
+```terraform
+tofu init
+tofu apply
+```
+
+### Example: Deploy an EC2 Instance Using an OpenTofu "Reusable Module" from GitHub
+
+> [!NOTE]
+> The OpenTofu module's `source` parameter can be set a lot of different source types[^13].
+>
+> - a local path
+> - Terraform Registry
+> - GitHub/Git repositories
+> - HTTP URLs
+> - S3 buckets, GCP buckets.
+> - ...
+
+In this example, you will set the `sample-app` module `source` to a GitHub repository (`github.com/brikis98/devops-book`), with the same source code for the `ec2-instance` module at the path `ch2/tofu/modules/ec2-instance`.
+
+- Modify the `source` parameter
+
+  ```terraform
+   module "sample_app_1" {
+     source = "github.com/brikis98/devops-book//ch2/tofu/modules/ec2-instance"
+
+     # ... (other params omitted) ...
+   }
+  ```
+
+  - The double lash (`//`) is used to separate the Github repo & the path of module (in that repo)
+
+- Run `init`:
+
+  ```bash
+  tofu init
+  ```
+
+  ```bash
+  Initializing the backend...
+  Initializing modules...
+  Downloading git::https://github.com/brikis98/devops-book.git...
+  Downloading git::https://github.com/brikis98/devops-book.git...
+
+  Initializing provider plugins...
+  ```
+
+  - The `init` command will download the module code (from GitHub) & the provider code.
+
+- Run `apply` and you will have the exact same two EC2 instance as the previous example.
+
+> [!WARNING]
+> When you're done experimenting, don't forget to run `destroy` to clean everything up.
+
+> [!IMPORTANT]
+> A common pattern at many company is:
+>
+> - The Ops team **_define & manage_ a library** of well-tested, reusable OpenTofu modules:
+>   - Module for deploying server
+>   - Module for deploying database
+>   - Module for configuring networking
+>   - ...
+> - The Dev teams use these modules as a _self-service_ way to **_deploy & manage_ the infrastructure** they need for their apps
+
+### Get your hands dirty with OpenTofu - Part 2
+
+1. Make the `ec2-instance` module more configurable:
+
+   e.g. add input variables to configure
+
+   - the instance type it uses,
+   - the port it opens up for HTTP requests, and so on.
+
+2. Instead of having to provide the AMI ID manually, make OpenTofu find the ID of your AMI automatically (Tip: Use data sources)
 
 ### How Provisioning Tools Stack Up
 
-| Aspect                       | Provisioning Tools |
-| ---------------------------- | ------------------ |
-| CRUD                         |                    |
-| Scale                        |                    |
-| Idempotency & error handling |                    |
-| Consistency                  |                    |
-| Verbosity                    |                    |
+| Aspect                       | Provisioning Tools                                       | Notes                                                                                                                             |
+| ---------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| CRUD                         | Fully support all CRUD operations                        |                                                                                                                                   |
+| Scale                        | Scale very well                                          | With self-service approach, can scale to thousands, ten thousands of developers.                                                  |
+| Idempotency & error handling | Idempotent & handle error automatically                  | ← Declarative approach: you specify the desired state, the tool itself automatically figure out how to get to that desired state. |
+| Consistency                  | Consistent, predictable structure code with conventions. | e.g. Docs, file layout, named parameters, secret managements...                                                                   |
+| Verbosity                    | More concise                                             | ← Declarative + DSL                                                                                                               |
 
 > [!IMPORTANT]
 > Key takeaway #2.4
 > Provisioning tools are
 >
-> - great for deploying and managing servers and infrastructure.
+> - great for deploying & managing servers or infrastructure.
+
+> [!TIP]
+> Many provisioning tools support:
+>
+> - not only manage traditional infrastructure, e.g. servers
+> - but also many aspects of software delivery
+>   e.g. OpenTofu can manage
+>   - Version control system, e.g. GitHub
+>   - Metrics & dashboard, e.g. Grafana
+>   - On-call rotation, e.g. PagerDuty
 
 ## Using Multiple IaC Tools Together
 
@@ -751,3 +1528,6 @@ provisioning tool
 
     - you're always creating new images
     - (there's never a reason to read/update/delete)
+
+[^12]: HCL is the language used by Packer, Terraform/OpenTofu and many other products of HashiCorp.
+[^13]: https://developer.hashicorp.com/terraform/language/modules/sources
