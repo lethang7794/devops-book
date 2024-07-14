@@ -1441,15 +1441,91 @@ In this example, you will set the `sample-app` module `source` to a GitHub repos
 > Key takeaway #2.5
 > You usually need to use multiple IaC tools together to manage your infrastructure.
 
-### Provisioning Plus Configuration Management
+### Provisioning + Configuration Management
 
-### Provisioning Plus Server Templating
+Example: OpenTofu + Ansible
 
-### Provisioning Plus Server Templating Plus Orchestration
+- OpenTofu: Deploy all infrastructure:
+
+  - networking, e.g. VPCs, subnets, route tables
+  - load balancers
+  - data stores, e.g. MySQL, Redis
+  - **servers**
+
+- Ansible: Deploy apps on top of these servers
+
+```bash
+ App      +  App      +  App      +  App      +  App      + ... | ← ANSIBLE
+(Deps...)   (Deps...)   (Deps...)   (Deps...)   (Deps...)       |
+
+
+ Server   + Server    + Server    + Server    + Server    + ... |
+                                                                | ← OPENTOFU
+ Networking, load balancers, data stores, users...              |
+```
+
+### Provisioning + Server Templating
+
+Example: OpenTofu + Packer ← Immutable infrastructure approach
+
+- Packer: Package app as VM images
+- OpenTofu: Deploy
+  - networking, load balancers, data stores...
+  - **servers from _VM images_**
+
+```bash
+ Server        +  Server        +  Server        +  Server         + ... | ← 3. OPENTOFU
+
+ VM            +  VM            +  VM            +  VM             + ... | ← 2. PACKER
+(App, Deps...)   (App, Deps...)   (App, Deps...)   (App, Deps...)        |
+
+ Networking, load balancers, data stores, users...                       | ← 1. OPENTOFU
+```
+
+### Provisioning + Server Templating + Orchestration
+
+> [!TIP]
+> Orchestration tools - Kubernetes, Nomad, OpenShift - help you deploy & manages apps on top of your infrastructure.
+
+Example: OpenTofu + Packer + Docker & Kubernetes
+
+- Packer: Create a VM image that has Docker & Kubernetes agents installed.
+- OpenTofu: Deploy
+  - networking, load balancers, data stores...
+  - a cluster of servers, each with the built VM image ← forms a Kubernetes cluster
+
+The Kubernetes cluster is used to you run & manage your Dockerized applications.
+
+```bash
+                  Container                                              |
+ Container        Container                         Container            | ← 4. KUBERNETES + DOCKER
+ Container        Container        Container        Container            |
+
+ VM            +  VM            +  VM            +  VM             + ... | ← 2. PACKER
+(Docker, K8s)    (Docker, K8s)    (Docker, K8s)    (Docker, K8s)         |
+
+ Server        +  Server        +  Server        +  Server         + ... | ← 3. OPENTOFU
+                                                                         |
+ Networking, load balancers, data stores, users...                       | ← 1. OPENTOFU
+```
+
+---
+
+This approach
+
+- has many advantages:
+
+  - Docker images built quickly → Can run & test on your PC.
+  - Kubernetes builtin functionality: auto healing/scaling, various deployment strategies...
+
+- but also has the drawbacks in added complexity:
+
+  - extra infrastructure to run (K8s clusters are difficult[^14] & expensive to deploy, manage)
+  - several extra layers of abstraction - K8s, Docker, Packer - to learn, manage & debug.
 
 ## Conclusion
 
-- Instead of ClickOps (clicking out a web UI, which is tedious & error-prone), you can
+- Instead of ClickOps (clicking out a web UI, which is tedious & error-prone), you can use IaC tools to:
 
   - automate the process
   - make it faster & more reliable
@@ -1531,3 +1607,4 @@ In this example, you will set the `sample-app` module `source` to a GitHub repos
 
 [^12]: HCL is the language used by Packer, Terraform/OpenTofu and many other products of HashiCorp.
 [^13]: https://developer.hashicorp.com/terraform/language/modules/sources
+[^14]: Most major cloud providers provide managed Kubernetes services, which can offload some of the work for you.
