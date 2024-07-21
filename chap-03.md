@@ -464,7 +464,7 @@ In this example, you will run your own load balancer in a separate server (using
       This Nginx configuration file[^9] will configure the load balancer to load balance the traffic across the servers you deployed to run the `sample-app`:
 
       - 1️⃣ Use the `upstream` keyword to define a group of servers that can be referenced elsewhere in this file by the name `backend`.
-      - 2️⃣ (Ansible - Jinja templating syntax) Loop over the servers in the `sample_app_instances` group.
+      - 2️⃣ (Ansible - Jinja templating syntax[^10]) Loop over the servers in the `sample_app_instances` group.
       - 3️⃣ (Ansible - Jinja templating syntax) Configure the `backend` upstream to route traffic to the public address and port `8080` of each server in the `sample_app_instances` group.
       - 4️⃣ Configure Nginx to listen on port 80.
       - 5️⃣ Configure Nginx as a load balancer, forwarding requests to the `/` URL to the `backend` upstream.
@@ -508,7 +508,49 @@ In this example, you will run your own load balancer in a separate server (using
 
   </details>
 
-### Example: Roll Out Updates with Ansible
+### Example: Roll Out Updates to Servers with Ansible
+
+> [!NOTE]
+> Some configuration management tools support various _deployment strategies_.
+>
+> e.g.
+>
+> - _Rolling deployment_: you update your severs **in batches**:
+>   - Some servers are being updated (with new configuration).
+>   - While others servers keep running (with old configuration) and serving traffic.
+
+- With Ansible, the easiest way to have a rolling update is to add
+  the `serial` parameter to the playbook.
+
+  ```yaml
+  # examples/ch3/ansible/configure_sample_app_playbook.yml
+  - name: Configure servers to run the sample-app
+    hosts: sample_app_instances
+    gather_facts: true
+    become: true
+    roles:
+      - role: nodejs-app
+      - role: sample-app
+        become_user: app-user
+    serial: 1 #               1️⃣
+    max_fail_percentage: 30 # 2️⃣
+  ```
+
+  - 1️⃣: Apply changes to the servers in batch-of-1 (1 server at a time)
+  - 2️⃣: Abort a deployment more than 30% of the servers hit an error during update.
+    - For this example, it means the deployment will stop if there is any of the server fails.
+
+- Make a change to the application
+
+  ```bash
+  sed - i s/Hello, World!/Fundamentals of DevOps!/g examples/ch3/ansible/roles/sample-app/files/app.js
+  ```
+
+- Re-run the playbook
+
+  ```bash
+  ansible-playbook -v -i inventory.aws_ec2.yml configure_sample_app_playbook.yml
+  ```
 
 ### Get your hands dirty with Ansible and server orchestration
 
@@ -696,3 +738,4 @@ If you’re going to be building serverless web apps for production use cases, t
 
 [^8]: [HAProxy](https://www.haproxy.org/) - Reliable, High Performance TCP/HTTP Load Balancer
 [^9]: See Nginx documentation for [Managing Configuration Files](https://docs.nginx.com/nginx/admin-guide/basic-functionality/managing-configuration-files/)
+[^10]: https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_templating.html
