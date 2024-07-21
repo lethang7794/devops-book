@@ -63,27 +63,450 @@ orchestration tool
 
 - Nowadays, the industry standardize around four broad types of solutions:
 
-  | Type of orchestration    | How do you do?                                                                                                   |
-  | ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-  | Server orchestration     | You have a **pool of servers** that you manage.                                                                  |
-  | VM orchestration         | Instead of managing servers directly, you manage **VM images**.                                                  |
-  | Container orchestration  | Instead of managing servers directly, you manage **containers**.                                                 |
-  | Serverless orchestration | You no longer think about servers at all, and just focus on managing **apps**, or even individual **functions**. |
+  | Type of orchestration                             | How do you do?                                                                                                   |                                                     |
+  | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+  | "Server orchestration" (aka "deployment tooling") | You have a **pool of servers** that you manage.                                                                  | The old way from pre-cloud era, still common today. |
+  | VM orchestration                                  | Instead of managing servers directly, you manage **VM images**.                                                  |                                                     |
+  | Container orchestration                           | Instead of managing servers directly, you manage **containers**.                                                 |                                                     |
+  | Serverless orchestration                          | You no longer think about servers at all, and just focus on managing **apps**, or even individual **functions**. |                                                     |
 
 ## Server Orchestration
 
-## What is Server Orchestration
+### What is Server Orchestration
+
+server orchestration
+: the original approach from pre-cloud era, but still common today
+: setup a bunch of servers → deploy apps across these servers → changes are update in-place to these servers
+: there is no standardized toolings in this approach
+: - configuration management tools, e.g. Ansible, Chef, Puppet
+: - specialized deployment scripts, e.g. Capistrano, Deployer, Mina
+: - thousands of ad-hoc scripts
 
 > [!IMPORTANT]
 > Key takeaway #1
-> Server orchestration is an older, mutable infrastructure approach where you have a fixed set of servers that you
-> maintain and update in place.
+> Server orchestration is an older, _mutable infrastructure_ approach where
+>
+> - you have a fixed **set of servers** that you
+>   - maintain
+>   - update in-place.
 
 ### Example: Deploy Multiple Servers in AWS Using Ansible
 
+> [!WARNING]
+> Deploy & manage servers is not really what configuration management tools were designed to do.
+>
+> - But for learning & testing, Ansible is good enough.
+
+First, to use Ansible as a server orchestration, you need
+
+- a bunch of servers (that will be managed, e.g. physical servers on-prem, virtual servers in the could)
+- SSH access to those servers.
+
+If you don't have servers you can use, you can also use Ansible to deploy several EC2 instances.
+
+---
+
+The Ansible playbook to create multiples EC2 instance can be found at the [example repo] at [ch3/ansible/create_ec2_instances_playbook.yml], which will:
+
+- Prompt you for:
+  - `number_instances`: The number of instances to create
+  - `basename`: The basename for all resources created
+  - `http_port`: The port on which the instances listen for HTTP requests
+- Create a security group that opens port 22 (for SSH traffic) and `http_port` (for HTTP traffic)
+- Create a EC2 key-pair that used to connect to the instances (that will be created) via SSH.
+- Create multiple instances, each with the Ansible tag set to `base_name`
+
+To run the playbook:
+
+- Copy `create_ec2_instances_playbook.yml` from example repo to `ch3/ansible`
+
+  ```bash
+  mkdir -p ch3/ansible
+  cd ch3/ansible
+
+  cp -r <PATH_TO_EXAMPLE_REPO>/ch3/ansible/create_ec2_instances_playbook.yml .
+  ```
+
+- Use `ansible-playbook` command to run the playbook
+
+  ```bash
+  ansible-playbook -v create_ec2_instances_playbook.yml
+  ```
+
+  - Enter the values interactively & hit `Enter`
+  - Or define the values as variables in a yaml file and pass to `ansible-playbook` command via `-extra-vars` flag.
+
+    ```yaml
+    # examples/ch3/ansible/sample-app-vars.yml
+    num_instances: 3
+    base_name: sample_app_instances
+    http_port: 8080
+    ```
+
+    ```bash
+    ansible-playbook -v create_ec2_instances_playbook.yml \
+      --extra-vars "@sample-app-vars.yml"
+    ```
+
+---
+
 ### Example: Deploy an App Securely and Reliably Using Ansible
 
+Previous chapters has basic example of deploying an app:
+
+- [Chapter 1: Example: Deploying an app using AWS](chap-01.md#example-deploying-an-app-using-aws): Deploy an app to AWS with "ClickOps"
+- [Chapter 2: Example: Configure a Server Using Ansible](chap-02.md#example-configure-a-server-using-ansible): Deploy an app to AWS with Ansible
+
+There're still several problems with both examples (e.g. root user, port 80, no automatic app restart...)
+
+In this example, you will fix these problems and deploy the app in a more secure, reliable way.
+
+- (As previous example) Use an Ansible Inventory plugin to discover your EC2 instances
+
+  ```yml
+  # examples/ch3/ansible/inventory.aws_ec2.yml
+  plugin: amazon.aws.aws_ec2
+  regions:
+    - us-east-2
+  keyed_groups:
+    - key: tags.Ansible
+  leading_separator: ""
+  ```
+
+- (As previous example) Use group variables to store the configuration for your group of servers
+
+  ```yaml
+  # examples/ch3/ansible/group_vars/sample_app_instances.yml
+  ansible_user: ec2-user
+  ansible_ssh_private_key_file: ansible-ch3.key
+  ansible_host_key_checking: false
+  ```
+
+- Use a playbook to configure your group of servers to run the Node.js sample app
+
+  ```yaml
+  # examples/ch3/ansible/configure_sample_app_playbook.yml
+  - name: Configure servers to run the sample-app
+    hosts: sample_app_instances # 1️⃣
+    gather_facts: true
+    become: true
+    roles:
+      - role: nodejs-app #        2️⃣
+      - role: sample-app #        3️⃣
+        become_user: app-user #   4️⃣
+  ```
+
+  - 1️⃣: Target the group discovered by the inventory plugin (which are created in the previous example).
+  - 2️⃣: Split the role into 2 smaller roles: the `nodejs-app` role is only responsible for configuring the server to be able to run any Node.js app.
+  - 3️⃣: The `sample-app` role is now responsible for running the `sample-app`.
+  - 4️⃣: The `sample-app` role will be executed as the OS user `app-user` - which is created by the `nodejs-app` role - instead of the root user.
+
+- The Ansible roles
+
+  ```bash
+  roles
+    └── nodejs-app
+        └── tasks
+            └── main.yml
+  ```
+
+- The `nodejs-app` role: a generic role for any Node.js app
+
+  ```bash
+  roles
+    └── nodejs-app
+        └── tasks
+            └── main.yml # The Ansible role's task
+  ```
+
+  ```yaml
+  # examples/ch3/ansible/roles/nodejs-app/tasks/main.yml
+  - name: Add Node packages to yum #                                 1️⃣
+    shell: curl -fsSL https://rpm.nodesource.com/setup_21.x | bash -
+  - name: Install Node.js
+    yum:
+      name: nodejs
+
+  - name: Create app user #                                          2️⃣
+    user:
+      name: app-user
+
+  - name: Install pm2 #                                              3️⃣
+    npm:
+      name: pm2
+      version: latest
+      global: true
+  - name: Configure pm2 to run at startup as the app user
+    shell: eval "$(sudo su app-user bash -c 'pm2 startup' | tail -n1)"
+  ```
+
+  - 1️⃣: Install Node.js
+  - 2️⃣: Create a new OS user called `app-user`, which allows you to run yours app with an OS user with limited permissions.
+  - 3️⃣: Install PM2 (a _process supervisor[^4]_) and configure it to run on boot.
+
+- The `sample-app` role: a specifically role to run the `sample-app`.
+
+  ```bash
+  roles
+    ├── nodejs-app
+    └── sample-app
+        ├── files
+        │   ├── app.config.js # The configuration file for the process supervisor - PM2
+        │   └── app.js        # Your example-app code
+        └── tasks
+            └── main.yml      # The Ansible role's task
+  ```
+
+  - Clone the `example-app` code (from chapter 1):
+
+    ```bash
+    cd examples
+    mkdir -p ch3/ansible/roles/sample-app/files
+    cp ch1/sample-app/app.js ch3/ansible/roles/sample-app/files/
+    ```
+
+  - The PM2 configuration file
+
+    ```js
+    # examples/ch3/ansible/roles/sample-app/files/app.config.js
+    module.exports = {
+      apps : [{
+        name   : "sample-app",
+        script : "./app.js", #       1️⃣
+        exec_mode: "cluster", #      2️⃣
+        instances: "max", #          3️⃣
+        env: {
+          "NODE_ENV": "production" # 4️⃣
+        }
+      }]
+    }
+    ```
+
+    - 1️⃣: PM2 will run the script at `/app.js`.
+    - 2️⃣: The script will be run in _cluster mode_[^5] (to take advantages of all the CPUs)
+    - 3️⃣: Use all CPUs available
+    - 4️⃣: Run Node.js script in "production" mode.
+
+  - The `sample-app` role's task
+
+    ```yaml
+    # examples/ch3/ansible/roles/sample-app/tasks/main.yml
+    - name: Copy sample app #                         1️⃣
+      copy:
+        src: ./
+        dest: /home/app-user/
+
+    - name: Start sample app using pm2 #              2️⃣
+      shell: pm2 start app.config.js
+      args:
+        chdir: /home/app-user/
+
+    - name: Save pm2 app list so it survives reboot # 3️⃣
+      shell: pm2 save
+    ```
+
+    - 1️⃣: Copy `app.js` and `app.config.js` to home directory of `app-user`.
+    - 2️⃣: Use PM2 (using the `app.config.js` configuration) to start the app.
+    - 3️⃣: Save Node.js processes to restart them later.
+
+- Run Ansible playbook
+
+  ```bash
+  ansible-playbook -v -i inventory.aws_ec2.yml configure_sample_app_playbook.yml
+  ```
+
+  <details><summary>
+  Output
+  </summary>
+
+  ```bash
+  PLAY RECAP ************************************
+  13.58.56.201               : ok=9    changed=8
+  3.135.188.118              : ok=9    changed=8
+  3.21.44.253                : ok=9    changed=8
+  localhost                  : ok=6    changed=4
+  ```
+
+  </details>
+
+  - Now you have three secured, reliable instances of your application (with 3 separated endpoint).
+
+  > [!NOTE]
+  > Your application now can be accessed via any of the those endpoints. But should your users need to decide which instance they will access?
+  >
+  > - No.
+  > - You should have a _load balancer_ to distribute load across multiple servers of your app.
+
 ### Example: Deploy a Load Balancer Using Ansible and Nginx
+
+#### Introduction to Load Balancer
+
+##### What is load balancer?
+
+load balancer
+: a piece of software that can distribute load across multiple servers or apps
+: e.g.
+: - Apache `httpd`[^6], Nginx[^7], HAProxy[^8].
+: - Cloud services: AWS Elastic Load Balancer, GCP Cloud Load Balancer, Azure Load Balancer.
+
+##### How load balancer works?
+
+- You give your users a single endpoint to hit, which is the load balancer.
+
+- The load balancer
+
+  - forwards the requests it receives to a number of different endpoints.
+  - uses various algorithms to process requests as efficiently as possible.
+
+    e.g. round-robin, hash-based, least-response-time...
+
+#### The example
+
+In this example, you will run your own load balancer in a separate server (using `nginx`).
+
+- (Optional) Deploy an EC2 instance for the load balancer:
+
+  You will use the same `create_ec2_instances_playbook.yml` playbook deploy that EC2 instance:
+
+  - Configure the `create_ec2_instances_playbook.yml` playbook
+
+    ```yaml
+    # examples/ch3/ansible/nginx-vars.yml
+    num_instances: 1
+    base_name: nginx_instances
+    http_port: 80
+    ```
+
+  - Run the `create_ec2_instances_playbook.yml` playbook
+
+    ```bash
+    ansible-playbook \
+      -v create_ec2_instances_playbook.yml \
+      --extra-vars "@nginx-vars.yml"
+    ```
+
+- Use group variables to configure your `nginx_instances` group
+
+  ```yaml
+  # examples/ch3/ansible/group_vars/nginx_instances.yml
+  ansible_user: ec2-user
+  ansible_ssh_private_key_file: ansible-ch3.key
+  ansible_host_key_checking: false
+  ```
+
+- Create a playbook to configure your group of servers to run Nginx
+
+  - The playbook
+
+    ```yaml
+    # examples/ch3/ansible/configure_nginx_playbook.yml
+    - name: Configure servers to run nginx
+      hosts: nginx_instances
+      gather_facts: true
+      become: true
+      roles:
+        - role: nginx
+    ```
+
+  - The playbook's roles (`nginx`)
+
+    ```bash
+    roles
+      ├── nginx
+      │   ├── tasks
+      │   │   └── main.yml
+      │   └── templates
+      │       └── nginx.conf.j2
+      ├── nodejs-app
+      └── sample-app
+    ```
+
+    - The Ansible role's template for Nginx configuration
+
+      ```nginx
+      # examples/ch3/ansible/roles/nginx/templates/nginx.conf.j2
+      user nginx;
+      worker_processes auto;
+      error_log /var/log/nginx/error.log notice;
+      pid /run/nginx.pid;
+
+      events {
+          worker_connections 1024;
+      }
+
+      http {
+          log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                            '$status $body_bytes_sent "$http_referer" '
+                            '"$http_user_agent" "$http_x_forwarded_for"';
+
+          access_log  /var/log/nginx/access.log  main;
+
+          include             /etc/nginx/mime.types;
+          default_type        application/octet-stream;
+
+          upstream backend { #                                       1️⃣
+              {% for host in groups['sample_app_instances'] %} #     2️⃣
+              server {{ hostvars[host]['public_dns_name'] }}:8080; # 3️⃣
+              {% endfor %}
+          }
+
+          server {
+              listen       80; #                                     4️⃣
+              listen       [::]:80;
+
+              location / { #                                         5️⃣
+                      proxy_pass http://backend;
+              }
+          }
+      }
+      ```
+
+      This Nginx configuration file[^9] will configure the load balancer to load balance the traffic across the servers you deployed to run the `sample-app`:
+
+      - 1️⃣ Use the `upstream` keyword to define a group of servers that can be referenced elsewhere in this file by the name `backend`.
+      - 2️⃣ (Ansible - Jinja templating syntax) Loop over the servers in the `sample_app_instances` group.
+      - 3️⃣ (Ansible - Jinja templating syntax) Configure the `backend` upstream to route traffic to the public address and port `8080` of each server in the `sample_app_instances` group.
+      - 4️⃣ Configure Nginx to listen on port 80.
+      - 5️⃣ Configure Nginx as a load balancer, forwarding requests to the `/` URL to the `backend` upstream.
+
+    - The Ansible role's task to configure Nginx
+
+      ```yaml
+      # examples/ch3/ansible/roles/nginx/tasks/main.yml
+      - name: Install Nginx #           1️⃣
+        yum:
+          name: nginx
+
+      - name: Copy Nginx config #       2️⃣
+        template:
+          src: nginx.conf.j2
+          dest: /etc/nginx/nginx.conf
+
+      - name: Start Nginx #             3️⃣
+        systemd_service:
+          state: started
+          enabled: true
+          name: nginx
+      ```
+
+      - 1️⃣: Install `Nginx` (using `yum`)
+      - 2️⃣: Render the Jinja template to Nginx configuration file and copy to the server.
+      - 3️⃣: Start `Nginx` (using `systemd` as the process supervisor).
+
+- Run the playbook to configure your group of servers to run Nginx
+
+  ```bash
+  ansible-playbook -v -i inventory.aws_ec2.yml configure_nginx_playbook.yml
+  ```
+
+  <details><summary>Output</summary>
+
+  ```bash
+  PLAY RECAP
+  xxx.us-east-2.compute.amazonaws.com : ok=4    changed=2    failed=0
+  ```
+
+  </details>
 
 ### Example: Roll Out Updates with Ansible
 
@@ -249,3 +672,27 @@ If you’re going to be building serverless web apps for production use cases, t
 [^1]: The no downtime is from users perspective.
 [^2]: The computing resources are CPU, memory, disk space.
 [^3]: The scheduler usually implements some sort of _bin packing algorithm_ to try to use resources available as efficiently as possible.
+
+[example repo]: https://github.com/brikis98/devops-book
+[ch3/ansible/create_ec2_instances_playbook.yml]: https://github.com/brikis98/devops-book/blob/main/ch3/ansible/create_ec2_instances_playbook.yml
+
+[^4]: A _process supervisor_ is a tool to run your apps and do extra things:
+
+    - Monitor apps
+    - Restart apps after a reboot/crash
+    - Manage apps' logging
+    - ...
+
+[^5]: https://nodejs.org/api/cluster.html
+[^6]:
+    [Apache `httpd`](https://httpd.apache.org/)
+    In addition to being a "basic" web server, and providing static and dynamic content to end-users, Apache `httpd` (as well as most other web servers) can also act as a reverse proxy server, also-known-as a "gateway" server.
+
+[^7]:
+    [`nginx`](https://nginx.org/en/) [engine x] is an HTTP and reverse proxy server and a generic TCP/UDP proxy server.
+
+    - For a long time, it has been running on many heavily loaded Russian sites including Yandex, Mail.Ru, VK, and Rambler
+    - [Nginx is now part of F5](https://blog.nginx.org/blog/nginx-is-now-officially-part-of-f5)
+
+[^8]: [HAProxy](https://www.haproxy.org/) - Reliable, High Performance TCP/HTTP Load Balancer
+[^9]: See Nginx documentation for [Managing Configuration Files](https://docs.nginx.com/nginx/admin-guide/basic-functionality/managing-configuration-files/)
