@@ -543,7 +543,7 @@ In this example, you will run your own load balancer in a separate server (using
 - Make a change to the application
 
   ```bash
-  sed - i s/Hello, World!/Fundamentals of DevOps!/g examples/ch3/ansible/roles/sample-app/files/app.js
+  sed -i s/Hello, World!/Fundamentals of DevOps!/g examples/ch3/ansible/roles/sample-app/files/app.js
   ```
 
 - Re-run the playbook
@@ -567,17 +567,496 @@ In this example, you will run your own load balancer in a separate server (using
 
 ### What is VM Orchestration
 
+VM orchestration
+: Create VM images that have your apps & dependencies fully installed & configured
+: For each VM image - a version of your app:
+: - Deploy that VM image across a cluster of servers
+: - Scale the number of servers up/down depending on your needs
+: When there is an app change:
+: - Create new VM image 👈 _Immutable_ infrastructure approach.
+: - Deploy that new VM image onto new servers; then undeploy the old servers.
+
+VM orchestration is a more modern approach:
+
+- works best with cloud providers (AWS, Azure, GCP...) - where you can spin up new servers & tear down old ones in minutes.
+- or you an use virtualization on-prem with tools from VMWare, Citrix, Microsoft Hyper-V...
+
 > [!IMPORTANT]
 > Key takeaway #2
 > VM orchestration is an immutable infrastructure approach where you deploy and manage VM images across virtualized servers.
 
-### Example: Build a VM Image Using Packer
+> [!NOTE]
+> With VM orchestration, you will deploy multiple VM servers, aka a _cluster_ (of VM servers)
+>
+> Most cloud providers has a native way to run VMs across a cluster:
+>
+> - AWS `Auto Scaling Groups` (`ASG`)
+> - Azure `Scale Sets`
+> - GCP `Managed Instance Groups`
+
+---
+
+The following tools are used in the examples for VM orchestration:
+
+1. A tool for building VM images: `Packer`
+2. A tool for orchestrating VMs: AWS `Auto Scaling Group` (`ASG`)
+3. A tool for managing IaC: `OpenTofu`
+
+### Example: Build a More Secure, Reliable VM Image Using Packer
+
+An introduction about building an VM image using Packer has already been available at [Chapter 2 - Building a VM image using Packer](/chap-02.md#example-create-a-vm-image-using-packer).
+
+This example will make the VM image more secure, reliable:
+
+- Use PM2 as the process supervisor
+- Create a OS user to run the app
+
+---
+
+- Copy Packer template from chapter 2
+
+  ```bash
+  cd examples
+  mkdir -p ch3/packer
+  cp ch2/packer/sample-app.pkr.hcl ch3/packer/
+  ```
+
+- Copy the app & PM2 configuration file from chapter 3
+
+  ```bash
+  cp ch3/ansible/roles/sample-app/files/app*.js ch3/packer/
+  ```
+
+- Update the Packer template's build steps to make the VM image more secure, reliable
+
+  ```hcl
+  # examples/ch3/packer/sample-app.pkr.hcl
+  build {
+    sources = [
+      "source.amazon-ebs.amazon_linux"
+    ]
+
+    provisioner "file" { #                                                1️⃣
+      sources     = ["app.js", "app.config.js"]
+      destination = "/tmp/"
+    }
+
+    provisioner "shell" {
+      inline = [
+        "curl -fsSL https://rpm.nodesource.com/setup_21.x | sudo bash -",
+        "sudo yum install -y nodejs",
+        "sudo adduser app-user", #                                        2️⃣
+        "sudo mv /tmp/app.js /tmp/app.config.js /home/app-user/", #       3️⃣
+        "sudo npm install pm2@latest -g", #                               4️⃣
+        "eval \"$(sudo su app-user bash -c 'pm2 startup' | tail -n1)\"" # 5️⃣
+      ]
+      pause_before = "30s"
+    }
+  }
+  ```
+
+  - 1️⃣: Copy `app.js` & `app.config.js` onto the server `/tmp` folder (The home folder of `app-user` hasn't existed yet).
+  - 2️⃣: Create `app-user` (and its home folder).
+  - 3️⃣: Move `app.js` & `app.config.js` to `app-user`'s home folder.
+  - 4️⃣: Install `PM2`.
+  - 5️⃣: Run `PM2` on boot (as `app-user`) so if your server ever restarts, pm2 will restart your app.
+
+- Install Packer plugins (used in the Packer template)
+
+  ```bash
+  packer init sample-app.pkr.hcl
+  ```
+
+- Build image from Packer template
+
+  ```bash
+  packer build sample-app.pkr.hcl
+  ```
 
 ### Example: Deploy a VM Image in an Auto Scaling Group Using OpenTofu
 
+In chapter 2, you've already used OpenTofu to deploy an AMI on a single EC2 instance [using a root module](chap-02.md#example-deploy-an-ec2-instance-using-opentofu), or [using a reusable module](chap-02.md#example-deploy-an-ec2-instance-using-an-opentofu-reusable-module).
+
+In this chapter, you will use an OpenTofu reusable module `asg` to deploy multiples EC2 instances to a cluster
+
+---
+
+> [!TIP]
+> ASG offers a number of nice features:
+>
+> - **Cluster management**: You can easily launch multiple instances & manually resize the cluster.
+> - **Auto scaling**: Or let ASG resize the cluster automatically (in response to load).
+> - **Auto healing**: ASG monitors all instances (in the cluster) and automatically replace any failure instances.
+
+> [!NOTE]
+> The `asg` module is available in this book code repo at [github.com/brikis98/devops-book](https://github.com/brikis98/devops-book) (in [`ch3/tofu/modules/asg`](https://github.com/brikis98/devops-book/tree/main/ch3/tofu/modules/asg) folder).
+>
+> The `asg` module will creates 3 main resources:
+>
+> - A **launch template**: ~ the blueprint for the configuration of each EC2 instance.
+> - An **ASG**: use the launch template to spin up EC2 instances (in the _Default VPC_)
+> - A **security group**: control the traffic in/out of each EC2 instance.
+
+> [!NOTE]
+> A `VPC` - _virtual private cloud_, is an **isolated area** of your AWS account that has its own **virtual network** & **IP address space**.
+>
+> - Just about every AWS resource deploys into a VPC.
+> - If you don’t explicitly specify a VPC, the resource will be deployed into the **Default VPC**, which is part of every AWS account created after 2013.
+
+> [!WARNING]
+> It’s not a good idea to use the Default VPC for production apps, but it’s OK to use it for learning and testing.
+
+---
+
+- To use the `asg` module, first you need a root module `live/asg-sample`:
+
+  - The root module folder
+
+    ```bash
+    mkdir -p examples/ch3/tofu/live/asg-sample
+    cd examples/ch3/tofu/live/asg-sample
+    ```
+
+- The root module's `main.tf`
+
+  ```t
+  # examples/ch3/tofu/live/asg-sample/main.tf
+  provider "aws" {
+    region = "us-east-2"
+  }
+
+  module "asg" {
+    source = "github.com/brikis98/devops-book//ch3/tofu/modules/asg"
+
+    name = "sample-app-asg" #                                         1️⃣
+
+    ami_id        = "ami-XXXXXXXXXXXXXXXXX" #                         2️⃣
+    user_data     = filebase64("${path.module}/user-data.sh") #       3️⃣
+    app_http_port = 8080 #                                            4️⃣
+
+    instance_type    = "t2.micro" #                                   5️⃣
+    min_size         = 1 #                                            6️⃣
+    max_size         = 10 #                                           7️⃣
+    desired_capacity = 3 #                                            8️⃣
+  }
+  ```
+
+  - 1️⃣ `name`: Base name of all resources in `asg` module.
+  - 2️⃣ `ami_id`: AMI to use for each EC2 instance.
+  - 3️⃣ `user_data`: User data script to run on each EC2 instance.
+  - 4️⃣ `app_http_port`: Port to open in the security group (to allow the app to receive HTTP requests).
+  - 5️⃣ `instance_type`: Type of EC2 instance.
+  - 6️⃣ `min_size`: Minimum number of EC2 instances (to run in the ASG).
+  - 7️⃣ `max_size`: Maximum number of EC2 instances (to run in the ASG).
+  - 8️⃣ `desired_capacity`: The desired (initial) number of instances (to run in the ASG).
+
+  For more information, see:
+
+  - The `asg` [module code](https://github.com/brikis98/devops-book/blob/main/ch3/tofu/modules/asg/main.tf)
+  - The Terraform docs for AWS provider's [ASG resource](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/autoscaling_group#argument-reference).
+
+- The user data script used for EC2 instance:
+
+  ```bash
+  #!/usr/bin/env bash
+  # examples/ch3/tofu/live/asg-sample/user-data.sh
+  set -e
+
+  sudo su app-user #        1️⃣
+  cd /home/app-user #       2️⃣
+  pm2 start app.config.js # 3️⃣
+  pm2 save #                4️⃣
+  ```
+
+  - 1️⃣: Switch to `app-user`.
+  - 2️⃣: Go to `app-user` home directory (where the Packer template copied the sample app code).
+  - 3️⃣: Use `PM2` to start the `sample-app`.
+  - 4️⃣: Tell `PM2` to save all processes for resurrecting them later.
+
+- Apply the OpenTofu code
+
+  ```bash
+  tofu apply
+  ```
+
 ### Example: Deploy an Application Load Balancer Using OpenTofu
 
+#### The problem with deployed your own load balancer using Nginx
+
+| Aspect          | The problem with maintain your own load balancer                                   | Outcome/Example                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 🧬 Availability | You are running only a **single instance** for your load balancer.                 | If your load balancer crashes, your users experience an outage.                                    |
+| ♾️ Scalability  | A single instance of load balancer has **limited** scaling capability.             | If load exceeds what a single server can handle, users will see degraded performance or an outage. |
+| 🚧 Maintenance  | Keeping the load balancer up to date is entirely **up to you**                     | e.g. Update to a new version of Nginx without downtime is tricky                                   |
+| 🛡️ Security     | The load balancer server is not especially ~~hardened~~ against attacks.           | Easily be attacked.                                                                                |
+| 🔒 Encryption   | If you want to encrypt data in transit, you’ll have to set it all up **manually**. | e.g. Use HTTPS and TLS — which you should for just about all production use cases                  |
+
+> [!WARNING]
+> You can address all these issues of Nginx yourself, but:
+>
+> - it's a considerable amount of work.
+
+#### Using cloud providers managed services for load balancing
+
+Most cloud providers offer _managed services_ for solving common problems, including services for load balancing.
+
+e.g. AWS `Elastic Load Balancer` (`ELB`), Azure `Load Balancer`, GCP `Cloud Load Balancer`
+
+These services provide lots of powerful features out-of-the-box.
+
+For example, AWS Elastic Load Balancer (`ELB`):
+
+- ELB out-of-the-box features:
+
+  | Aspect          | The out-of-the-box solution from load balancing managed service                                                                                         | Example                                                           |
+  | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+  | 🧬 Availability | Under the hood, AWS automatically deploys **multiple servers** for an ELB so you don’t get an outage if one server crashes.                             |                                                                   |
+  | ♾️ Scalability  | AWS **monitors** load on the ELB, and if it is starting to exceed capacity, AWS automatically **deploys more** servers.                                 |                                                                   |
+  | 🚧 Maintenance  | AWS automatically keeps the load balancer **up to date**, with **zero downtime**.                                                                       |                                                                   |
+  | 🛡️ Security     | AWS load balancers are **hardened** against a variety of attacks, including meeting the requirements of a variety of security standards out-of-the-box. | e.g. SOC 2, ISO 27001, HIPAA, PCI, FedRAMP...                     |
+  | 🔒 Encryption   | AWS has out-of-the-box support for encryption data                                                                                                      | e.g. HTTPS, Mutual TLS, TLS Offloading, auto-rotated TLS certs... |
+
+- ELB even has multiple types of load balancers, you can choose the one best fit for your needs:
+
+  - Application Load Balancer (`ALB`)
+  - Network Load Balancer (`NLB`)
+  - Gateway Load Balancer (`GWLB`)
+  - Classic Load Balancer (`Classic LB`)
+
+---
+
+> [!NOTE]
+> An AWS ALB consists of:
+>
+> - **Listeners**:
+>   A _listener_ listens for requests on
+>   - a specific port, e.g. `80`
+>   - protocol, e.g. `HTTP`
+> - **Listener rules**:
+>   A _listener rule_ specifies
+>   - which requests (that come into a listener)
+>     - to route to which target group, based on rules that match on request parameters:
+>       - path, e.g. `/foo`
+>       - hostname, e.g. `bar.example.com`
+> - **Target groups**:
+>   A _target group_ is a group of servers that
+>   - _receive_ requests from the load balancer.
+>   - perform _health checks_ on these servers by
+>     - sending to each server a request on a configuration interval - e.g. `every 30s`
+>     - only considering the server as healthy if it
+>       - returns an expected response (e.g. `200 OK`)
+>         - within a time period (e.g. `within 2s`)
+>   - only _send_ requests to servers that pass its health checks.
+>
+> ![AWS ALB](assets/aws-alb.png)
+
+#### The example code
+
+For this example, you'll use `ALB`, which is simple, best fit for a small app:
+
+- The sample code repo includes a OpenTofu module called `alb` (in `ch3/tofu/modules/alb` folder) that deploys a simple `ALB`.
+
+- Configure a root module `asg-sample` to uses `alb` module:
+
+  ```t
+  # examples/ch3/tofu/live/asg-sample/main.tf
+  module "asg" {
+    source = "github.com/brikis98/devops-book//ch3/tofu/modules/asg"
+
+    # ... (other params omitted) ...
+
+  }
+
+  module "alb" {
+    source = "github.com/brikis98/devops-book//ch3/tofu/modules/alb"
+
+    name                  = "sample-app-alb" # 1️⃣
+    alb_http_port         = 80 #               2️⃣
+    app_http_port         = 8080 #             3️⃣
+    app_health_check_path = "/" #              4️⃣
+  }
+  ```
+
+  - 1️⃣ `name`: Base name for `alb` module's resources.
+  - 2️⃣ `alb_http_port`: The port the ALB (listener) listens on for HTTP requests.
+  - 3️⃣ `app_http_port`: The port the app listens on for HTTP requests 👈 The ALB target group will send traffic & health checks to this port.
+  - 4️⃣ `app_health_check_path`: The path to use when sending health check requests to the app.
+
+- Connect the `ALB` to the `ASG`:
+
+  ```t
+  # examples/ch3/tofu/live/asg-sample/main.tf
+  module "asg" {
+    source = "github.com/brikis98/devops-book//ch3/tofu/modules/asg"
+
+    # ... (other params omitted) ...
+
+    target_group_arns = [module.alb.target_group_arn] # 1️⃣
+  }
+  ```
+
+  - 1️⃣ `target_group_arns`: Attach the ASG to the ALB target group:
+
+    - Register all of ASG's instances in the ALB's target group, which including:
+
+      - The initial instances (when you first launch the ASG).
+      - Any new instances that launch later: either as a result of a deployment/auto-healing/auto-scaling.
+
+    - Configure the ASG to use the ALB for health checks & auto-healing.
+
+      - By default, the auto-healing feature is simple:
+        - It replaces any instances that crashed 👈 Detect hardware issues.
+        - If the instance is still running, but the app is not responding, the ASG won't know to replace it. 👈 Not detect software issues.
+      - By using ALB's health checks, the ASG will also any instance that fails the ALB - target group - health check 👈 Detect both hardware & software issues.
+
+- Output the ALB domain name from the root module `asg-sample`:
+
+  ```t
+  # examples/ch3/tofu/live/asg-sample/outputs.tf
+  output "alb_dns_name" {
+    value = module.alb.alb_dns_name
+  }
+  ```
+
+- Apply `asg-sample` module:
+
+  ```bash
+  tofu init
+  tofu apply
+  ```
+
+  <details><summary>Output</summary>
+
+  ```bash
+  Apply complete! Resources: 10 added, 0 changed, 0 destroyed.
+
+  Outputs:
+
+  alb_dns_name = "sample-app-tofu-656918683.us-east-2.elb.amazonaws.com"
+  ```
+
+  </details>
+
 ### Example: Roll Out Updates with OpenTofu and Auto Scaling Groups
+
+> [!NOTE]
+> Most of the VM orchestration tools have support for zero-downtime deployments & various deployment strategies.
+>
+> e.g. AWS ASG has a native feature called _instance refresh_[^11], which can update your instances automatically by doing a rolling deployment.
+
+In this example, you will enable instance refresh for the ASG:
+
+- Update the `asg-sample` module
+
+  ```t
+  module "asg" {
+    source = "github.com/brikis98/devops-book//ch3/tofu/modules/asg"
+
+    # ... (other params omitted) ...
+
+    instance_refresh = {
+      min_healthy_percentage = 100 #  1️⃣
+      max_healthy_percentage = 200 #  2️⃣
+      auto_rollback          = true # 3️⃣
+    }
+
+  }
+  ```
+
+  - 1️⃣ `min_healthy_percentage`: The cluster will never have fewer than the desired number of instances.
+  - 2️⃣ `max_healthy_percentage`: The cluster will keep all the old instances running, deploy new instances, waiting for all new instances to pass health checks, then undeploy old instances. 👈 ~ Blue/green deployments.
+  - 3️⃣ `auto_rollback`: If new instances fail to pass health checks, the ASG will auto rollback, putting the cluster back to its previous working condition.
+
+- Make a change to the app
+
+  ```bash
+  sed -i s/Hello, World!/Fundamentals of DevOps!/g examples/ch3/packer/app.js
+  ```
+
+- Build the new VM image
+
+  ```bash
+  cd examples/ch3/packer
+  packer build sample-app.pkr.hcl
+  ```
+
+- Update the `asg-sample` module's launch template with the new VM image
+
+- Apply the updated `asg-sample` module
+
+  ```bash
+  cd examples/ch3/packer
+  tofu apply
+  ```
+
+  <details><summary>Output</summary>
+
+  ```bash
+  OpenTofu will perform the following actions:
+
+    # aws_autoscaling_group.sample_app will be updated in-place
+    ~ resource "aws_autoscaling_group" "sample_app" {
+          # (27 unchanged attributes hidden)
+
+        ~ launch_template {
+              id      = "lt-0bc25ef067814e3c0"
+              name    = "sample-app-tofu20240414163932598800000001"
+            ~ version = "1" -> (known after apply)
+          }
+
+          # (3 unchanged blocks hidden)
+      }
+
+    # aws_launch_template.sample_app will be updated in-place
+    ~ resource "aws_launch_template" "sample_app" {
+        ~ image_id       = "ami-0f5b3d9c244e6026d" -> "ami-0d68b7b6546331281"
+        ~ latest_version = 1 -> (known after apply)
+          # (10 unchanged attributes hidden)
+      }
+  ```
+
+  </details>
+
+- Go to EC2 console to verify that the instance refreshing is progressing.
+
+> [!NOTE]
+> During the instance refreshing, the load balancer URL should always return a successful response (because it's zero-downtime deployment).
+
+> [!TIP]
+> You can check with `curl`
+>
+> ```bash
+> while true; do curl http://<load_balancer_url>; sleep 1; done
+> ```
+>
+> <details><summary>Output</summary>
+>
+> ```bash
+> Hello, World!
+> Hello, World!
+> Hello, World!
+> Hello, World!
+> Hello, World!
+> Hello, World!           # 👈 Only responses from the old instances
+> Fundamentals of DevOps! # 👈 As new instances start to pass health checks, ALB sends requests to these instances
+> Hello, World!
+> Fundamentals of DevOps!
+> Hello, World!
+> Fundamentals of DevOps!
+> Hello, World!
+> Fundamentals of DevOps!
+> Hello, World!
+> Fundamentals of DevOps!
+> Hello, World!
+> Fundamentals of DevOps! # 👈 Only responses from the new instances
+> Fundamentals of DevOps!
+> Fundamentals of DevOps!
+> Fundamentals of DevOps!
+> Fundamentals of DevOps!
+> Fundamentals of DevOps!
+> ```
+>
+> </details>
 
 ### Get your hands dirty with OpenTofu and VM orchestration
 
@@ -739,3 +1218,4 @@ If you’re going to be building serverless web apps for production use cases, t
 [^8]: [HAProxy](https://www.haproxy.org/) - Reliable, High Performance TCP/HTTP Load Balancer
 [^9]: See Nginx documentation for [Managing Configuration Files](https://docs.nginx.com/nginx/admin-guide/basic-functionality/managing-configuration-files/)
 [^10]: https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_templating.html
+[^11]: https://docs.aws.amazon.com/autoscaling/ec2/userguide/asg-instance-refresh.html

@@ -486,7 +486,7 @@ In this example, you will use Packer to create a VM image for AWS (called an Ama
   ```hcl
   # examples/ch2/packer/sample-app.pkr.hcl
   packer {
-    required_plugins { # 0️⃣
+    required_plugins { #                                                  0️⃣
       amazon = {
         version = ">= 1.3.1"
         source  = "github.com/hashicorp/amazon"
@@ -494,7 +494,7 @@ In this example, you will use Packer to create a VM image for AWS (called an Ama
     }
   }
 
-  source "amazon-ebs" "amazon_linux" { # 1️⃣
+  source "amazon-ebs" "amazon_linux" { #                                  1️⃣
     ami_name        = "sample-app-packer-${uuidv4()}"
     ami_description = "Amazon Linux 2023 AMI with a Node.js sample app."
     instance_type   = "t2.micro"
@@ -503,15 +503,15 @@ In this example, you will use Packer to create a VM image for AWS (called an Ama
     ssh_username    = "ec2-user"
   }
 
-  build { # 2️⃣
+  build { #                                                               2️⃣
     sources = ["source.amazon-ebs.amazon_linux"]
 
-    provisioner "file" { # 3️⃣
+    provisioner "file" { #                                                3️⃣
       source      = "app.js"
       destination = "/home/ec2-user/app.js"
     }
 
-    provisioner "shell" { # 4️⃣
+    provisioner "shell" { #                                               4️⃣
       inline = [
         "curl -fsSL https://rpm.nodesource.com/setup_21.x | sudo bash -",
         "sudo yum install -y nodejs"
