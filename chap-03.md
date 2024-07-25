@@ -1,5 +1,62 @@
 # Chapter 3: How to Deploy Many Apps: Orchestration, VMs, Containers, and Serverless
 
+<!--toc:start-->
+
+- [Chapter 3: How to Deploy Many Apps: Orchestration, VMs, Containers, and Serverless](#chapter-3-how-to-deploy-many-apps-orchestration-vms-containers-and-serverless)
+  - [An Introduction to Orchestration](#an-introduction-to-orchestration)
+    - [Why use an orchestration?](#why-use-an-orchestration)
+    - [What is an orchestration?](#what-is-an-orchestration)
+    - [Four types of orchestration tools](#four-types-of-orchestration-tools)
+  - [Server Orchestration](#server-orchestration)
+    - [What is Server Orchestration](#what-is-server-orchestration)
+    - [Example: Deploy Multiple Servers in AWS Using Ansible](#example-deploy-multiple-servers-in-aws-using-ansible)
+    - [Example: Deploy an App Securely and Reliably Using Ansible](#example-deploy-an-app-securely-and-reliably-using-ansible)
+    - [Example: Deploy a Load Balancer Using Ansible and Nginx](#example-deploy-a-load-balancer-using-ansible-and-nginx)
+      - [Introduction to Load Balancer](#introduction-to-load-balancer)
+        - [What is load balancer?](#what-is-load-balancer)
+        - [How load balancer works?](#how-load-balancer-works)
+      - [The example](#the-example)
+    - [Example: Roll Out Updates to Servers with Ansible](#example-roll-out-updates-to-servers-with-ansible)
+    - [Get your hands dirty with Ansible and server orchestration](#get-your-hands-dirty-with-ansible-and-server-orchestration)
+  - [VM Orchestration](#vm-orchestration)
+    - [What is VM Orchestration](#what-is-vm-orchestration)
+    - [Example: Build a More Secure, Reliable VM Image Using Packer](#example-build-a-more-secure-reliable-vm-image-using-packer)
+    - [Example: Deploy a VM Image in an Auto Scaling Group Using OpenTofu](#example-deploy-a-vm-image-in-an-auto-scaling-group-using-opentofu)
+    - [Example: Deploy an Application Load Balancer Using OpenTofu](#example-deploy-an-application-load-balancer-using-opentofu)
+      - [The problem with deployed your own load balancer using Nginx](#the-problem-with-deployed-your-own-load-balancer-using-nginx)
+      - [Using cloud providers managed services for load balancing](#using-cloud-providers-managed-services-for-load-balancing)
+      - [The example code](#the-example-code)
+    - [Example: Roll Out Updates with OpenTofu and Auto Scaling Groups](#example-roll-out-updates-with-opentofu-and-auto-scaling-groups)
+    - [Get your hands dirty with OpenTofu and VM orchestration](#get-your-hands-dirty-with-opentofu-and-vm-orchestration)
+  - [Container Orchestration](#container-orchestration)
+    - [What is Container Orchestration](#what-is-container-orchestration)
+    - [The advantages of container orchestration](#the-advantages-of-container-orchestration)
+    - [Containers and container orchestration tools](#containers-and-container-orchestration-tools)
+    - [A Crash Course on Docker](#a-crash-course-on-docker)
+      - [Install Docker](#install-docker)
+      - [Basic Docker commands](#basic-docker-commands)
+        - [docker run](#docker-run)
+        - [docker ps](#docker-ps)
+        - [docker start](#docker-start)
+    - [Example: Create a Docker Image for a Node.js app](#example-create-a-docker-image-for-a-nodejs-app)
+    - [Example: Deploy a Dockerized App with Kubernetes](#example-deploy-a-dockerized-app-with-kubernetes)
+    - [Example: Deploy a Load Balancer with Kubernetes](#example-deploy-a-load-balancer-with-kubernetes)
+    - [Example: Roll Out Updates with Kubernetes](#example-roll-out-updates-with-kubernetes)
+    - [Get your hands dirty with Kubernetes and YAML template tools](#get-your-hands-dirty-with-kubernetes-and-yaml-template-tools)
+    - [Example: Deploy a Kubernetes Cluster in AWS Using EKS](#example-deploy-a-kubernetes-cluster-in-aws-using-eks)
+    - [Example: Push a Docker Image to ECR](#example-push-a-docker-image-to-ecr)
+    - [Example: Deploy a Dockerized App into an EKS Cluster](#example-deploy-a-dockerized-app-into-an-eks-cluster)
+    - [Get your hands dirty with Kubernetes and container orchestration](#get-your-hands-dirty-with-kubernetes-and-container-orchestration)
+  - [Serverless Orchestration](#serverless-orchestration)
+    - [What is Serverless Orchestration](#what-is-serverless-orchestration)
+    - [Example: Deploy a Serverless Function with AWS Lambda](#example-deploy-a-serverless-function-with-aws-lambda)
+    - [Example: Deploy an API Gateway in Front of AWS Lambda](#example-deploy-an-api-gateway-in-front-of-aws-lambda)
+    - [Example: Roll Out Updates with AWS Lambda](#example-roll-out-updates-with-aws-lambda)
+    - [Get your hands dirty with serverless web-apps and Serverless Orchestration](#get-your-hands-dirty-with-serverless-web-apps-and-serverless-orchestration)
+  - [Comparing Orchestration Options](#comparing-orchestration-options)
+  - [Conclusion](#conclusion)
+  <!--toc:end-->
+
 ## An Introduction to Orchestration
 
 ### Why use an orchestration?
@@ -569,8 +626,8 @@ In this example, you will run your own load balancer in a separate server (using
 
 VM orchestration
 : Create VM images that have your apps & dependencies fully installed & configured
-: For each VM image - a version of your app:
-: - Deploy that VM image across a cluster of servers
+: Deploy the VM images across a cluster of servers
+: - 1 server → 1 VM image
 : - Scale the number of servers up/down depending on your needs
 : When there is an app change:
 : - Create new VM image 👈 _Immutable_ infrastructure approach.
@@ -1070,17 +1127,358 @@ In this example, you will enable instance refresh for the ASG:
    - How does the ALB handle it?
    - Do you need to do anything to restore the instance?
 
+> [!WARNING]
+> Don't forget to run `tofu destroy` to undeploy all your infrastructure created by the OpenTofu module.
+
 ## Container Orchestration
 
 ### What is Container Orchestration
 
+container orchestration
+: Create container images that have your apps & dependencies fully installed & configured
+: Deploy the container images across a cluster of servers
+: - 1 server → **Multiple containers** 👈 Pack the containers as efficiently as possible to each server (bin packing).
+: - Scale the number of **servers** and/or **containers** up/down depending on **load**.
+: When there is an app change:
+: - Create new container image 👈 _Immutable_ infrastructure approach.
+: - Deploy that new container image onto new containers in the cluster; then undeploy the old containers.
+
+> [!NOTE]
+> Although containers has been around for decades (from the 1970s[^12]),
+>
+> - container orchestration only started to explode in popularity around 2013,
+>   - with the emerge of Docker[^13] (2013) and Kubernetes[^14] (2014).
+
 > [!IMPORTANT]
 > Key takeaway #3
-> Container orchestration is an immutable infrastructure approach where you deploy and manage container images across a cluster of servers.
+> Container orchestration is an _immutable infrastructure_ approach where you deploy & manage container images across a cluster of servers.
 
-### Example: A Crash Course on Docker
+### The advantages of container orchestration
+
+| Aspect                | Advantage                                                                                              | Example                                                                                                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Speed**             | - **Built** fast (especially with caching).                                                            | The build & deploy cycle (of a unit):                                                                                                                                                |
+|                       | - **Deploy** fast. .                                                                                   | - For VMs: 10-20 minutes                                                                                                                                                             |
+|                       |                                                                                                        | - For containers: 1-5 minutes                                                                                                                                                        |
+| **Efficiency**        | - Builtin **scheduler**.                                                                               | 👉 Automatically decide which server to run which containers                                                                                                                         |
+|                       | - Use the available **computing resources** as efficiently as possible.                                | 👈 Using **bin-packing** algorithms                                                                                                                                                  |
+| **Portability**       | - Containers & container orchestration tools can be **run everywhere**.                                | e.g. on-prem, cloud-providers                                                                                                                                                        |
+|                       | - No ~~vendor lock-in~~.                                                                               | 👈 Most container tools are open-source, e.g. Docker/Podman, Kubernetes                                                                                                              |
+| **Local development** | - You can run containers[^15] & containers orchestration tools[^16] in your own local dev environment. | ~ Your entire tech stack, e.g. Kubernetes + Docker + Multiple services                                                                                                               |
+|                       |                                                                                                        |                                                                                                                                                                                      |
+| **Functionality**     | - Container orchestration tools solves more orchestration problems out-of-the-box.                     | In additional to deployment, updates, auto-scaling/auto-healing, Kubernetes also has built-in solutions for configuration/secrets managements, service discovery, disk management... |
+|                       |                                                                                                        |                                                                                                                                                                                      |
+
+### Containers and container orchestration tools
+
+There are many tools for container and container orchestration:
+
+- For container: **Docker**, Moby, CRI-O, Podman, runc, buildkit
+- For container orchestration: **Kubernetes**, Docker Swarm, Amazon ECS, Nomad (by HashiCorp), Marathon/Mesos (by Apache), OpenShift (by RedHat).
+
+> [!NOTE]
+> Docker & Kubernetes are the most popular.
+>
+> Their name are nearly synonymous with container & container orchestration.
+
+> [!TIP]
+> The examples in this chapter will use
+>
+> - the most popular container & container orchestration tools - Docker, Kubernetes
+> - with the most popular cloud provider - AWS.
+
+### A Crash Course on Docker
+
+As from [Chapter 2 - Server Templating Tools](chap-02.md#server-templating-tools) - [Container](chap-02.md#container),
+
+- A **container image** is like a self-contained “snapshots” of the operating
+  system (OS), the software, the files, and all other relevant details.
+- (A **container** emulates the "user space" of an OS).
+
+#### Install Docker
+
+If you don’t have Docker installed already, follow the [instructions](https://docs.docker.com/get-docker/) on the
+Docker website to install Docker Desktop for your operating system.
+
+> [!TIP]
+> If you're using Linux, you can [install Docker Engine](https://docs.docker.com/engine/install/), which doesn't run a VM as Docker Desktop[^17].
+
+#### Basic Docker commands
+
+| Docker command | Synopsis                       | Purpose                                      | Example                                 |
+| -------------- | ------------------------------ | -------------------------------------------- | --------------------------------------- |
+| `run`          | `docker run <IMAGE> [COMMAND]` | Create & run a new container from an image   | `docker run -it ubuntu:24.04 bash`[^18] |
+| `ps`           | `docker ps`                    | List containers                              | `docker ps -a`                          |
+| `start`        | `docker start <CONTAINER>`     | Start stopped containers                     | `docker start -ia `                     |
+| `build`        | `docker build <PATH>`          | Build an image from a Dockerfile (at `PATH`) |                                         |
+|                |                                |                                              |                                         |
+
+##### docker run
+
+For example, let's run a container from `ubuntu:24.04` image:
+
+- Run the container
+
+  ```bash
+  docker run -it ubuntu:24.04 bash
+  ```
+
+  ```bash
+  Unable to find image 'ubuntu:24.04' locally
+  24.04: Pulling from library/ubuntu
+  Digest: sha256:3f85b7caad41a95462cf5b787d8a04604c
+  Status: Downloaded newer image for ubuntu:24.04
+
+  root@d96ad3779966:/#
+  ```
+
+- Now you're in Ubuntu: let's try your new Ubuntu
+
+  - Check the version of Ubuntu
+
+    ```bash
+    root@d96ad3779966:/# cat /etc/os-release
+    PRETTY_NAME="Ubuntu 24.04 LTS"
+    NAME="Ubuntu"
+    VERSION_ID="24.04"
+    (...)
+    ```
+
+    > [!NOTE]
+    > Isn't it magic? What just happened?
+    >
+    > - First, Docker searches your local filesystem for the `ubuntu:24.04` image.
+    > - If you don’t have that image downloaded already, Docker downloads it automatically from Docker Hub, which is a Docker Registry that contains shared Docker images.
+    >   - The `ubuntu:24.04` image happens to be a public Docker image — an official one maintained by the Docker team — so you’re able to download it without any authentication.
+    > - Once the image is downloaded, Docker runs the image, executing the `bash` command, which starts an interactive Bash prompt, where you can type.
+
+  - List the files
+
+    ```bash
+    root@d96ad3779966:/# ls -al
+    total 56
+    drwxr-xr-x   1 root root 4096 Feb 22 14:22 .
+    drwxr-xr-x   1 root root 4096 Feb 22 14:22 ..
+    lrwxrwxrwx   1 root root    7 Jan 13 16:59 bin -> usr/bin
+    drwxr-xr-x   2 root root 4096 Apr 15  2020 boot
+    drwxr-xr-x   5 root root  360 Feb 22 14:22 dev
+    drwxr-xr-x   1 root root 4096 Feb 22 14:22 etc
+    drwxr-xr-x   2 root root 4096 Apr 15  2020 home
+    lrwxrwxrwx   1 root root    7 Jan 13 16:59 lib -> usr/lib
+    drwxr-xr-x   2 root root 4096 Jan 13 16:59 media
+    (...)
+    ```
+
+    - That's not your filesystem.
+
+    > [!NOTE]
+    > Docker images run in containers that are **isolated** at the **user-space** level:
+    >
+    > - When you’re in a container, you can only see the filesystem, memory, networking, etc., in that container.
+    >   - Any data in other containers, or on the underlying host operating system, is not accessible to you,
+    >   - Any data in your container is not visible to those other containers or the underlying host operating system.
+
+    > [!NOTE]
+    > In other words, the image format is _self-contained_, which means Docker images run the same way anywhere. 👈 This is one of the things that makes Docker useful for running applications.
+
+  - Write some text to a file
+
+    ```bash
+    root@d96ad3779966:/# echo "Hello, World!" > test.txt
+    ```
+
+- Exit the container by hitting `Ctrl+D`[^19]
+
+  > [!TIP]
+  > You will be back in your original command prompt on your underlying host OS
+
+  If you look for the `test.txt` file you've just wrote, you'll see it doesn't exist.
+
+- Try running the same Docker image again:
+
+  ```bash
+  docker run -it ubuntu:24.04 bash
+  ```
+
+  ```bash
+  root@3e0081565a5d:/#
+  ```
+
+  This time,
+
+  - Since the `ubuntu:24.04` image is already downloaded, the container starts almost instantly.
+
+  > [!NOTE]
+  > Unlike virtual machines, containers are lightweight, boot up quickly, and incur little CPU or memory overhead.
+  >
+  > 👉 This is another reason Docker is useful for running applications.
+
+  - The command prompt looks different. 👈 You're now in a totally new container
+  - Any data you wrote in the previous container is no longer accessible to you (👈 Containers are isolated from each other)
+
+- Exit the second container by hitting `Ctrl+D`.
+
+##### docker ps
+
+You've just run 2 containers, let's see them:
+
+```bash
+$ docker ps -a
+CONTAINER ID   IMAGE            COMMAND    CREATED          STATUS
+3e0081565a5d   ubuntu:24.04     "bash"     5 min ago    Exited (0) 16 sec ago
+d96ad3779966   ubuntu:24.04     "bash"     14 min ago   Exited (0) 5 min ago
+```
+
+> [!NOTE]
+> Use `docker ps -a` to show all the containers on your system, including the stopped ones.
+
+##### docker start
+
+You can start a stopped container again using `docker start <CONTAINER_ID>`.
+
+- Start the first container that you wrote to the text file
+
+  ```bash
+  $ docker start -ia d96ad3779966
+  root@d96ad3779966:/#
+  ```
+
+  > [!NOTE]
+  > Using `-ia` flags with `docker start` to have an interactive shell and allow you type in.
+  > (It has same effect as `-it` of `docker run`)
+
+- Confirm that it's the first container:
+
+  ```bash
+  root@d96ad3779966:/# cat test.txt
+  Hello, World!
+  ```
 
 ### Example: Create a Docker Image for a Node.js app
+
+In this example, you will use a container to run the Node.js `sample-app`:
+
+- The source code of this example is in `examples/ch3/docker`
+
+  ```bash
+  mkdir -p examples/ch3/docker
+  ```
+
+- Copy the `sample-app` source code:
+
+  ```bash
+  cp example/ch3/ansible/roles/sample-app/files/app.js example/ch3/docker
+  ```
+
+- Create a file named` Dockerfile`
+
+  > [!NOTE]
+  > The `Dockerfile` is a template that defines how to build a Docker image.
+
+  ```Dockerfile
+  # examples/ch3/docker/Dockerfile
+  FROM node:21.7         # 1️⃣
+  WORKDIR /home/node/app # 2️⃣
+  COPY app.js .          # 3️⃣
+  EXPOSE 8080            # 4️⃣
+  USER node              # 5️⃣
+  CMD ["node", "app.js"] # 6️⃣
+  ```
+
+  > [!WARNING]
+  > Dockerfile doesn't support a comment that is in the middle of a line.
+
+  - 1️⃣ `FROM`: **Create a new build stage from a base image**: Use the [official Node.js Docker image](https://hub.docker.com/_/node) from Docker Hub as the base.
+
+    > [!NOTE]
+    > With Docker, it's easy to share container image.
+    >
+    > - You don't need to install Node.js yourself.
+    > - There are lots of official images, which are maintained by the official teams, community, e.g. [The Node.js Docker Team⁠](https://github.com/nodejs/docker-node)
+
+  - 2️⃣ `WORKDIR`: **Change working directory**: Set the working directory for the rest of the image build.
+  - 3️⃣ `COPY`: **Copy files and directories**: Copy `app.js` into the Docker image.
+  - 4️⃣ `EXPOSE`: **Describe which ports your application is listening on**: When someone uses this Docker image, they know which ports they wish to expose.
+  - 5️⃣ `USER`: **Set user and group ID**: (Instead of the `root` user), use the `node` user - created by the Node.js Docker image - to run the app.
+  - 6️⃣ `CMD`: **Specify default commands**: The default command to be executed by container orchestration tool (Docker, Kubernetes).
+
+    > [!IMPORTANT]
+    > With containers, you typically do _not_ need to use a process supervisor.
+    >
+    > - The container orchestration tools take care of
+    >   - process supervisor
+    >   - resource usage (CPU, memory...)
+    >   - ...
+
+    > [!NOTE]
+    > Most of container orchestration tools expect your containers to
+    >
+    > - run apps in the "foreground" - blocking until they exit
+    > - log directly to `stdout`, `stderr`
+
+- Build a Docker image for your sample app from a `Dockerfile`
+
+  ```bash
+  docker build -t sample-app:v1 .
+  ```
+
+  - Use `-t` (`--tag`) flag to specify the Docker image name & tag in the format `name:tag`
+
+    For this example:
+
+    - name `sample-app`[^20]
+    - tag `v1`
+
+    Later on, if you make change to the sample app, you'll build a new Docker image with:
+
+    - the same name `sample-app`[^21]
+    - a different tag e.g. `v2`, `v3`
+
+  - The dot (`.`) at the end tells `docker build` to run the build in the current directory (which should be the folder that contains your `Dockerfile`).
+
+- When the build finishes, you can use `docker run` command to run your new image
+
+  ```bash
+  docker run --init sample-app:v1
+  ```
+
+  ```bash
+  Listening on port 8080
+  ```
+
+  - Use `--init` flag to ensure Node.js app will exit correctly if you hit `Ctrl+C`.
+
+  > [!NOTE]
+  > Node.js doesn't handle kernel signals properly, by using `--init` flag, you wrap your Node.js process with a lightweight init system that properly handles kernel signals, e.g. `SIGINT` (`CTRL-C`)
+  >
+  > For more information, see [Docker and Node.js best practices](https://github.com/nodejs/docker-node/blob/main/docs/BestPractices.md#handling-kernel-signals)
+
+- Your app is "listening on port 8080", let's try your app
+
+  ```bash
+  $ curl localhost:8080
+  ```
+
+  ```bash
+  curl: (7) Failed to connect to localhost port 8080: Connection refused
+  ```
+
+  - You still can't connect to your app. Why?
+
+    - Your app is up and running, but it's running inside the container, which is isolated from your host OS - not only for the filesystem but also for networking...
+      - Your app is listening on port 8080 _inside_ the container., which isn't accessible from the host OS.
+
+  - If you want to access your app, which is running _inside_ the container, from the host OS:
+
+    - You need to expose the port, which is listening on (by your app) _inside_ the container, to the _outside_ of the container (to your host OS).
+
+- _Publish_ the port inside the container to the port on your host OS
+
+  ```bash
+  docker run -p 8081:8080 --init sample-app:v1
+  ```
+
+  
 
 ### Example: Deploy a Dockerized App with Kubernetes
 
@@ -1091,21 +1489,17 @@ In this example, you will enable instance refresh for the ASG:
 ### Get your hands dirty with Kubernetes and YAML template tools
 
 > [!NOTE]
-> Using YAML and `kubectl` is a great way to learn Kubernetes, and I’m using it in the examples in this chapter to avoid introducing extra tools,
+> Using YAML (and `kubectl)` is a great way to learn Kubernetes, and it is used in the examples in this chapter to avoid introducing extra tools,
 >
 > - but raw YAML is not a great choice for production usage.
 >   - In particular, YAML doesn’t have support for variables, templating, for-loops, conditionals, and other programming language features that allow for code reuse.
 
-Therefore, when using Kubernetes in production, instead of raw YAML, try out one of the following tools that can solve these gaps for you:
+When using Kubernetes in production, instead of raw YAML, try out one of the following tools that can solve these gaps for you:
 
 - Helm
-
 - OpenTofu with the Kubernetes provider
-
 - Pulumi with the Kubernetes provider
-
 - Kustomize
-
 - kapp
 
 ### Example: Deploy a Kubernetes Cluster in AWS Using EKS
@@ -1137,7 +1531,7 @@ Therefore, when using Kubernetes in production, instead of raw YAML, try out one
 
 ## Serverless Orchestration
 
-## What is Serverless Orchestration
+### What is Serverless Orchestration
 
 > [!IMPORTANT]
 > Key takeaway #4
@@ -1219,3 +1613,23 @@ If you’re going to be building serverless web apps for production use cases, t
 [^9]: See Nginx documentation for [Managing Configuration Files](https://docs.nginx.com/nginx/admin-guide/basic-functionality/managing-configuration-files/)
 [^10]: https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_templating.html
 [^11]: https://docs.aws.amazon.com/autoscaling/ec2/userguide/asg-instance-refresh.html
+[^12]: https://www.aquasec.com/blog/a-brief-history-of-containers-from-1970s-chroot-to-docker-2016/
+[^13]: Docker is a tool for building, running, and sharing containers.
+[^14]: Kubernetes is a container orchestration tool
+[^15]: Compare to VMs, containers:
+
+    - have reasonable file sizes
+    - boot quickly
+    - have little CPU/memory overhead
+
+[^16]:
+    There is no practical, easy way to run most VM orchestration tools locally.
+
+    - For AWS, there is [LocalStack](https://www.localstack.cloud/), which emulates some of AWS cloud services locally.
+
+[^17]: https://docs.docker.com/desktop/faqs/linuxfaqs/#why-does-docker-desktop-for-linux-run-a-vm
+[^18]: Use `docker run` with `-it` flag to get an interactive shell & a pseudo-TTY (so you can type)
+[^19]: By hitting `Ctrl+D`, you send an [End-of-Transmission (EOT) character](https://en.wikipedia.org/wiki/End-of-Transmission_character) (to `docker` process)
+[^19]: By hitting `Ctrl+C`, you send an interrupt signal ([SIGINT](<https://en.wikipedia.org/wiki/Signal_(IPC)#SIGINT>)) (to `docker` process)
+[^20]: The name of the Docker image is also know as its repository name.
+[^21]: In other words, when you name multiple images with the same name, Docker will use that name as the repository name to group all images of that name.
