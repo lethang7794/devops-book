@@ -1453,7 +1453,7 @@ In this example, you will use a container to run the Node.js `sample-app`:
   >
   > For more information, see [Docker and Node.js best practices](https://github.com/nodejs/docker-node/blob/main/docs/BestPractices.md#handling-kernel-signals)
 
-- Your app is "listening on port 8080", let's try your app
+- Your app is `"listening on port 8080"`, let's try your app
 
   ```bash
   $ curl localhost:8080
@@ -1472,13 +1472,53 @@ In this example, you will use a container to run the Node.js `sample-app`:
 
     - You need to expose the port, which is listening on (by your app) _inside_ the container, to the _outside_ of the container (to your host OS).
 
-- _Publish_ the port inside the container to the port on your host OS
+- _Publish_ a container's port [to the host] (with `docker run --publish`)
 
   ```bash
-  docker run -p 8081:8080 --init sample-app:v1
+  docker run --publish 8081:8080 --init sample-app:v1
+  ```
+  ```bash
+  Server listening on port 8080
   ```
 
-  
+  - The port mapping of a container is available via:
+
+    - `docker ps` output's `PORTS` column
+      ```bash
+      docker ps
+      ```
+      ```bash
+      CONTAINER ID   IMAGE           COMMAND                  CREATED          STATUS          PORTS                                       NAMES
+      ecf2fb27c512   sample-app:v1   "docker-entrypoint.s…"   19 seconds ago   Up 18 seconds   0.0.0.0:8081->8080/tcp, :::8081->8080/tcp   elegant_hofstadter
+      ```
+
+    - `docker port`
+
+      ```bash
+      docker port
+      ```
+      ```bash
+      8080/tcp -> 0.0.0.0:8081
+      8080/tcp -> [::]:8081
+      ```
+
+> [!NOTE]
+> There are a different in the order of the container port & the host port:
+>
+> - When you run a container (`docker run`) or list containers (`docker ps`), the perspective is from the host (outside the container):
+>   - `--publish [hostPort:]containerPort`
+>   - `0.0.0.0:hostPort->containerPort/tcp`
+> - When you list the port mappings of a container (`docker port`), the perspective is from inside the container:
+>   - `containerPort/tcp -> 0.0.0.0:hostPort`
+
+- Now you can retry your app:
+
+  ```bash
+  curl localhost:8081
+  ```
+  ```
+  Hello, World!
+  ```
 
 ### Example: Deploy a Dockerized App with Kubernetes
 
