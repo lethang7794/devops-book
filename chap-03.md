@@ -1477,6 +1477,7 @@ In this example, you will use a container to run the Node.js `sample-app`:
   ```bash
   docker run --publish 8081:8080 --init sample-app:v1
   ```
+
   ```bash
   Server listening on port 8080
   ```
@@ -1484,9 +1485,11 @@ In this example, you will use a container to run the Node.js `sample-app`:
   - The port mapping of a container is available via:
 
     - `docker ps` output's `PORTS` column
+
       ```bash
       docker ps
       ```
+
       ```bash
       CONTAINER ID   IMAGE           COMMAND                  CREATED          STATUS          PORTS                                       NAMES
       ecf2fb27c512   sample-app:v1   "docker-entrypoint.s…"   19 seconds ago   Up 18 seconds   0.0.0.0:8081->8080/tcp, :::8081->8080/tcp   elegant_hofstadter
@@ -1497,6 +1500,7 @@ In this example, you will use a container to run the Node.js `sample-app`:
       ```bash
       docker port
       ```
+
       ```bash
       8080/tcp -> 0.0.0.0:8081
       8080/tcp -> [::]:8081
@@ -1516,11 +1520,110 @@ In this example, you will use a container to run the Node.js `sample-app`:
   ```bash
   curl localhost:8081
   ```
+
   ```
   Hello, World!
   ```
 
+> [!WARNING]
+> Using `docker run` is fine for local testing & learning,
+>
+> - but not for Dockerized apps in production (which typically require a container orchestration tool, e.g. Kubernetes).
+
+> [!NOTE]
+> Don't forget to clean up stopped containers:
+>
+> - Every time you run `docker run` and exit, you leave behind stopped container, which take up disk space.
+>
+> You can clean up stopped containers by:
+>
+> - Manually run `docker rm <CONTAINER_ID>`.
+> - Having `docker run` automatically do it for you with `--rm` flag.
+
 ### Example: Deploy a Dockerized App with Kubernetes
+
+#### A Crash Course on Kubernetes
+
+##### What is Kubernetes?
+
+Kubernetes (K8s)
+: a container orchestration tool, that solves almost all [orchestration problems](#what-is-an-orchestration) for running containers.
+
+Kubernetes consists of 2 main pieces: control plane & worker nodes:
+
+- _Control plane_ 🧠:
+
+  - Responsible for managing the Kubernetes cluster:
+    - Storing the states
+    - Monitoring containers
+    - Coordinating actions across the cluster
+  - Runs the _API server_, which provides an API - to control the cluster - that can be accessed from:
+    - CLI tools, e.g. `kubectl`
+    - Web UIs, e.g. Kubernetes dashboard, Headlamp
+    - IaC tools, e.g. OpenTofu/Terraform
+
+- _Worker nodes_ 👐:
+  - The servers that are used to actually run your containers.
+  - Entirely managed by the control plane.
+
+##### Why Kubernetes?
+
+In additional to solving almost all the orchestration problems for running containers:
+
+- Kubernetes is open source
+- Kubernetes can be run anywhere: in the cloud, in your data-center, on your PC.
+
+##### Run Kubernetes on personal computer
+
+- If you're using Docker Desttop, you're just a few clicks away from running a Kubernetes cluster locally:
+
+  - Docker Desktop's Dashboard / Settings / Kubernetes / Enable Kubernetes / Apply & restart
+
+- After having the running Kubernetes cluster, you need to install `kubectl` - the CLI tool for managing the cluster:
+
+  - Following the [instruction on Kubernetes website](https://kubernetes.io/docs/tasks/tools/) to install `kubectl`.
+
+- Configure the `kubeconfig` (Kubernetes configuration) to access the Kubernetes cluster.
+
+  > [!TIP]
+  > If you're running the Kubernetes cluster via Docker Desktop, the Docker Destkop has already update the config for you.
+
+  - Tell `kubectl` to use the context that Docker Desktop added
+
+    ```bash
+    kubectl config use-context docker-desktop
+    ```
+
+    ```bash
+    Switched to context "docker-desktop".
+    ```
+
+    > [!NOTE]
+    > The `kubeconfig` can consists of multiple _contexts_, each context is coressponding to the configuration for a Kubernetes cluster.
+    > e.g.
+    >
+    > - The context added by Docker Desktop is named `docker-desktop`.
+
+    > [!NOTE]
+    > By default, `kubeconfig` is at `$HOME/.kube/config`.
+
+- Check if your Kubernetes is working - e.g. by using `get nodes` commands:
+
+  ```bash
+  kubectl get nodes
+  ```
+
+  ```bash
+  NAME             STATUS   ROLES           AGE   VERSION
+  docker-desktop   Ready    control-plane   67m   v1.29.2
+  ```
+
+  The Kubernetes cluster created by Docker Desktop has only 1 node, which:
+
+  - runs the control plane
+  - also acts as a worker node
+
+##### How to use Kubernetes?
 
 ### Example: Deploy a Load Balancer with Kubernetes
 
@@ -1625,7 +1728,9 @@ If you’re going to be building serverless web apps for production use cases, t
   | **Serverless** ...       | **Immutable** ...          | Functions are deploy & managed without thinking about servers at all. | Deploy functions using AWS Lambda.                    |
 
 [^1]: The no downtime is from users perspective.
+
 [^2]: The computing resources are CPU, memory, disk space.
+
 [^3]: The scheduler usually implements some sort of _bin packing algorithm_ to try to use resources available as efficiently as possible.
 
 [example repo]: https://github.com/brikis98/devops-book
@@ -1639,6 +1744,7 @@ If you’re going to be building serverless web apps for production use cases, t
     - ...
 
 [^5]: https://nodejs.org/api/cluster.html
+
 [^6]:
     [Apache `httpd`](https://httpd.apache.org/)
     In addition to being a "basic" web server, and providing static and dynamic content to end-users, Apache `httpd` (as well as most other web servers) can also act as a reverse proxy server, also-known-as a "gateway" server.
@@ -1650,12 +1756,19 @@ If you’re going to be building serverless web apps for production use cases, t
     - [Nginx is now part of F5](https://blog.nginx.org/blog/nginx-is-now-officially-part-of-f5)
 
 [^8]: [HAProxy](https://www.haproxy.org/) - Reliable, High Performance TCP/HTTP Load Balancer
+
 [^9]: See Nginx documentation for [Managing Configuration Files](https://docs.nginx.com/nginx/admin-guide/basic-functionality/managing-configuration-files/)
+
 [^10]: https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_templating.html
+
 [^11]: https://docs.aws.amazon.com/autoscaling/ec2/userguide/asg-instance-refresh.html
+
 [^12]: https://www.aquasec.com/blog/a-brief-history-of-containers-from-1970s-chroot-to-docker-2016/
+
 [^13]: Docker is a tool for building, running, and sharing containers.
+
 [^14]: Kubernetes is a container orchestration tool
+
 [^15]: Compare to VMs, containers:
 
     - have reasonable file sizes
@@ -1668,8 +1781,13 @@ If you’re going to be building serverless web apps for production use cases, t
     - For AWS, there is [LocalStack](https://www.localstack.cloud/), which emulates some of AWS cloud services locally.
 
 [^17]: https://docs.docker.com/desktop/faqs/linuxfaqs/#why-does-docker-desktop-for-linux-run-a-vm
+
 [^18]: Use `docker run` with `-it` flag to get an interactive shell & a pseudo-TTY (so you can type)
+
 [^19]: By hitting `Ctrl+D`, you send an [End-of-Transmission (EOT) character](https://en.wikipedia.org/wiki/End-of-Transmission_character) (to `docker` process)
+
 [^19]: By hitting `Ctrl+C`, you send an interrupt signal ([SIGINT](<https://en.wikipedia.org/wiki/Signal_(IPC)#SIGINT>)) (to `docker` process)
+
 [^20]: The name of the Docker image is also know as its repository name.
+
 [^21]: In other words, when you name multiple images with the same name, Docker will use that name as the repository name to group all images of that name.
