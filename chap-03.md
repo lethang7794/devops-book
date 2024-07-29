@@ -1540,11 +1540,9 @@ In this example, you will use a container to run the Node.js `sample-app`:
 > - Manually run `docker rm <CONTAINER_ID>`.
 > - Having `docker run` automatically do it for you with `--rm` flag.
 
-### Example: Deploy a Dockerized App with Kubernetes
+### A Crash Course on Kubernetes
 
-#### A Crash Course on Kubernetes
-
-##### What is Kubernetes?
+#### What is Kubernetes?
 
 Kubernetes (K8s)
 : a container orchestration tool, that solves almost all [orchestration problems](#what-is-an-orchestration) for running containers.
@@ -1566,16 +1564,16 @@ Kubernetes consists of 2 main pieces: control plane & worker nodes:
   - The servers that are used to actually run your containers.
   - Entirely managed by the control plane.
 
-##### Why Kubernetes?
+#### Why Kubernetes?
 
 In additional to solving almost all the orchestration problems for running containers:
 
 - Kubernetes is open source
 - Kubernetes can be run anywhere: in the cloud, in your data-center, on your PC.
 
-##### Run Kubernetes on personal computer
+#### Run Kubernetes on personal computer
 
-- If you're using Docker Desttop, you're just a few clicks away from running a Kubernetes cluster locally:
+- If you're using Docker Desktop, you're just a few clicks away from running a Kubernetes cluster locally:
 
   - Docker Desktop's Dashboard / Settings / Kubernetes / Enable Kubernetes / Apply & restart
 
@@ -1586,7 +1584,7 @@ In additional to solving almost all the orchestration problems for running conta
 - Configure the `kubeconfig` (Kubernetes configuration) to access the Kubernetes cluster.
 
   > [!TIP]
-  > If you're running the Kubernetes cluster via Docker Desktop, the Docker Destkop has already update the config for you.
+  > If you're running the Kubernetes cluster via Docker Desktop, the Docker Desktop has already update the config for you.
 
   - Tell `kubectl` to use the context that Docker Desktop added
 
@@ -1599,7 +1597,7 @@ In additional to solving almost all the orchestration problems for running conta
     ```
 
     > [!NOTE]
-    > The `kubeconfig` can consists of multiple _contexts_, each context is coressponding to the configuration for a Kubernetes cluster.
+    > The `kubeconfig` can consists of multiple _contexts_, each context is corresponding to the configuration for a Kubernetes cluster.
     > e.g.
     >
     > - The context added by Docker Desktop is named `docker-desktop`.
@@ -1623,7 +1621,36 @@ In additional to solving almost all the orchestration problems for running conta
   - runs the control plane
   - also acts as a worker node
 
-##### How to use Kubernetes?
+#### How to use Kubernetes?
+
+- To deploy something in Kubernetes:
+
+  - You
+
+    - declare your intent
+      - by creating Kubernetes objects
+    - record your intent
+      - by writing these Kubernetes object to the cluster (via api server)
+
+  - The Kubernetes cluster runs a _reconciliation loop_, which continuously
+
+    - checks the objects you've stored in the it
+    - works to make the state of the cluster match your intent.
+
+- There are many types of Kubernetes objects available:
+
+  - To deploy an application, e.g. the sample app, you use Kubernetes Deployment - a declarative way to manage application in Kubernetes:
+    - Which Docker images to run
+    - How many copies of them to run (replicas)
+    - Many settings for those image, e.g. CPU, memory, port numbers, environment variables...
+
+- A typical workflow when using Kubernetes:
+  - Create YAML file to define Kubernetes objects
+  - Use `kubectl apply` to submit those objects to the cluster
+
+> [!NOTE]
+> Kubernetes: Object & Resource & Configuration & Kind
+> TODO
 
 ### Example: Deploy a Load Balancer with Kubernetes
 
