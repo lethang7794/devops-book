@@ -1652,6 +1652,136 @@ In additional to solving almost all the orchestration problems for running conta
 > Kubernetes: Object & Resource & Configuration & Kind
 > TODO
 
+### Example: Deploy a Dockerized App with Kubernetes
+
+- Create a folder to store the YAML files for the dockerized app
+
+  ```bash
+  cd examples
+  mkdir -p ch3/kubernetes
+  ```
+
+- Create the Kubernetes Deployment object
+
+  ```yaml
+  # example/ch3/kubernetes/sample-app-deployment.yml
+  apiVersion: apps/v1 #               0️⃣
+  kind: Deployment #                  1️⃣
+  metadata: #                         2️⃣
+    name: sample-app-deployment
+  spec:
+    replicas: 3 #                     3️⃣
+    template: #                       4️⃣
+      metadata: #                     5️⃣
+        labels:
+          app: sample-app-pods
+      spec:
+        containers: #                 6️⃣
+          - name: sample-app #        7️⃣
+            image: sample-app:v1 #    8️⃣
+            ports:
+              - containerPort: 8080 # 9️⃣
+            env: #                    10
+              - name: NODE_ENV
+                value: production
+    selector: #                       11
+      matchLabels:
+        app: sample-app-pods
+  ```
+
+  - 1️⃣ `kind`: Specify the "kind" of this Kubernetes object.
+  - 2️⃣ `metadata`: Specify the metadata of this Kubernetes object, that can be used to identify & target it in API calls.
+
+    > [!NOTE]
+    > Kubernetes makes heavy use of metadata (& its labels) to keep the system flexible & loosely coupled.
+
+  - 3️⃣: This Deployment will run 3 replicas.
+  - 4️⃣: The _pod template_ - the blueprint - that defines what this Deployment will deploy & manage.
+
+    With pod templatem, you specify:
+
+    - The containers to run
+    - The ports to use
+    - The environment variables to set
+    - ...
+
+    > [!TIP]
+    > The pod template is similar to the launch template of AWS Auto Scaling Group
+
+    > [!NOTE]
+    > Instead of deploying one container at a time, in Kubernetes you deploy _pods_, groups of containers that are meant to be deployed together.
+    > e.g.
+    >
+    > - You can deploy a pod with:
+    >   - a container to run a web app, e.g. the `sample-app`
+    >   - another container that gathers metrics on the web app & send them to a central service, e.g. Datadog.
+
+  - 5️⃣: The pods (deployed & managed by this pod template) have its own metadata (so Kubernetes can also identify & target them).
+  - 6️⃣: The containers run inside the pod.
+  - 7️⃣: The pod in this example run a single container named `sample-app`.
+  - 8️⃣: The Docker image to run for the `sample-app` container.
+  - 9️⃣: Tells Kubernetes that the Docker image listens for request on port `8080`.
+
+    > [!NOTE]
+    > Isn't this port already specified in the Dockerfile?
+    >
+    > - The port specified with `EXPOSE` in the Dockerfile acts a document from the person who builds the image.
+    > - The person who runs the containers, using that information to run the containers, .e.g.
+    >   - `docker run --publish hostPort:containerPort`
+    >   - Kubernetes' Pod `spec.containers.[].port.containerPort`
+
+  - 10 `env`: Set the environment for the container.
+  - 11 `selector`: Tells Kubernetes Deployment what to target (which pod to deploy & manage)
+
+    > [!NOTE]
+    > Why doesn't Deployment just assume that the pod defined within that Deployment is the one you want to target.
+    >
+    > Because Kubernetes is trying to be flexible & decoupled:
+    >
+    > - The Deployment & the pod template can be defined completely separately.
+    > - But you always need to specify a `selector` to tell Kubernetes what to target.
+
+- Use `kubectl apply` to apply the Deployment configuration
+
+  ```bash
+  kubectl apply -f sample-app-deployment.yml
+  ```
+
+- Interact with the deployments
+
+  - Display the deployment
+
+    ```bash
+    kubectl get deployments
+    ```
+
+    > [!TIP]
+    > The field `metadata.name`'s value is used as the name of the deployment.
+
+  - Show details about the deployment
+
+    ```bash
+    kubectl describe deployments <NAME>
+    ```
+
+  - Display the pods
+
+    ```bash
+    kubectl get pods
+    ```
+
+  - Show details about the pods
+
+    ```bash
+    kubectl describe pods <NAME>
+    ```
+
+  - Print the logs for a container in a pod
+
+    ```bash
+    kubectl logs <POD_NAME>
+    ```
+
 ### Example: Deploy a Load Balancer with Kubernetes
 
 ### Example: Roll Out Updates with Kubernetes
