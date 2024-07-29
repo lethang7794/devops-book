@@ -1649,7 +1649,7 @@ In additional to solving almost all the orchestration problems for running conta
   - Use `kubectl apply` to submit those objects to the cluster
 
 > [!NOTE]
-> Kubernetes: Object & Resource & Configuration & Kind
+> Kubernetes: Object & Resource & Configuration & Manifest
 > TODO
 
 ### Example: Deploy a Dockerized App with Kubernetes
@@ -1698,7 +1698,7 @@ In additional to solving almost all the orchestration problems for running conta
   - 3️⃣: This Deployment will run 3 replicas.
   - 4️⃣: The _pod template_ - the blueprint - that defines what this Deployment will deploy & manage.
 
-    With pod templatem, you specify:
+    With pod template, you specify:
 
     - The containers to run
     - The ports to use
@@ -1827,7 +1827,7 @@ In additional to solving almost all the orchestration problems for running conta
   > - In GCP, you'll get an **Cloud Load Balancer**
   > - Locally, you'll get a **simple** load balancer (built into the Kubernetes distribution in Docker Desktop)
 
-  - 4: Distribute traffic across the pods with the label `app: sample-app-pods` (the pods you defined in previous Deploylment)
+  - 4: Distribute traffic across the pods with the label `app: sample-app-pods` (the pods you defined in previous Deployment)
   - 5: The Service will receive requests on port 80 (the default HTTP port).
   - 6: The Service will forward requests to port 8080 of the pods.
 
@@ -1933,6 +1933,27 @@ When using Kubernetes in production, instead of raw YAML, try out one of the fol
 - Kustomize
 - kapp
 
+### A Crash Course on AWS Elastic Kubernetes Service (EKS)
+
+#### Why use a managed Kubernetes service
+
+- Running Kubernetes is great for learning & testing, but not for production.
+
+- For production, you'll need to run a Kubernetes cluster on servers in a data center:
+
+  - Kubernetes is a complicated system
+  - Setting up & maintaining a Kubernetes cluster is a significant undertaking.
+
+- Most cloud providers have managed Kubernetes services that makes setting up & maintaining a Kubernetes cluster a lot easier.
+
+#### What is EKS
+
+EKS is the manage Kubernetes service from AWS, which can
+
+- deploy & manage
+  - the control plane
+  - worker nodes
+
 ### Example: Deploy a Kubernetes Cluster in AWS Using EKS
 
 > [!CAUTION]
@@ -1941,9 +1962,276 @@ When using Kubernetes in production, instead of raw YAML, try out one of the fol
 > - While most of the examples in this book are part of the AWS free tier, Amazon EKS is not: as of June 2024, the pricing is $0.10 per hour for the control plane.
 > - So please be aware that running the examples in this section will cost you a little bit of money.
 
-### Example: Push a Docker Image to ECR
+#### The `eks-cluster` OpenTofu module
 
-### Example: Deploy a Dockerized App into an EKS Cluster
+The sample code repo contains an OpenTofu module named `eks-cluster` (in `ch3/tofu/modules/eks-cluster` folder) that can be used to deploy a simple EKS cluster, which includes:
+
+- A fully-managed control plane
+- Full-manged worker nodes
+
+  > [!NOTE]
+  > EKS supports several [types of worker nodes](https://docs.aws.amazon.com/eks/latest/userguide/eks-compute.html):
+  >
+  > - EKS managed node groups
+  > - Self managed nodes
+  > - AWS Fargate
+  >
+  > This example uses an EKS manage node group, which deploys worker nodes in an ASG (VM orchestration).
+
+- IAM roles with the minimal permissions required by the control plane & worker nodes
+
+  > [!NOTE]
+  > An _IAM role_
+  >
+  > - is similar to an IAM user: it's an entity in AWS that can be granted IAM permissions.
+  > - is not associated with any person, and do not have permanent credentials (password, access keys)
+  >   - but can be _assumed_ by other IAM entities, e.g. EKS control plane
+  >
+  > IAM role is a mechhanism for granting services permissions to make certian API calls in AWS account.
+
+- (Everything will be deployed into the Default VPC).
+
+#### Using the OpenTofu module to deploy an Kubernetes cluster using EKS
+
+- Create the `eks-sample` OpenTofu module folder
+
+  ```bash
+  cd examples
+  mkdir -p examples/ch3/tofu/live/eks-sample
+  ```
+
+- Configure the `eks-sample` module to use the `eks-cluster` module
+
+  ```terraform
+  # examples/ch3/tofu/live/eks-sample/main.tf
+
+  provider "aws" {
+    region = "us-east-2"
+  }
+
+  module "cluster" {
+    source = "github.com/brikis98/devops-book//ch3/tofu/modules/eks-cluster"
+
+    name        = "eks-sample"
+    eks_version = "1.29"
+
+    instance_type        = "t2.micro"
+    min_worker_nodes     = 1
+    max_worker_nodes     = 10
+    desired_worker_nodes = 3
+  }
+  ```
+
+- (Optional) Authenicate to AWS
+
+- Init the OpenTofu module
+
+  ```bash
+  tofu init
+  ```
+
+- Apply OpenTofu configuration to create infrastructure (the `eks-cluster`'s resources)
+
+  ```bash
+  tofu apply
+  ```
+
+  - The cluster deployment takes 3-5 minutes
+
+- Interact with your Kubernetes cluster
+
+  - Configure Kubenetes configuration to authenticate to the cluster
+
+    ```bash
+    # aws eks update-kubeconfig --region <REGION> --name <CLUSTER_NAME>
+    aws eks update-kubeconfig --region us-east-2 --name eks-tofu
+    ```
+
+  - Display the nodes
+
+  ```bash
+  kubectl get nodes
+  ```
+
+### Example: Push a Docker Image to AWS Elastic Container Registry (ECR)
+
+#### Container registry and ECR
+
+If you want to deploy your `sample-app` to the EKS cluster, the Docker image for the `sample-app` need to be pushed to a _container registry_ that EKS can read from.
+
+There are lots of container registries:
+
+- Docker Hub
+- AWS Elastic Container Registry (ECR)
+- Azure Container Registry
+- Google Artifact Registry
+- JFrog Docker Registry
+- GitHub Container Registry.
+
+---
+
+You've used AWS for the examples, so ECR is the easiest option.
+
+- For each Docker image you want to store in ECE, you have to create an ECR repository (ECR repo).
+
+- The book's sample code repo includes a module called `ecr-repo` (in `ch3/tofu/modules/ecr-repo` folder) that you can use to create an ECR repo.
+
+#### Using `ecr-repo` OpenTofu module to create an ECR repo
+
+- Create the `ecr-sample` OpenTofu module folder
+
+  ```bash
+  cd examples
+  mkdir -p examples/ch3/tofu/live/ecr-sample
+  ```
+
+- Configure the `ecr-sample` module to use the `eks-repo` module
+
+  - `main.tf`
+
+    ```terraform
+    # examples/ch3/tofu/live/ecr-sample/main.tf
+    provider "aws" {
+      region = "us-east-2"
+    }
+
+    module "repo" {
+      source = "github.com/brikis98/devops-book//ch3/tofu/modules/ecr-repo"
+
+      name = "sample-app"
+    }
+    ```
+
+  - `output.tf`
+
+    ```terraform
+    # examples/ch3/tofu/live/ecr-sample/outputs.tf
+    output "registry_url" {
+      value       = module.repo.registry_url
+      description = "URL of the ECR repo"
+    }
+    ```
+
+- Init the OpenTofu module
+
+  ```bash
+  tofu init
+  ```
+
+- Apply OpenTofu configuration to create infrastructure (the `ecr-repo`'s resources)
+
+  ```bash
+  tofu apply
+  ```
+
+---
+
+> [!NOTE]
+> By default, `docker build` command builds the Docker image for whatever CPU architecture that it's running on.
+>
+> e.g.
+>
+> - On a Macbook with ARM CPU (M1, M2...), the Docker image is built for `arm64` architecture.
+> - On a PC running Linux, it's for `amd64` architecture.
+
+> [!NOTE]
+> You need to ensure that you build your Docker images for whatever architecture(s) you plan to deploy on.
+>
+> - Docker now ships with the `buildx` command which makes it easy to build Docker images for multiple architecture.
+
+---
+
+- (The very first time you use buildx) Create a builder named `multi-platform-builder` for your target architectures:
+
+  ```bash
+  docker buildx create \
+    --use \                              # Set the current builder instance
+    --platform=linux/amd64,linux/arm64 \ # Fixed platforms for current node
+    --name=multiple-platform-build       # Builder instance name
+  ```
+
+- Use the `multiple-platform-build` builder to build Docker image `sample-app:v3` for multiple platforms
+
+  ```bash
+  docker buildx build \
+    --platform=linux/amd64,linux/arm64 \
+    -t sample-app:v3 \
+    .
+  ```
+
+---
+
+- Re-tag the image using the registry URL of the ECR repo (`registry_url`)
+
+  ```bash
+  docker tag \
+    sample-app:v3 \
+    <YOUR_ECR_REPO_URL>:v3
+  ```
+
+- Authenticate `docker` to the ECR repo:
+
+  ```bash
+  aws ecr get-login-password --region us-east-2 | \
+    docker login \
+      --username AWS \
+      --password-stdin \
+      <YOUR_ECR_REPO_URL>
+  ```
+
+- Push Docker image to your ECR repo
+
+  ```bash
+  docker push <YOUR_ECR_REPO_URL>:v3
+  ```
+
+  > [!TIP]
+  > The first time you push, it may take longer than a minute to update the image.
+  >
+  > Subsequent pushes - due to Docker's layer caching - will be faster.
+
+### Example: Deploy a Dockerized App into an EKS Cluster (With Load Balancer)
+
+After having the `sample-app` Docker image on your ECR repo, you're ready to deploy the `sample-app` to EKS cluster:
+
+- Update the Deployment to use the Docker image from your ECR repo
+
+  ```yaml
+  # examples/ch3/kubernetes/sample-app-deployment.yml
+  # (...)
+  spec:
+    # (...)
+    spec:
+      containers:
+        - name: sample-app
+          image: <YOUR_ECR_REPO_URL>:v3
+  ```
+
+- Apply both the Kubernetes object into your EKS cluster:
+
+  ```bash
+  kubectl apply -f sample-app-deployment.yml
+  kubectl apply -f sample-app-service.yml
+  ```
+
+- Interact with Kubernetes cluster on EKS (and your app)
+
+  - Display the pods
+
+    ```bash
+    kubectl get pods
+    ```
+
+  - Display the service
+
+    ```bash
+    kubectl get services
+    ```
+
+    - The `sample-app-loadbalancer` has an `EXTERNAL-IP` of the domain name of an AWS ELB.
+
+    > [!TIP]
+    > The `EXTERNAL-IP` column is showing the domain name, isn't it weird?
 
 ### Get your hands dirty with Kubernetes and container orchestration
 
@@ -2016,9 +2304,7 @@ If you’re going to be building serverless web apps for production use cases, t
   | **Serverless** ...       | **Immutable** ...          | Functions are deploy & managed without thinking about servers at all. | Deploy functions using AWS Lambda.                    |
 
 [^1]: The no downtime is from users perspective.
-
 [^2]: The computing resources are CPU, memory, disk space.
-
 [^3]: The scheduler usually implements some sort of _bin packing algorithm_ to try to use resources available as efficiently as possible.
 
 [example repo]: https://github.com/brikis98/devops-book
@@ -2032,7 +2318,6 @@ If you’re going to be building serverless web apps for production use cases, t
     - ...
 
 [^5]: https://nodejs.org/api/cluster.html
-
 [^6]:
     [Apache `httpd`](https://httpd.apache.org/)
     In addition to being a "basic" web server, and providing static and dynamic content to end-users, Apache `httpd` (as well as most other web servers) can also act as a reverse proxy server, also-known-as a "gateway" server.
@@ -2044,19 +2329,12 @@ If you’re going to be building serverless web apps for production use cases, t
     - [Nginx is now part of F5](https://blog.nginx.org/blog/nginx-is-now-officially-part-of-f5)
 
 [^8]: [HAProxy](https://www.haproxy.org/) - Reliable, High Performance TCP/HTTP Load Balancer
-
 [^9]: See Nginx documentation for [Managing Configuration Files](https://docs.nginx.com/nginx/admin-guide/basic-functionality/managing-configuration-files/)
-
 [^10]: https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_templating.html
-
 [^11]: https://docs.aws.amazon.com/autoscaling/ec2/userguide/asg-instance-refresh.html
-
 [^12]: https://www.aquasec.com/blog/a-brief-history-of-containers-from-1970s-chroot-to-docker-2016/
-
 [^13]: Docker is a tool for building, running, and sharing containers.
-
 [^14]: Kubernetes is a container orchestration tool
-
 [^15]: Compare to VMs, containers:
 
     - have reasonable file sizes
@@ -2069,13 +2347,8 @@ If you’re going to be building serverless web apps for production use cases, t
     - For AWS, there is [LocalStack](https://www.localstack.cloud/), which emulates some of AWS cloud services locally.
 
 [^17]: https://docs.docker.com/desktop/faqs/linuxfaqs/#why-does-docker-desktop-for-linux-run-a-vm
-
 [^18]: Use `docker run` with `-it` flag to get an interactive shell & a pseudo-TTY (so you can type)
-
 [^19]: By hitting `Ctrl+D`, you send an [End-of-Transmission (EOT) character](https://en.wikipedia.org/wiki/End-of-Transmission_character) (to `docker` process)
-
 [^19]: By hitting `Ctrl+C`, you send an interrupt signal ([SIGINT](<https://en.wikipedia.org/wiki/Signal_(IPC)#SIGINT>)) (to `docker` process)
-
 [^20]: The name of the Docker image is also know as its repository name.
-
 [^21]: In other words, when you name multiple images with the same name, Docker will use that name as the repository name to group all images of that name.
