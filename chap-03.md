@@ -1853,6 +1853,70 @@ In additional to solving almost all the orchestration problems for running conta
 
 ### Example: Roll Out Updates with Kubernetes
 
+Just as Ansible, ASG, Kubernetes has built support for rolling updates.
+
+- Add `strategy` section to `sample-app-deployment.yaml`
+
+  ```yaml
+  # example/ch3/kubernetes/sample-app-deployment.yml
+  # ...
+  spec:
+    # ...
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 3 #       1
+        maxUnavailable: 0 # 2
+  ```
+
+  - 1: `maxSurge`: The Deployment can deploy up to 3 extra pods during deployment.
+  - 2: `maxUnavailable`: The Deployment only undeploy an old pod after a new one is deployed.
+
+- Apply the updated Deployment
+
+  ```bash
+  kubectl apply -f sample-app-deployment.yml
+  ```
+
+- Make a change to the `sample-app` (the `app.js` file)
+
+  ```bash
+  sed -i s/Hello, World!/Fundamentals of DevOps!/g examples/ch3/docker/app.js
+  ```
+
+- To make a change to a containerized app, you need to build the new image, then deploy that new image:
+
+  - Build a new image (tag `sample-app:v2`) with the new changes
+
+    ```bash
+    docker build -t sample-app:v2
+    ```
+
+  - Update the Deployment to use `sample-app:v2` image
+
+    ```yaml
+    # examples/ch3/kubernetes/sample-app-deployment.yml
+    # (...)
+    spec:
+      # (...)
+      spec:
+        containers:
+          - name: sample-app
+            image: sample-app:v2 # Change to the new tag image
+    ```
+
+  - Run `kubectl apply` to deploy the change:
+
+    ```bash
+    kubectl apply -f sample-app-deployment.yml
+    ```
+
+  - Display the pods (to see the rolling updates)
+
+    ```bash
+    kubectl get pods
+    ```
+
 ### Get your hands dirty with Kubernetes and YAML template tools
 
 > [!NOTE]
