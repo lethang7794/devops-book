@@ -1784,6 +1784,73 @@ In additional to solving almost all the orchestration problems for running conta
 
 ### Example: Deploy a Load Balancer with Kubernetes
 
+> [!NOTE]
+> Kubernetes has a built-in support for load-balancing via _Service_ object.
+>
+> - The Service object is a way to expose an app running in Kubernetes as a service you can tale over the network.
+
+- Create the Kubernetes Service object
+
+  ```bash
+  # examples/ch3/kubernetes/sample-app-service.yml
+  apiVersion: v1
+  kind: Service #                 1
+  metadata: #                     2
+    name: sample-app-loadbalancer
+  spec:
+    type: LoadBalancer #          3
+    selector:
+      app: sample-app-pods #      4
+    ports:
+      - protocol: TCP
+        port: 80 #                5
+        targetPort: 8080 #        6
+  ```
+
+  - 1: Specify that this object is a Kubernetes Service
+  - 2: Specify the name of the Service (via the metadata).
+
+  > [!NOTE]
+  > Every Kubernetes object MUST have the metadata with the `name` field
+
+  - 3: Configure the Service to be a load balancer.
+
+  > [!NOTE]
+  > The actual type of load balancer you get will be different, depending on:
+  >
+  > - What sort of Kubernetes cluster you're running
+  > - How you configure that cluster
+  >
+  > e.g. If you're run this code
+  >
+  > - In AWS, you'll get an **AWS ELB**
+  > - In GCP, you'll get an **Cloud Load Balancer**
+  > - Locally, you'll get a **simple** load balancer (built into the Kubernetes distribution in Docker Desktop)
+
+  - 4: Distribute traffic across the pods with the label `app: sample-app-pods` (the pods you defined in previous Deploylment)
+  - 5: The Service will receive requests on port 80 (the default HTTP port).
+  - 6: The Service will forward requests to port 8080 of the pods.
+
+- Use `kubectl apply` to apply the Service configuration
+
+  ```bash
+  kubectl apply -f sample-app-service.yml
+  ```
+
+- Interact with the services
+
+  - Display the service
+
+  ```bash
+  kubectl get services
+  ```
+
+  - Show details of the service
+
+  ```bash
+  kubectl describe services <NAME>
+  ```
+
 ### Example: Roll Out Updates with Kubernetes
 
 ### Get your hands dirty with Kubernetes and YAML template tools
