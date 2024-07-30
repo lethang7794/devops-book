@@ -2344,7 +2344,7 @@ The book sample code repo includes an OpenTofu module named `lambda` (in `ch3/to
     region = "us-east-2"
   }
 
-  module "lambda" {
+  module "function" {
     name = "lambda-sample" #         1
 
     src_dir = "${path.module}/src" # 2
@@ -2422,7 +2422,90 @@ The book sample code repo includes an OpenTofu module named `lambda` (in `ch3/to
   - Currently, the function has no triggers:
     - You can manually trigger it by clicking the `Test` button.
 
+> [!NOTE]
+> In this example, you deploy a Lambda function without a trigger, which isn't very useful.
+>
+> - Because the function cannot be triggered by anything or anyone except you.
+
+### A Crash course on AWS Lambda triggers
+
+You can configure a [variety of events to trigger your Lambda function](https://docs.aws.amazon.com/lambda/latest/dg/lambda-services.html).
+
+You can have AWS automatically run your Lambda function:
+
+- each time a file is uploaded to Amazon’s Simple Storage Service (S3),
+- each time a new message is written to a queue in Amazon’s Simple Queue Service (SQS),
+- each time you get a new email in Amazon’s Simple Email Service (SES)
+
+  > [!NOTE]
+  > AWS Lambda is a great choice of building event-driven systems and background processing jobs.
+
+- each time you receive an HTTP request in API Gateway
+
+  > [!NOTE]
+  > API Gateway is a managed service you can use to expose an entrypoint for your apps, managing routing, authentication, throttling, and so on.
+  > You can use API Gateway and Lambda to create serverless web apps.
+
 ### Example: Deploy an API Gateway in Front of AWS Lambda
+
+#### The `api-gateway` OpenTofu module
+
+The book’s sample code repo includes a module called `api-gateway` in the `ch3/tofu/modules/api-gateway` folder that can deploy an HTTP API Gateway, a version of API Gateway designed for simple HTTP APIs, that knows how to trigger a Lambda function.
+
+#### Using `api-gateway` OpenTofu module to deploy an API Gateway in Front of AWS Lambda
+
+- Configure the `api-gateway` module to trigger the Lambda function
+
+  ```terraform
+  # examples/ch3/tofu/live/lambda-sample/main.tf
+
+  module "function" {
+    source = "github.com/brikis98/devops-book//ch3/tofu/modules/lambda"
+    # ... (other params omitted) ...
+  }
+
+  module "gateway" {
+    source = "github.com/brikis98/devops-book//ch3/tofu/modules/api-gateway"
+
+    name               = "lambda-sample" #              1
+    function_arn       = module.function.function_arn # 2
+    api_gateway_routes = ["GET /"] #                    3
+  }
+  ```
+
+  - 1 `name`: The base name to use for the `api-gateway`'s resources.
+
+  - 2 `function_arn`: The `ARN` of the Lambda function the API Gateway should tirgger when it gets HTTP requests.
+
+    In this example, `function_arn` is set to the output from the `lambda` module.
+
+  - 3 `api_gateway_routes`: The routes that should trigger the Lambda function
+
+    In this example, the API Gateway has only 1 route: HTTP GET to `/` path.
+
+- Add an output variable
+
+  ```terraform
+  # examples/ch3/tofu/live/lambda-sample/outputs.tf
+
+  output "api_endpoint" {
+    value = module.gateway.api_endpoint
+  }
+  ```
+
+- Init & apply OpenTofu configuration
+
+  ```bash
+  tofu init
+  tofu apply
+  ```
+
+- Your API Gateway is now routing requests to your Lambda function.
+  - As load goes up & down,
+    - AWS will automatically scale your Lambda functions up & down.
+    - API Gateway will automatically distribute traffic across these functions/
+  - When there'no load:
+    - AWS will automatically scale to zero. So it won't cost you a cent.
 
 ### Example: Roll Out Updates with AWS Lambda
 
