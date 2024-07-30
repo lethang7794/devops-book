@@ -39,18 +39,38 @@
         - [docker ps](#docker-ps)
         - [docker start](#docker-start)
     - [Example: Create a Docker Image for a Node.js app](#example-create-a-docker-image-for-a-nodejs-app)
+    - [A Crash Course on Kubernetes](#a-crash-course-on-kubernetes)
+      - [What is Kubernetes?](#what-is-kubernetes)
+      - [Why Kubernetes?](#why-kubernetes)
+      - [Run Kubernetes on personal computer](#run-kubernetes-on-personal-computer)
+      - [How to use Kubernetes?](#how-to-use-kubernetes)
     - [Example: Deploy a Dockerized App with Kubernetes](#example-deploy-a-dockerized-app-with-kubernetes)
     - [Example: Deploy a Load Balancer with Kubernetes](#example-deploy-a-load-balancer-with-kubernetes)
     - [Example: Roll Out Updates with Kubernetes](#example-roll-out-updates-with-kubernetes)
     - [Get your hands dirty with Kubernetes and YAML template tools](#get-your-hands-dirty-with-kubernetes-and-yaml-template-tools)
+    - [A Crash Course on AWS Elastic Kubernetes Service (EKS)](#a-crash-course-on-aws-elastic-kubernetes-service-eks)
+      - [Why use a managed Kubernetes service](#why-use-a-managed-kubernetes-service)
+      - [What is EKS](#what-is-eks)
     - [Example: Deploy a Kubernetes Cluster in AWS Using EKS](#example-deploy-a-kubernetes-cluster-in-aws-using-eks)
-    - [Example: Push a Docker Image to ECR](#example-push-a-docker-image-to-ecr)
-    - [Example: Deploy a Dockerized App into an EKS Cluster](#example-deploy-a-dockerized-app-into-an-eks-cluster)
+      - [The `eks-cluster` OpenTofu module](#the-eks-cluster-opentofu-module)
+      - [Using the OpenTofu module to deploy an Kubernetes cluster using EKS](#using-the-opentofu-module-to-deploy-an-kubernetes-cluster-using-eks)
+    - [Example: Push a Docker Image to AWS Elastic Container Registry (ECR)](#example-push-a-docker-image-to-aws-elastic-container-registry-ecr)
+      - [Container registry and ECR](#container-registry-and-ecr)
+      - [Using `ecr-repo` OpenTofu module to create an ECR repo](#using-ecr-repo-opentofu-module-to-create-an-ecr-repo)
+    - [Example: Deploy a Dockerized App into an EKS Cluster (With Load Balancer)](#example-deploy-a-dockerized-app-into-an-eks-cluster-with-load-balancer)
     - [Get your hands dirty with Kubernetes and container orchestration](#get-your-hands-dirty-with-kubernetes-and-container-orchestration)
   - [Serverless Orchestration](#serverless-orchestration)
-    - [What is Serverless Orchestration](#what-is-serverless-orchestration)
+    - [What is Serverless?](#what-is-serverless)
+    - [How Serverless works?](#how-serverless-works)
+    - [Serverless pros and cons](#serverless-pros-and-cons)
+    - [Type of serverless](#type-of-serverless)
     - [Example: Deploy a Serverless Function with AWS Lambda](#example-deploy-a-serverless-function-with-aws-lambda)
+      - [The `lambda` OpenTofu module](#the-lambda-opentofu-module)
+      - [Using the `lambda` OpenTofu module to deploy a AWS Lambda function](#using-the-lambda-opentofu-module-to-deploy-a-aws-lambda-function)
+    - [A Crash course on AWS Lambda triggers](#a-crash-course-on-aws-lambda-triggers)
     - [Example: Deploy an API Gateway in Front of AWS Lambda](#example-deploy-an-api-gateway-in-front-of-aws-lambda)
+      - [The `api-gateway` OpenTofu module](#the-api-gateway-opentofu-module)
+      - [Using `api-gateway` OpenTofu module to deploy an API Gateway in Front of AWS Lambda](#using-api-gateway-opentofu-module-to-deploy-an-api-gateway-in-front-of-aws-lambda)
     - [Example: Roll Out Updates with AWS Lambda](#example-roll-out-updates-with-aws-lambda)
     - [Get your hands dirty with serverless web-apps and Serverless Orchestration](#get-your-hands-dirty-with-serverless-web-apps-and-serverless-orchestration)
   - [Comparing Orchestration Options](#comparing-orchestration-options)
@@ -2551,7 +2571,9 @@ If you’re going to be building serverless web apps for production use cases, t
   | **Serverless** ...       | **Immutable** ...          | Functions are deploy & managed without thinking about servers at all. | Deploy functions using AWS Lambda.                    |
 
 [^1]: The no downtime is from users perspective.
+
 [^2]: The computing resources are CPU, memory, disk space.
+
 [^3]: The scheduler usually implements some sort of _bin packing algorithm_ to try to use resources available as efficiently as possible.
 
 [example repo]: https://github.com/brikis98/devops-book
@@ -2565,6 +2587,7 @@ If you’re going to be building serverless web apps for production use cases, t
     - ...
 
 [^5]: https://nodejs.org/api/cluster.html
+
 [^6]:
     [Apache `httpd`](https://httpd.apache.org/)
     In addition to being a "basic" web server, and providing static and dynamic content to end-users, Apache `httpd` (as well as most other web servers) can also act as a reverse proxy server, also-known-as a "gateway" server.
@@ -2576,12 +2599,19 @@ If you’re going to be building serverless web apps for production use cases, t
     - [Nginx is now part of F5](https://blog.nginx.org/blog/nginx-is-now-officially-part-of-f5)
 
 [^8]: [HAProxy](https://www.haproxy.org/) - Reliable, High Performance TCP/HTTP Load Balancer
+
 [^9]: See Nginx documentation for [Managing Configuration Files](https://docs.nginx.com/nginx/admin-guide/basic-functionality/managing-configuration-files/)
+
 [^10]: https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_templating.html
+
 [^11]: https://docs.aws.amazon.com/autoscaling/ec2/userguide/asg-instance-refresh.html
+
 [^12]: https://www.aquasec.com/blog/a-brief-history-of-containers-from-1970s-chroot-to-docker-2016/
+
 [^13]: Docker is a tool for building, running, and sharing containers.
+
 [^14]: Kubernetes is a container orchestration tool
+
 [^15]: Compare to VMs, containers:
 
     - have reasonable file sizes
@@ -2594,8 +2624,13 @@ If you’re going to be building serverless web apps for production use cases, t
     - For AWS, there is [LocalStack](https://www.localstack.cloud/), which emulates some of AWS cloud services locally.
 
 [^17]: https://docs.docker.com/desktop/faqs/linuxfaqs/#why-does-docker-desktop-for-linux-run-a-vm
+
 [^18]: Use `docker run` with `-it` flag to get an interactive shell & a pseudo-TTY (so you can type)
+
 [^19]: By hitting `Ctrl+D`, you send an [End-of-Transmission (EOT) character](https://en.wikipedia.org/wiki/End-of-Transmission_character) (to `docker` process)
+
 [^19]: By hitting `Ctrl+C`, you send an interrupt signal ([SIGINT](<https://en.wikipedia.org/wiki/Signal_(IPC)#SIGINT>)) (to `docker` process)
+
 [^20]: The name of the Docker image is also know as its repository name.
+
 [^21]: In other words, when you name multiple images with the same name, Docker will use that name as the repository name to group all images of that name.
