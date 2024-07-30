@@ -2318,6 +2318,110 @@ Nowaday, serverless has become so popular, the term "serverless" is being applie
 
 ### Example: Deploy a Serverless Function with AWS Lambda
 
+#### The `lambda` OpenTofu module
+
+The book sample code repo includes an OpenTofu module named `lambda` (in `ch3/tofu/modules/lambda`) that do the following:
+
+- Zip up a folder - you specify - into a deployment package.
+- Upload the deployment package as an AWS Lambda function.
+- Configure various settings for the Lambda function, e.g. memory, CPU, environment variables.
+
+#### Using the `lambda` OpenTofu module to deploy a AWS Lambda function
+
+- Create folder `live/lambda-sample` to use as a root module
+
+  ```bash
+  cd examples
+  mkdir -p ch3/tofu/live/lambda-sample
+  cd ch3/tofu/live/lambda-sample
+  ```
+
+- Configure the `lambda` module
+
+  ```terraform
+  # examples/ch3/tofu/live/lambda-sample/main.tf
+  provider "aws" {
+    region = "us-east-2"
+  }
+
+  module "lambda" {
+    name = "lambda-sample" #         1
+
+    src_dir = "${path.module}/src" # 2
+    runtime = "nodejs20.x" #         3
+    handler = "index.handler" #      4
+
+    memory_size = 128 #              5
+    timeout     = 5 #                6
+
+    environment_variables = { #      7
+      NODE_ENV = "production"
+    }
+
+    # ... (other params omitted) ...
+  }
+  ```
+
+  - 1 `name`: Base name of all resources of the `lambda` module
+  - 2 `src_dir`: The directory which contains the code for the Lambda function.
+  - 3 `runtime`: The runtime used this Lambda function.
+
+    > [!NOTE]
+    > AWS Lambda supports
+    >
+    > - several different runtimes: `Node.js`, `Python`, `Go`, `Java`, `.NET`.
+    > - create custom runtimes for any languague
+
+  - 4 `handler`: The _handler_ to call your function, aka _entrypoint_.
+
+    > [!NOTE]
+    > The _handler_ format is `<FILE>.<FUNCTION>`:
+    >
+    > - `<FILE>`: The file in your deployment package.
+    > - `<FUNCTION>`: The name of the function to call in that file.
+    >
+    > Lambda will pass the event information to this function.
+
+    For this example, Lambda will call the `hanlder` function the `index.js` file.
+
+  - 5 `memory_size`: The amount of memory to give the Lambda function.
+
+    > [!NOTE]
+    > Adding more memory also proportionally increases:
+    >
+    > - the amount of CPU available
+    > - the cost to run the function.
+
+  - 6 `timeout`: The maximum amount of time the Lambda function has to run.
+
+    > [!NOTE]
+    > The timeout limit of Lambda is 15 minutes.
+
+  - 7 `environment_variables`: The environment variables to set for the function.
+
+- Add the handler code at `lambda-sample/src/index.js`
+
+  ```javascript
+  # examples/ch3/tofu/live/lambda-sample/src/index.js
+  exports.handler = (event, context, callback) => {
+    callback(null, {statusCode: 200, body: "Hello, World!"});
+  };
+  ```
+
+- Init & apply the OpenTofu module
+
+  ```bash
+  tofu init
+  tofu apply
+  ```
+
+- Verify that the Lambda function has been deployed by:
+  - Open the Lambda console
+  - Click on the function called `sample-app-lambda`
+  - You should see your Lambda function & handler code.
+  - Currently, the function has no triggers:
+    - You can manually trigger it by clicking the `Test` button.
+
 ### Example: Deploy an API Gateway in Front of AWS Lambda
 
 ### Example: Roll Out Updates with AWS Lambda
