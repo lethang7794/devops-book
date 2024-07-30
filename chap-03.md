@@ -2529,6 +2529,30 @@ The book’s sample code repo includes a module called `api-gateway` in the `ch3
 
 ### Example: Roll Out Updates with AWS Lambda
 
+> [!NOTE]
+> By default, AWS Lambda natively supports a nearly instantaneous deployment model:
+>
+> - If you upload a new deployment package, all new requests will start executing the code in that deployment package almost immediately.
+
+- Update the Lambda function response text
+
+  ```javascript
+  // examples/ch3/tofu/live/lambda-sample/src/index.js
+  exports.handler = (event, context, callback) => {
+    callback(null, { statusCode: 200, body: "Fundamentals of DevOps!" });
+  };
+  ```
+
+- Rerun `apply` to deploy the changes
+
+  ```bash
+  tofu apply
+  ```
+
+> [!TIP]
+> Under the hood, AWS Lambda does an instanteneous switchover from the old to the new version
+> (~ blue-green deployment).
+
 ### Get your hands dirty with serverless web-apps and Serverless Orchestration
 
 > [!NOTE]
