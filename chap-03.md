@@ -2250,7 +2250,67 @@ After having the `sample-app` Docker image on your ECR repo, you're ready to dep
 
 ## Serverless Orchestration
 
-### What is Serverless Orchestration
+### What is Serverless?
+
+serverless
+: focus entirely on your app
+: - without having to think about servers at all
+: - (the servers are fully managed by someone not you)
+
+### How Serverless works?
+
+The origiral model referred to as "serverless" was _Functions as a Service_ (FaaS), which works as follows:
+
+1.  Create a _deployment package_, which contains just the source code to run a function (instead of the whole app).
+
+2.  Upload that deployment package to your _serverless provider_, which is typically also a cloud provider, e.g. AWS, GCP, Azure.
+
+    > [!NOTE]
+    > You can use tools like Knative to add support for serverless in your on-prem Kubernetes cluster.
+
+3.  Configure the serverless provider to _trigger_ your function in response to certain **events**, e.g. an HTTP request, a file upload, a new message in a queue.
+
+4.  When the trigger goes off, the serverless provider:
+
+    - Execute your function
+    - Passing it information about the event as an input
+    - (In some case), taking the data the function returns as an output; and passing it on elsewhere (e.g. sending it as an HTTP response).
+
+5.  When you need to deploy an update, repeat step 1 and 2: create a new deployment package; upload that deployment package to the cloud provider.
+
+### Serverless pros and cons
+
+- Pros:
+
+| Pros                                         | Description                                                                                     | How?                                                                                                       | Example                                                    |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| You focus on your code, not on the hardware. | You don't have to think about the servers at all.                                               | <- The serverless providers manage the servers, auto-scaling/healing to handle any load.                   | Whether your triggers goes off 1000 times/s or 1 time/year |
+| You focus on your code, not on the OS.       | - The deployment packages don't need to include anything about the OS or other toolings.        | <- Only code of your app.                                                                                  |                                                            |
+|                                              | - You don't have to maintain the OS.                                                            | <- Handle running, securing & updating the OS.                                                             |                                                            |
+| You get even more speed.                     | Serverless deployment are even faster than containers.                                          | <- Deployment packages are tiny; no servers to spin up.                                                    | < 1 minute                                                 |
+| You get even more efficiency.                | Serverless can use computing resources more efficient than containers.                          | <- Short-running functions can move around the cluster quickly to any server that has spare resources.     | Serverless is incredibly cheap.                            |
+| Pricing scales perfectly with usage.         | Serverless is pay per invocation -> Pricing scales linear with usage; can even _scale to zero_. | <- Servers, VMs, containers are pay per hour to rent, even if these hardware is _sitting completely idle_. |                                                            |
+
+- Cons:
+
+| Cons                     | Description                                                                                | Example                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Size limits              | There are usually size limits on: deployment package, event payload, response payload.     |                                                                                          |
+| Time limits              | There is usually a maximum amount of time that your functions can run for.                 | For AWS Lambda: 15 minutes                                                               |
+| Disk limits              | There is only a small ephemeral storage available locally to your functions.               |                                                                                          |
+| Performance              | Little control over hardware, which makes performance tuning difficult.                    |                                                                                          |
+| Debugging                | You can't connect to the servers directly - e.g. via SSH, which makes debugging difficult. |                                                                                          |
+| Cold start               | The first run (after a period of idleness) can take up several seconds.                    |                                                                                          |
+| Long-running connections | Database connection pools, WebSockets... are more complicated with FaaS.                   | For AWS Lambda, to have a database connection pool, you need another service (RDS Proxy) |
+
+### Type of serverless
+
+Nowaday, serverless has become so popular, the term "serverless" is being applied to many models:
+
+- Serverless functions - FaaS (the original model of serverless), e.g. AWS Lambda (2015), GCP Cloud Functions, Azure Serverless
+- "Serverless web-app", e.g. Google App Engine (GAE - 2008)
+- Serverless containers, e.g. AWS Fargate.
+- Serverless database, e.g. Amazon Aurora Serverless.
 
 > [!IMPORTANT]
 > Key takeaway #4
