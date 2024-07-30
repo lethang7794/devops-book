@@ -2569,6 +2569,53 @@ If you’re going to be building serverless web apps for production use cases, t
 
 ## Comparing Orchestration Options
 
+### In terms of the core orchestration problems
+
+| Problem                | Server orchestration | VM orchestration | Container orchestration | Serverless orchestration |
+| ---------------------- | -------------------- | ---------------- | ----------------------- | ------------------------ |
+| Deployment             | ⭐                   | ⭐⭐             | ⭐⭐⭐                  | ⭐⭐⭐                   |
+| Deployments strategies | ⭐⭐                 | ⭐⭐             | ⭐⭐⭐                  | ⭐⭐⭐                   |
+| Scheduling             | ❌                   | ⭐⭐             | ⭐⭐⭐                  | ⭐⭐⭐                   |
+| Rollback               | ❌                   | ⭐⭐⭐           | ⭐⭐⭐                  | ⭐⭐⭐                   |
+| Auto scaling           | ❌                   | ⭐⭐             | ⭐⭐                    | ⭐⭐⭐                   |
+| Auto healing           | ❌                   | ⭐⭐             | ⭐⭐                    | ⭐⭐⭐                   |
+| Configuration          | ⭐⭐⭐               | ⭐⭐             | ⭐⭐⭐                  | ⭐⭐⭐                   |
+| Secrets management     | ⭐⭐                 | ⭐               | ⭐⭐⭐                  | ⭐⭐⭐                   |
+| Load balancing         | ⭐                   | ⭐⭐⭐           | ⭐⭐⭐                  | ⭐⭐⭐                   |
+| Service communication  | ⭐                   | ⭐               | ⭐⭐⭐                  | ⭐⭐⭐                   |
+| Disk management        | ⭐                   | ⭐⭐             | ⭐⭐⭐                  | ❌                       |
+
+| Sign   | Meaning          |
+| ------ | ---------------- |
+| ❌     | Not supported    |
+| ⭐     | Manually         |
+| ⭐⭐   | Supported        |
+| ⭐⭐⭐ | Strong supported |
+
+For more information,see [Orchestration - Core Problems Comparison](https://www.gruntwork.io/fundamentals-of-devops/deploying-apps-orchestration-vms-containers-serverless#orchestration_core_problems_comparison)
+
+### In terms of core orchestration attributes
+
+| Dimension          | Server orchestration | VM orchestration | Container orchestration | Serverless orchestration |
+| ------------------ | -------------------- | ---------------- | ----------------------- | ------------------------ |
+| Deployment speed   | ❌                   | ⭐               | ⭐⭐                    | ⭐⭐⭐                   |
+| Maintenance        | ❌                   | ⭐               | ❌                      | ⭐⭐⭐                   |
+| Ease of learning   | ⭐⭐                 | ⭐⭐             | ❌                      | ⭐⭐⭐                   |
+| Dev/prod parity    | ❌                   | ❌               | ⭐⭐⭐                  | ⭐⭐⭐                   |
+| Maturity           | ⭐⭐                 | ⭐               | ⭐⭐                    | ❌                       |
+| Debugging          | ⭐⭐                 | ⭐⭐⭐           | ❌                      | ❌                       |
+| Long-running tasks | ⭐⭐⭐               | ⭐⭐⭐           | ⭐⭐⭐                  | ❌                       |
+| Performance tuning | ⭐⭐⭐               | ⭐⭐             | ⭐                      | ❌                       |
+
+| Sign   | Meaning     |
+| ------ | ----------- |
+| ❌     | Weak        |
+| ⭐     | Moderate    |
+| ⭐⭐   | Strong      |
+| ⭐⭐⭐ | Very strong |
+
+For more information, see [Orchestration - Attributes Comparison](https://www.gruntwork.io/fundamentals-of-devops/deploying-apps-orchestration-vms-containers-serverless#orchestration_attributes_comparison)
+
 ## Conclusion
 
 - You learn how to run your apps in a way that more closely handles the demand of production ("in a _scalable way_"):
@@ -2595,9 +2642,7 @@ If you’re going to be building serverless web apps for production use cases, t
   | **Serverless** ...       | **Immutable** ...          | Functions are deploy & managed without thinking about servers at all. | Deploy functions using AWS Lambda.                    |
 
 [^1]: The no downtime is from users perspective.
-
 [^2]: The computing resources are CPU, memory, disk space.
-
 [^3]: The scheduler usually implements some sort of _bin packing algorithm_ to try to use resources available as efficiently as possible.
 
 [example repo]: https://github.com/brikis98/devops-book
@@ -2611,7 +2656,6 @@ If you’re going to be building serverless web apps for production use cases, t
     - ...
 
 [^5]: https://nodejs.org/api/cluster.html
-
 [^6]:
     [Apache `httpd`](https://httpd.apache.org/)
     In addition to being a "basic" web server, and providing static and dynamic content to end-users, Apache `httpd` (as well as most other web servers) can also act as a reverse proxy server, also-known-as a "gateway" server.
@@ -2623,19 +2667,12 @@ If you’re going to be building serverless web apps for production use cases, t
     - [Nginx is now part of F5](https://blog.nginx.org/blog/nginx-is-now-officially-part-of-f5)
 
 [^8]: [HAProxy](https://www.haproxy.org/) - Reliable, High Performance TCP/HTTP Load Balancer
-
 [^9]: See Nginx documentation for [Managing Configuration Files](https://docs.nginx.com/nginx/admin-guide/basic-functionality/managing-configuration-files/)
-
 [^10]: https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_templating.html
-
 [^11]: https://docs.aws.amazon.com/autoscaling/ec2/userguide/asg-instance-refresh.html
-
 [^12]: https://www.aquasec.com/blog/a-brief-history-of-containers-from-1970s-chroot-to-docker-2016/
-
 [^13]: Docker is a tool for building, running, and sharing containers.
-
 [^14]: Kubernetes is a container orchestration tool
-
 [^15]: Compare to VMs, containers:
 
     - have reasonable file sizes
@@ -2648,13 +2685,8 @@ If you’re going to be building serverless web apps for production use cases, t
     - For AWS, there is [LocalStack](https://www.localstack.cloud/), which emulates some of AWS cloud services locally.
 
 [^17]: https://docs.docker.com/desktop/faqs/linuxfaqs/#why-does-docker-desktop-for-linux-run-a-vm
-
 [^18]: Use `docker run` with `-it` flag to get an interactive shell & a pseudo-TTY (so you can type)
-
 [^19]: By hitting `Ctrl+D`, you send an [End-of-Transmission (EOT) character](https://en.wikipedia.org/wiki/End-of-Transmission_character) (to `docker` process)
-
 [^19]: By hitting `Ctrl+C`, you send an interrupt signal ([SIGINT](<https://en.wikipedia.org/wiki/Signal_(IPC)#SIGINT>)) (to `docker` process)
-
 [^20]: The name of the Docker image is also know as its repository name.
-
 [^21]: In other words, when you name multiple images with the same name, Docker will use that name as the repository name to group all images of that name.
