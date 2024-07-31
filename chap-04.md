@@ -436,6 +436,172 @@ Let's make another change and another commit:
 
 ---
 
+In this example, you will push the example code you've worked in while reading this book/blog post series to GitHub.
+
+- Go the folder where you have your code
+
+  ```bash
+  cd devops-books
+  ```
+
+- The contents of the folder should look like this:
+
+  ```bash
+  tree -L 2
+  ```
+
+  ```bash
+  .
+  ├── ch1
+  │   ├── ec2-user-data-script
+  │   └── sample-app
+  ├── ch2
+  │   ├── ansible
+  │   ├── bash
+  │   ├── packer
+  │   └── tofu
+  └── ch3
+      ├── ansible
+      ├── docker
+      ├── kubernetes
+      ├── packer
+      └── tofu
+  ```
+
+- Initialize an empty Git repository in `.git/`
+
+  ```bash
+  git init
+  ```
+
+- Show working tree status
+
+  ```bash
+  git status
+  ```
+
+  - There is "no commits yet", and only "untracked files".
+
+- Create gitignore file (`.gitignore`)
+
+  ```gitignore
+  *.tfstate            # 1
+  *.tfstate.backup
+  *.tfstate.lock.info
+
+  .terraform           # 2
+
+  *.key                # 3
+
+  *.zip                # 4
+
+  node_modules         # 5
+  coverage
+  ```
+
+  - 1: Ignore OpenTofu state.
+  - 2: Ignore `.terraform`, used by OpenTofu as a scratch directory.
+  - 3: Ignore the SSH private keys used in Ansible examples.
+  - 4: Ignore build artifact created by `lambda` module.
+  - 5: Ignore Node.js's scratch directories.
+
+  > [!TIP]
+  > Commit the `.gitignore` file first to ensure you don't accidentally commit files that don't belong in version control.
+
+- Stage and commit `.gitignore`
+
+  ```bash
+  git add .gitignore
+  git commit -m "Add .gitignore"
+  ```
+
+- Stage all files/folders in root of the repo:
+
+  ```bash
+  git add .
+  git commit -m "Example for first few chapters"
+  ```
+
+  - The code in now in a local Git repo in your computer.
+  - In the next section, you'll push it to a Git repo on GitHub
+
+---
+
+- Create a GitHub account if you haven't one
+- Authenticate to GitHub on the CLI: Follow the [official docs](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-authentication-to-github#authenticating-with-the-command-line)
+- Create a new repository in GitHub
+- Add that GitHub repository as a _remote_ to your local Git repository:
+
+  > [!NOTE]
+  > A _remote_ is a Git repository hosted somewhere, i.e. somewhere on the Internet
+
+  ```bash
+  git remote add origin https://github.com/<USERNAME>/<REPO>.git
+  ```
+
+  - This will add your GitHub repo as a remote named `origin`
+
+  > [!TIP]
+  > Your remote GitHub repo can be any where, but anyone that access your repo, which now acts as a central repository can refer to it as `origin`.
+
+- Push your local branch to your GitHub repo
+
+  ```bash
+  git push origin main
+  ```
+
+  > [!TIP]
+  > You push to `REMOTE` a `LOCAL_BRANCH` with:
+  >
+  > ```bash
+  > git push REMOTE LOCAL_BRANCH
+  > ```
+
+- Refresh your repo in GitHub, you should see your code there.
+
+> [!NOTE]
+> You've just push your changes to a remote endpoint, which being halfway to be able to collaborate with other developers.
+
+---
+
+- You can click the `Add a README` button, then:
+
+  - Fill in the README content.
+  - And commit changes directly to the Git repo.
+
+- If you do that, your GitHub repo now has a `README.md` file, but the local repo on your computer doesn't.
+
+- To get the latest code from the `origin`, use `git pull`:
+
+  ```bash
+  git pull origin main
+  ```
+
+  > [!NOTE]
+  > The command `git pull REMOTE REMOTE_BRANCH` will:
+  >
+  > - "Fetch" from `REMOTE` the `REMOTE_BRANCH`.
+  > - Merge that `REMOTE_BRANCH` to current branch (in the local repository).
+
+- If your haven't have a local copy of the central repository, first you need to _clone_ that repo:
+
+  ```bash
+  git clone https://github.com/<USERNAME>/<REPO>
+  ```
+
+  This command will
+
+  - checkout a copy of the repo `<REPO>` to a folder called `<REPO>` in your current working directory.
+  - automatically add the repo's URL as a remote named origin
+
+---
+
+You've just seen the basic Git workflows when collaboration:
+
+- `git clone`: Check out a fresh copy of a repo.
+- `git push origin <LOCAL_BRANCH>`: Share your changes to other team members.
+- `git pull origin <REMOTE_BRANCH>`: Get changes from other team members.
+
 ### Example: Open a Pull Request in GitHub
 
 ### Version Control Best Practices
