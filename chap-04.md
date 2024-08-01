@@ -898,11 +898,205 @@ A pull request processes is as a follows:
 
 ## Build System
 
+### What is Build System?
+
+build system (build tools)
+: the system used by most software project to automate important operations, e.g.
+: - Compiling code
+: - Downloading dependencies
+: - Packaging the app
+: - Running automated tests...
+
+### Why use Build System?
+
+The build system serves 2 audiences:
+
+- The **developers** on your team, who run the build steps as part of local development.
+- The **automated tools** (scripts), which run the build steps as part of automating your software delivery process.
+
+### Which Build System to use?
+
+You can:
+
+- create your own build system from ad-hoc scripts, duct tape & glue.
+- or use an off-the-shelft build system.
+
+There are many off-the-sheft build systems out there:
+
+- Some were originially designed for use with a specific programming language, framework. e.g
+  - Rake for Ruby
+  - Gradle, Mavan for Java
+  - SBT for Scale
+  - NPM for JavaScript (Node.js)
+- Some are language agnostic:
+  - Make: grandday of all build systems.
+  - Bazel: fast, scalable, multi-language and extensible build system.
+
+> [!TIP]
+> Usually, the language-specific tools will give you the best experience with that language.
+>
+> You should only go with the language-agnostic ones in specific circumstances, such as:
+>
+> - Massive teams
+> - Dozens of languages
+> - Gigantic monorepo
+
 > [!IMPORTANT]
 > Key takeaway #2
 > Use a build system to capture, as code, important operations and knowledge for your project, in a way that can be used both by developers and automated tools.
 
 ### Example: Configure your Build Using NPM
+
+The `example-app` is written is JavaScript (Node,js), so NPM is a good choice for build system.
+
+- The code for this example will be in `examples/ch4/sample-app`
+
+  ```bash
+  cd examples
+  mkdir -p ch4/sample-app
+  ```
+
+- Clone the `app.js` from previous example
+
+  ```bash
+  cp ch1/sample-app/app.js ch4/sample-app/app.js
+  ```
+
+- [Install Node.js](https://nodejs.org/en/download/package-manager) which comes with NPM
+
+- To use NPM as a build system, you need a `package.json` file.
+
+  > [!NOTE]
+  > The `package.json` file can be
+  >
+  > - created manually
+  > - scaffold by running `npm init`
+
+  In this example, you will run `npm init`
+
+  ```bash
+  npm init
+  # npm will prompt you for the package name, version, description...
+  ```
+
+  You should have a `package.json` file looks like this:
+
+  ```json
+  {
+    "name": "sample-app",
+    "version": "1.0.0",
+    "description": "Sample app for 'Fundamentals of DevOps and Software Delivery'",
+    "scripts": {
+      "test": "echo \"Error: no test specified\" && exit 1"
+    }
+  }
+  ```
+
+  > [!NOTE]
+  > NPM has a number of [built-in scripts](https://docs.npmjs.com/cli/v10/using-npm/scripts), such as `npm install`, `npm start`, `npm test`, and so on.
+  >
+  > All of these have default behaviors, but in most cases, you can define what these script do by
+  >
+  > - adding them to the scripts block.
+  > - specify which commands that script should run.
+  >
+  > For example
+  >
+  > - `npm init` gives you an initial `test` script in the scripts block that just run a command that exits with an error.
+
+- Add a script named `start` to the script block in `package.json`
+
+  ```json
+  {
+    "scripts": {
+      "start": "node app.js"
+    }
+  }
+  ```
+
+- Now you run the `npm start` script to run your app.
+
+  ```bash
+  npm start
+  ```
+
+  > [!NOTE]
+  > By using `npm start` to run your app, you're using a well-known convention:
+  >
+  > - Most Node.js and NPM users know to use `npm start` on a project.
+  > - Most tools that work with Node.js know to use `npm start` to start a Node.js app.
+  >
+  > In other words, you capture _how to run your app_ in the build system.
+
+- Create a `Dockerfile`
+
+  ```Dockerfile
+  # examples/ch4/sample-app/Dockerfile
+  FROM node:21.7
+
+  WORKDIR /home/node/app
+
+  # 1
+  COPY package.json .
+  COPY app.js .
+
+  EXPOSE 8080
+
+  USER node
+
+  # 2
+  CMD ["npm", "start"]
+  ```
+
+  This Dockerfile is identical to the one in previous example, except:
+
+  - 1: In addition to `app.js`, you also copy the `package.json` to the Docker image.
+  - 2: Instead of using `node app.js`, you use `npm start` to start the app.
+
+- Create a script called `build-docker-image.sh`
+
+  ```bash
+  # examples/ch4/sample-app/build-docker-image.sh
+  #!/usr/bin/env bash
+  set -e
+
+  # (1)
+  version=$(npm pkg get version | tr -d '"')
+
+  # (2)
+  docker buildx build \
+    --platform=linux/amd64,linux/arm64 \
+    -t sample-app:"$version" \
+    .
+  ```
+
+  - 1: Run `npm pkg get version` to get the value of the `version` key in `package.json`.
+  - 2: Run `docker buildx`, setting version to the value from 1.
+
+- Make the script executable
+
+  ```bash
+  chmod u+x build-docker-image.sh
+  ```
+
+- Add a `dockerize` script to the `scripts` block in `package.json`
+
+  ```json
+  {
+    "scripts": {
+      "dockerize": "./build-docker-image.sh"
+    }
+  }
+  ```
+
+- Now instead of trying to figure out how to build the Docker image, your team members can execute `npm run dockerize` to build the Docker image.
+
+  ```bash
+  npm run dockerize
+  ```
+
+  > [!NOTE]
+  > Notice it's `npm run dockerize` (with the extra `run`) as `dockerize` is a custom script, not a built-in script of NPM.
 
 ### Dependency Management
 
