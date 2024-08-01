@@ -749,17 +749,38 @@ A pull request processes is as a follows:
   > - Branch protection
 
 ### Get your hands dirty with Git amend, squash
+
 ## Build System
+
+> [!IMPORTANT]
+> Key takeaway #2
+> Use a build system to capture, as code, important operations and knowledge for your project, in a way that can be used both by developers and automated tools.
 
 ### Example: Configure your Build Using NPM
 
 ### Dependency Management
 
+> [!IMPORTANT]
+> Key takeaway #3
+> Use a dependency management tool to pull in dependencies—not copy & paste.
+
 ### Example: Add Dependencies in NPM
 
 ## Automated Testing
 
+> [!IMPORTANT]
+> Key takeaway #4
+> Use automated tests to give your team the confidence to make changes quickly.
+
 ### Example: Add Automated Tests for the Node.js App
+
+> [!IMPORTANT]
+> Key takeaway #5
+> Automated testing makes you more productive while coding by providing a rapid feedback loop: make a change, run the tests, make another change, re-run the tests, and so on.
+
+> [!IMPORTANT]
+> Key takeaway #6
+> Automated testing makes you more productive in the future, too: you save a huge amount of time not having to fix bugs because the tests prevented those bugs from slipping through in the first place.
 
 ### Example: Add Automated Tests for the OpenTofu Code
 
