@@ -180,7 +180,7 @@ History
   No commits yet
 
   Changes to be committed:
-    (use "git rm --cached <file>..." to unstage)
+    (use "git rm --cached <file>..." to un-stage)
   	new file:   example.txt
   ```
 
@@ -602,7 +602,96 @@ You've just seen the basic Git workflows when collaboration:
 - `git push origin <LOCAL_BRANCH>`: Share your changes to other team members.
 - `git pull origin <REMOTE_BRANCH>`: Get changes from other team members.
 
+### A Primer on Pull Request
+
+pull request
+: a request to merge one branch into another branch
+: ~ you're requesting the owner runs `git pull` on your repo/branch
+
+> [!TIP]
+> GitHub popularized the PR workflow as the de facto way to _make changes_ to **open source repos**
+>
+> And these days, many companies use PRs to make changes to private repos as well.
+
+---
+
+A pull request processes is as a follows:
+
+- You check out a copy of repo `R`, create a branch `B`, and commit your changes to this branch.
+
+  - If you have write access to repo `R`, you can create branch `B` directly in repo `R`.
+  - However, if you don’t have write access, which is usually the case if repo `R` is an open source repo in someone else’s account, then you
+    - first create a _fork_ of repo `R`, which is a copy of the repo in your own account,
+    - then you create branch `B` in your fork.
+
+- When you’re done with your work in branch `B`, you open a **pull request** against repo `R`:
+
+  - Requesting that the maintainer of that repo merges your changes from branch `B` into some branch in repo `R` (typically `main`).
+
+- The owner of repo `R` then
+  - uses GitHub’s PR UI to review your changes,
+  - provide comments and feedback,
+  - and ultimately, decide to either
+    - merge the changes in,
+    - or close the PR unmerged.
+
 ### Example: Open a Pull Request in GitHub
+
+- Create a new branch named `update-readme` and switch to it
+
+  ```bash
+  git switch -c update-readme
+  ```
+
+- Make a change to the `README.md` file
+
+  ```bash
+  echo "https://www.fundamentals-of-devops.com/" >> README.md
+  ```
+
+- Show un-staged changed
+
+  ```bash
+  git diff
+  ```
+
+- Stage & commit the changes
+
+  ```bash
+  git add README.md
+  git commit -m "Add URL to README"
+  ```
+
+- Push your `update-readme` branch to the `origin` remote
+
+  ```bash
+  git push origin update-readme
+  ```
+
+  > [!TIP]
+  > In the `git push` output, GitHub conveniently shows you a URL for creating a pull request.
+  >
+  > You can also create PRs by
+  >
+  > - going to the `Pull Requests` tab of your repo in GitHub Web UI
+  > - clicking `New Pull Request` button.
+
+- Open the URL in a web browser, then
+
+  - Fill in the pull request's title, description.
+  - Scroll down to see the changes between your `update-readme` & `main` branches.
+  - If those changes look OK, click `Create pull request` button.
+  - You'll end up in the GitHub PR UI.
+
+- You and your team members cana use the Github PR page to
+
+  - see the changes
+  - discuss the changes
+  - request reviewers, modifies to those changes...
+
+- If the PR looks gook:
+  - Click `Merge pull request`
+  - Then `Confirm merge` to merge the changes in.
 
 ### Version Control Best Practices
 
