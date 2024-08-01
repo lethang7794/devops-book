@@ -695,6 +695,60 @@ A pull request processes is as a follows:
 
 ### Version Control Best Practices
 
+- Always use version control
+
+  > [!IMPORTANT]
+  > Key takeaway #1
+  > Always manage your code with a version control system.
+
+- Write good commit messages
+
+  > [!NOTE]
+  > What is a good commit message?
+  >
+  > - Summary: Short, clear summary of the change (< 50 characters)
+  > - Context: _What_ changed; _why_ it changed (_How_ it changed is already in the code)
+
+- Commit early and often
+
+  > [!NOTE]
+  > What to commit and PR?
+  >
+  > - Atomic commits
+  > - Atomic PRs
+
+  > [!NOTE]
+  > What is the benefit of atomic commits, PRs?
+  >
+  > - More useful Git history
+  > - Less risk
+  > - Cleaner mental model
+  > - Easier code reviews
+  > - Lower risk of data loss
+  > - Less risky refactors
+  > - More frequent integration
+
+- Use a code review process
+
+  > [!NOTE]
+  > Why having your code reviewed?
+
+  > [!NOTE]
+  > How to do code reviews?
+  >
+  > - Enforce a pull request workflow
+  > - Use pair programming
+  > - Use formal inspections
+
+- Protect your code
+
+  > [!NOTE]
+  > How to protect your code?
+  >
+  > - Signed commits
+  > - Branch protection
+
+### Get your hands dirty with Git amend, squash
 ## Build System
 
 ### Example: Configure your Build Using NPM
