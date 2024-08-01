@@ -697,56 +697,202 @@ A pull request processes is as a follows:
 
 - Always use version control
 
+  - Using version control brings massive benefits for software engineering.
+  - Version control's easy, cheap/free.
+
   > [!IMPORTANT]
   > Key takeaway #1
   > Always manage your code with a version control system.
 
 - Write good commit messages
 
+  When you're trying to figure out what caused a bug, an outage, `git log` and `git blame` can help you, but only if the commit message are well written.
+
   > [!NOTE]
   > What is a good commit message?
   >
-  > - Summary: Short, clear summary of the change (< 50 characters)
-  > - Context: _What_ changed; _why_ it changed (_How_ it changed is already in the code)
+  > - **Summary**: Short, clear summary of the change (< 50 characters).
+  > - **Context**:
+  >   - If you need more than a summary, put a new line after the summary, then provide more information to understand the context.
+  >   - Focus on _what_ changed; _why_ it changed (_How_ it changed should be clear from the the code itself).
+  >
+  > e.g.
+  >
+  > ```
+  > Fix bug with search auto complete
+  >
+  > A more detailed explanation of the fix, if necessary. Provide
+  > additional context that may not be obvious from just reading the
+  > code.
+  >
+  > - Use bullet points
+  > - If appropriate
+  >
+  > Fixes #123. Jira #456.
+  > ```
+
+  > [!TIP]
+  > You can go a little further with the commit messages by:
+  >
+  > - Following [How to Write a Good Commit Message](https://cbea.ms/git-commit/)
+  > - Adopting [Conventional Commits](https://www.conventionalcommits.org/)
 
 - Commit early and often
+
+  Committing as you're solving a large problem, break it down to small, manageable parts.
 
   > [!NOTE]
   > What to commit and PR?
   >
-  > - Atomic commits
-  > - Atomic PRs
+  > Atomic commit/PR.
+  >
+  > In other words, each commit or pull request should do exactly one small, relatively self-contained thing.
+
+  > [!TIP]
+  > Atomic commit: You should be able to describe the commit in one short sentence and use it as the commit message's summary.
+  >
+  > e.g. Instead of a single, massive commit that implements an entire large feature,
+  >
+  > - aim for a series of small commits, where each one implements some logical part of that feature:
+  >   - a commit for backend logic
+  >   - a commit for UI logic
+  >   - a commit for search logic
+
+  > [!TIP]
+  > Atomic PR:
+  >
+  > - A single PR can contain multiple commits, but it should still represent a single set of _cohesive_ changes - changes that naturally & logically go together.
+  > - If your PR contains unrelated changes, you should break it up into multiple PRs.
+  >
+  > e.g. Follow the _Boy Scout Rule_[^1] is a good idea, but
+  >
+  > - don't make a PR that contains a new feature, a bug fix, and a refactor
+  >   - put each of these changes into its own PR:
+  >     - a PR for the new feature
+  >     - a PR for the bug fix
+  >     - a PR for the refactor
 
   > [!NOTE]
   > What is the benefit of atomic commits, PRs?
   >
-  > - More useful Git history
-  > - Less risk
-  > - Cleaner mental model
-  > - Easier code reviews
-  > - Lower risk of data loss
-  > - Less risky refactors
-  > - More frequent integration
+  > | Benefit                       | Description                                                                             |
+  > | ----------------------------- | --------------------------------------------------------------------------------------- |
+  > | **More useful Git history**   | Each commit/PR can fit in oneline in the history.                                       |
+  > | **Cleaner mental model**      | Force you to break the work down.                                                       |
+  > | **Less risk**                 | Easy to revert.                                                                         |
+  > | **Easier code reviews**       | Quick to approve.                                                                       |
+  > | **Less risky refactors**      | You can try something new then go back to any commits quickly without losing much work. |
+  > | **Lower risk of data loss**   | Commit (and push) act as a data backup.                                                 |
+  > | **More frequent integration** | Quick to merge, release.                                                                |
 
 - Use a code review process
 
   > [!NOTE]
-  > Why having your code reviewed?
+  > Why any one should have their code review?
+  >
+  > In the writing world, even if you're the smarted, most capable, most experienced, you can't proofread your own work:
+  >
+  > - You're too close to the concept.
+  > - You can't put yourself in the shoes of someone who is hearing them for the first time.
+  >
+  > The same applies for writing code.
+
+  > [!TIP]
+  > Having your code review by someone else is a highly effective way to catch bugs, reducing defect rates by as much as 55-80% - which is even a higher rate than automated test.
+
+  > [!NOTE]
+  > Code reviews are also an efficient mechanism to
+  >
+  > - spread knowledge, culture, training
+  > - provide a sense of ownership throughout the team
 
   > [!NOTE]
   > How to do code reviews?
   >
-  > - Enforce a pull request workflow
-  > - Use pair programming
-  > - Use formal inspections
+  > - **Enforce a pull request workflow**
+  >
+  >   You can enforce that
+  >
+  >   - all changes are done through pull requests
+  >     - so the maintainers of each repo can asynchronously review each change before it gets merged.
+  >
+  > - **Use _pair programming_**
+  >
+  >   _Pair programming_:
+  >
+  >   - a development technique where two programmers work together at one computer:
+  >
+  >     - one person as the **driver**, responsible for writing the code
+  >     - the other as the **observer**, responsible for
+  >       - reviewing the code and
+  >       - thinking about the program at a higher level
+  >
+  >     (the programmers regularly switch roles)
+  >
+  >   - results in code review process happens all the time:
+  >     - driver will also try to make clear what the code is doing
+  >
+  >   Pair programming is used:
+  >
+  >   - by some companies for all their coding
+  >   - by other companies for only complex tasks, or ramping up a new hire.
+  >
+  > - **Use formal inspections**
+  >
+  >   Formal inspection is when you schedule a live meeting for a code review where you:
+  >
+  >   - present the code to multiple developers
+  >     - go through it together, line-by-line.
+  >
+  >   Formal inspection can be apply for mission critical parts of your systems.
 
-- Protect your code
+  > [!TIP]
+  > Whatever process you pick for code reviews, you should
+  >
+  > - define your _code preview guidelines_ up front,
+  >   - so everyone can have a process that is consistent & repeatable across the entire team:
+  >     - what to look for, e.g. design, functionality, complexity, tests.
+  >     - what _not_ to look for, e.g. code formatting (should be automated)
+  >     - how to communicate feedback effectively
+  >
+  > For example, have a look at [Google’s Code Review Guidelines](https://google.github.io/eng-practices/review/).
+
+- Protect your code:
+
+  For many companies these day, the code you write is:
+
+  - your most important asset.
+  - a highly sensitive asset: if someone can slip malicious code into the codebase, it would be a nightmare.
 
   > [!NOTE]
   > How to protect your code?
   >
-  > - Signed commits
-  > - Branch protection
+  > - **Signed commits**:
+  >
+  >   By default, any one can set the email used by Git to any email they want.
+  >
+  >   - What if a bad actor introduces some malicious code in your name (email).
+  >   - Fortunately, most VSC hosts (GitHub, GitLab...) allow you to enfore signed commits on your repos, where they reject any commit that doesn't have a valid cryptographic signature.
+  >
+  >     Under the hood:
+  >
+  >     - You give Git the private key; and give the VSC host the public key.
+  >     - When you commit, Git will sign that your commits with the private key.
+  >     - When you push to central repo on VSC host, VSC host will use the public key to verify that these commit are signed by your private key.
+  >
+  > - **Branch protection**:
+  >
+  >   Most VCS hosts (GitHub, GitLab, etc.) allow you to enable _branch protection_, where you can
+  >
+  >   - enforce certain **requirements** before code can be pushed to certain branches (e.g., `main`)
+  >
+  >   For example, you can require that all changes to `main` branch:
+  >
+  >   - Submitted via pull requests
+  >   - Those pull requests are review by at least N other developers.
+  >   - Certain checks - e.g. security scans - pass
+  >
+  >   before these pull requests can be merged.
 
 ### Get your hands dirty with Git amend, squash
 
@@ -787,3 +933,7 @@ A pull request processes is as a follows:
 ### Testing Best Practices
 
 ## Conclusion
+
+[^1]: THE BOY SCOUTS HAVE A RULE: “Always leave the campground cleaner than you found it.”[^2]
+
+[^2]: https://learning.oreilly.com/library/view/97-things-every/9780596809515/ch08.html
