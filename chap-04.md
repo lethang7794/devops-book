@@ -1426,19 +1426,330 @@ There're a lot of type of automated tests:
 
 ### Example: Add Automated Tests for the Node.js App
 
+- How to know if the the Node.js `example-app` work?
+
+  ```javascript
+  const express = require("express");
+
+  const app = express();
+  const port = 8080;
+
+  app.get("/", (req, res) => {
+    res.send("Hello, World!");
+  });
+
+  app.listen(port, () => {
+    console.log(`Example app listening on port ${port}`);
+  });
+  ```
+
+- So far, you will do it through _manual testing_:
+
+  - Manually ran the app with `npm start`
+  - Then open the app URL in the brower.
+  - Verify that the output is matched.
+
+- What if you have
+  - hundreds of URLs?
+  - hundreds of developers making changes?
+
+> [!NOTE]
+> The idea with automated testing is to
+>
+> - write code that
+>   - performs the testings steps for you.
+>
+> Then the computer can run these test code and test your app faster, more reliable.
+
 #### Add unit tests for the Node.js App
+
+- You've start with unit test. To add a unit test, first you need a unit of code, which you will introduce in this example
+
+- For this example, create a basic module with 2 functions that reverve characters & words in a string. Those 2 functions acts as the unit of code to be tested.
+
+  ```javascript
+  # 1
+  function reverseWords(str) {
+    return str.split(" ").reverse().join(" ");
+  }
+
+  # 2
+  function reverseCharacters(str) {
+    return str.split("").reverse().join("");
+  }
+
+  module.exports = { reverseCharacters, reverseWords };
+  ```
+
+  - 1: `reverseWords` reverses the words in a string.
+    e.g. `hell world` will be reversed to `world hello`
+  - 2: `reverseCharacters` reverses the characters in a string
+    e.g. `abcde` will be reversed to `edcba`
+
+> [!NOTE]
+> How do you know this code actually works?
+>
+> 1. Imagine how the code runs in your head?
+> 2. Test the code manually?
+>
+> - Fire up a REPL - an interactive shell - to manuallt execute code.
+>   - Import the `reverve` file
+>   - Run the `reverseWords`, `reverseCharacters` function with your input> , and check the output.
+>   - (When you're done with the REPL, use `Ctrl+D` to exit).
+>
+> 3. Capture the steps you did in a REPL in an automated test.
+
+- In this example, you will use `Jest` as the testing framework, and `SuperTest` as the library for testing HTTP apps.
+
+- Intstall Jest and Supertest (and save them as dev dependencies with `--save-dev` flag)
+
+  ```bash
+  npm install --save-dev jest supertest
+  ```
+
+  Your `package.json` should looks like this:
+
+  ```json
+  {
+    "dependencies": {
+      "express": "^4.19.2"
+    },
+
+    "devDependencies": {
+      "jest": "^29.7.0",
+      "supertest": "^7.0.0"
+    }
+  }
+  ```
+
+- Update the `test` script (in `package.json`) to run Jest
+
+  ```json
+  {
+    "scripts": {
+      "test": "jest --verbose"
+    }
+  }
+  ```
+
+---
+
+- Writing tests for `reserveWords` function
+
+  ```javascript
+  const reverse = require("./reverse");
+
+  //                                                         1
+  describe("test reverseWords", () => {
+    //                                                       2
+    test("hello world => world hello", () => {
+      const result = reverse.reverseWords("hello world"); // 3
+      expect(result).toBe("world hello"); //                 4
+    });
+  });
+  ```
+
+  - 1: Use `descibe` function to group server tests together.
+    - The first argument: description of the group of tests.
+    - The second argument: a function that will run the tests for this group.
+  - 2: Use `test` function to define individual tests
+    - The first argument: description of the test.
+    - The second argument: a function that will run the test
+  - 3: Call the `reverseWords` function and store the result in the variable `result`.
+  - 4: Use the `expect` _matcher_ to check that the `result` matches "world hello".
+    (If it doesn't match, the test will fail.)
+
+- Use `npm test` to run the tests
+
+  ```bash
+  npm test
+  ```
+
+  - The test `PASS` without any error.
+
+---
+
+- Add a second unit test for the `reverseWords` function
+
+  ```javascript
+  describe("test reverseWords", () => {
+    test("hello world => world hello", () => {});
+
+    test("trailing whitespace   => whitespace trailing", () => {
+      const result = reverse.reverseWords("trailing whitespace   ");
+      expect(result).toBe("whitespace trailing");
+    });
+  });
+  ```
+
+- Re-run `npm test`
+
+  ```bash
+  npm test
+  ```
+
+  - The test `FAIL`
+
+- Fix whitespace handling in `reverseWords`
+
+  ```javascript
+  function reverseWords(str) {
+    return str
+      .trim() // 1
+      .split(" ")
+      .reverse()
+      .join(" ");
+  }
+  ```
+
+  - 1: Use the `trim` functon to strip leading & trailing whitespace.
+
+- Re-run `npm test`; it should pass now.
+
+---
+
+This is a good example of the typical way you write code
+
+- when you have a good suite of automated test to lean on:
+  - make a change
+  - re-run the tests
+  - make another changes
+  - re-run the tests
+  - add new tests
+  - ...
+
+With each iteration,
+
+- your test suite gradually improves
+  - you build more & more confidence in your code
+    - you can go faster & faster
+
+The automated tests
+
+- provides a rapid feedback loop that help you being more productive
+- acts as regression tests prevent old bugs
 
 > [!IMPORTANT]
 > Key takeaway #5
-> Automated testing makes you more productive while coding by providing a rapid feedback loop: make a change, run the tests, make another change, re-run the tests, and so on.
+> Automated testing makes you **more productive** while coding by providing a **rapid _feedback loop_**: make a change, run the tests, make another change, re-run the tests, and so on.
 
 > [!IMPORTANT]
 > Key takeaway #6
-> Automated testing makes you more productive in the future, too: you save a huge amount of time not having to fix bugs because the tests prevented those bugs from slipping through in the first place.
+> Automated testing makes you more productive **in the future**, too: you save a huge amount of time not having to fix bugs because the tests prevented those bugs from slipping through in the first place.
 
 #### Using code coverage tools to improve unit tests
 
+code coverage
+: the percent of code got executed by your tests
+: can be measured by many automated testing tools
+
+---
+
+- Update `test` script to also measure code coverage
+
+  ```json
+  {
+    "scripts": {
+      "test": "jest --verbose --coverage"
+    }
+  }
+  ```
+
+- Run `npm test` to see the extra information about code coverage
+
+  ```bash
+  npm test
+  ```
+
+  - There is also a new `coverage` folder (next to `package.json`), which contains HTML reports about code coverage.
+  - Open the HTML reports, you can see:
+    - How many time each part of the code were executed
+    - The part of code that wasn't executed at all
+
+- Now, you know which parts of the code wasn't tested, you can add unit test for them:
+
+  ```javascript
+  describe("test reverseCharacters", () => {
+    test("abcd => dcba", () => {
+      const result = reverse.reverseCharacters("abcd");
+      expect(result).toBe("dcba");
+    });
+  });
+  ```
+
+- Re-run the test and now the code coverage is 100%.
+
 #### Add end-to-end tests for the Node.js App
+
+In this example, you will add an end-to-end test for the Node.js `sample-app`: a test that makes an HTTP request to the app, and chcek the response.
+
+- First, split out the part of the app that listen on a port
+
+  ```javascript
+  // app.js
+  const express = require("express");
+
+  const app = express();
+
+  app.get("/", (req, res) => {
+    res.send("Hello, World!");
+  });
+
+  module.exports = app;
+  ```
+
+  ```javascript
+  // server.js
+  const app = require("./app");
+
+  const port = 8080;
+
+  app.listen(port, () => {
+    console.log(`Example app listening on port ${port}`);
+  });
+  ```
+
+- Update the `start` script in `package.json`
+
+  ```json
+  {
+    "scripts": {
+      "start": "node server.js"
+    }
+  }
+  ```
+
+- Add a end-to-end test for the app
+
+  ```javascript
+  // app.test.js
+  const request = require("supertest");
+  const app = require("./app"); // 1
+
+  describe("Test the app", () => {
+    test("Get / should return Hello, World!", async () => {
+      const response = await request(app).get("/"); // 2
+      expect(response.statusCode).toBe(200); //        3
+      expect(response.text).toBe("Hello, World!"); //  4
+    });
+  });
+  ```
+
+  - 1: Inport the app code from `app.js`
+  - 2: Use the SuperTest libary (imported under the name `request`) to fire up the app and make an HTTP GET request to it at the `/` URL.
+  - 3: Check that the reponse status code is a `200 OK`
+  - 4: Check that the response body is the text `"Hello, World!"`
+
+- Re-run `npm test`
+
+  ```bash
+  npm test
+  ```
+
+### Get your hands dirty with end-to-end test for Node.js app
+
+- Add a new endpoint to the sample app
+- Add a new automated test to validate the endpoint works as expected.
 
 ### Example: Add Automated Tests for the OpenTofu Code
 
