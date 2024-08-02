@@ -1313,9 +1313,116 @@ In this example, you will introduce an dependency named Express, which is a popu
 
 ## Automated Testing
 
+### Why use automated testing
+
+legacy code
+: spaghetti code without automated tests, documentation
+: code that you don't have the confidence to make changes
+
+To prevent legacy code, you use automated testing, where you:
+
+- write test code to validate that
+  - your production code works
+    - the way you expect it to.
+
+By writing automated tests, you might catch some of the bugs,
+
+- but the most important benefit of having a good suite of automated tests is, you have the _confidence_ to make changes quickly, because:
+
+  - you don't have to keep the whole program in your head
+  - you don't have to worry about breaking other people's
+  - you don't have to repeat the same boring, error-prone manual testing over & over agian.
+
 > [!IMPORTANT]
 > Key takeaway #4
-> Use automated tests to give your team the confidence to make changes quickly.
+> Use automated tests to give your team the _confidence_ to make changes quickly.
+
+### Types of automated tests
+
+There're a lot of type of automated tests:
+
+- **Compiler**
+
+  If you’re using a _statically-typed language_ (e.g., Java, Scala, Haskell, Go, TypeScript), you can pass your code through the **complier** (compile) to automatically identify
+
+  - (a) syntactic issues
+  - (b) type errors.
+
+  If you’re using a _dynamically-typed language_ (e.g., Ruby, Python, JavaScript), you can pass the code through the **interpreter** to identify syntactic issues.
+
+- **Static analysis / linting**
+
+  These are tools that _read_ & _check_ your code "statically" — that is, _without executing_ it — to automatically identify potential issues.
+
+  Examples:
+
+  - ShellCheck for Bash
+  - ESLint for JavaScript
+  - SpotBugs for Java
+  - RuboCop for Ruby.
+
+- **Policy tests**
+
+  In the last few years, policy as code tools have become more popular as a way to define and enforce company policies & legal regulations in code.
+
+  Examples: Open Policy Agent, Sentinel, Intercept.
+
+  - Many of these tools are based on static analysis, except they give you flexible languages to define what sorts of rules you want to check.
+  - Some rely on plan testing, as described next.
+
+- **Plan tests**
+
+  Whereas static analysis is a way to test your code without executing it at all, plan testing is a way to _partially execute_ your code. This typically only applies to tools that can generate an execution plan without actually executing the code.
+
+  For example:
+
+  - OpenTofu has a plan command that shows you what changes the code would make to your infrastructure without actually making those changes: so in effect, you are running all the read operations of your code, but none of the write operations.
+
+  You can write automated tests against this sort of plan output using tools such as Open Policy Agent and Terratest.
+
+- **Unit tests**
+
+  This is the first of the test types that _fully execute_ your code to test it.
+
+  The idea with unit tests is to execute only a single "unit" of your code:
+
+  - What a unit is depends on the programming language, but it’s typically a small part of the code, such as one function or one class. - You typically mock any dependencies outside of that unit (e.g., databases, other services, the file system), so that the test solely executes the unit in question.
+
+  To execute the unit tests:
+
+  - Some programming languages have unit testing tools built in
+    e.g. `testing` for Go; `unittest` for Python
+  - Whereas other languages rely on 3rd party tools for unit testin
+    e.g. `JUnit` for Java; `Jest` for JavaScript
+
+- **Integration tests**
+
+  Just because you’ve tested a unit in isolation and it works, doesn’t mean that multiple units will work when you put them together. That’s where integration testing comes in.
+
+  With integeration tests, you test
+
+  - multiple units of your code (e.g., multiple functions or classes),
+  - often with a mix of
+    - real dependencies (e.g., a database)
+    - mocked dependencies (e.g., a mock remote service).
+
+- **End-to-end (E2E) tests**
+
+  End-to-end tests verify that **your entire product works as a whole**, which mean you:
+
+  - run
+    - your app,
+    - all the other services you rely on,
+    - all your databases and caches, and so on,
+  - test them all together.
+
+  These often overlap with the idea of _acceptance tests_, which verify **your product works from the perspective of the user** or customer ("does the product solve the problem the user cares about").
+
+- **Performance tests**
+
+  Most unit, integration, and E2E tests verify the **correctness** of a system under **ideal conditions**: one user, low system load, and no failures.
+
+  Performance tests verify the **stability & responsiveness** of a system in the face of **heavy load & failures**.
 
 ### Example: Add Automated Tests for the Node.js App
 
