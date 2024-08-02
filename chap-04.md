@@ -1426,6 +1426,8 @@ There're a lot of type of automated tests:
 
 ### Example: Add Automated Tests for the Node.js App
 
+#### Add unit tests for the Node.js App
+
 > [!IMPORTANT]
 > Key takeaway #5
 > Automated testing makes you more productive while coding by providing a rapid feedback loop: make a change, run the tests, make another change, re-run the tests, and so on.
@@ -1434,9 +1436,23 @@ There're a lot of type of automated tests:
 > Key takeaway #6
 > Automated testing makes you more productive in the future, too: you save a huge amount of time not having to fix bugs because the tests prevented those bugs from slipping through in the first place.
 
+#### Using code coverage tools to improve unit tests
+
+#### Add end-to-end tests for the Node.js App
+
 ### Example: Add Automated Tests for the OpenTofu Code
 
+#### Add static analysis for your OpenTofu code using Terrascan
+
+#### Add unit tests for your OpenTofu code using the test command
+
 ### Testing Best Practices
+
+#### The test pyramid
+
+#### What to test
+
+#### Test-Driven Development (TDD)
 
 ## Conclusion
 
