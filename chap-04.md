@@ -1753,9 +1753,149 @@ In this example, you will add an end-to-end test for the Node.js `sample-app`: a
 
 ### Example: Add Automated Tests for the OpenTofu Code
 
+> [!NOTE]
+> You can write automated tests not only for app code, but also for infrastructure code, too.
+>
+> The tooling for infrastructure tests isn't as mature, and the tests take longer to run, but the tests five all the same benefits.
+
+---
+
+In this example, you will add an automated tests for the `lambda-sample` OpenTofu module in Chapter 3.
+
+> [!NOTE]
+> There are several approaches to test OpenTofu code:
+>
+> - Static analysis: [Terrascan](https://github.com/tenable/terrascan), Trivy, tflint
+> - Policy testing: Open Policy Agent, Sentinel
+> - Plan testing: build-in `test` command, Open Policy Agent, Terratest
+> - Unit, integration, end-to-end testing:
+>   - Build-in `test` command: for simple modules, tests.
+>   - Terratest : for more complex modules, tests.
+
+- Copy that module
+
+  ```bash
+  cd examples
+  mkdir -p ch4/tofu/live
+  cp -r ch3/tofu/live/lambda-sample ch4/tofu/live
+  cd ch4/tofu/live/lambda-sample
+  ```
+
 #### Add static analysis for your OpenTofu code using Terrascan
 
+- Create a config file for Terrascan called `terrascan.toml`
+
+  ```toml
+  [severity]
+  level = "high"
+  ```
+
+- Install Terrscan
+- Run terrascan in the `lambda-sample` folder
+
+  ```bash
+  terrascan scan \
+    --iac-type terraform \
+    --non-recursive \
+    --verbose \
+    -c terrascan.toml
+  ```
+
+  - `--iac-type terraform`: Analyze only Terraform or OpenTofu code.
+  - `--non-recursive`:
+
+    By default, Terrascan tries to scan everything in the current folder and all subfolders.
+
+    This flag avoids Terrascan scanning the `src` folder within lambda-sample and complaining that folder doesn’t contain OpenTofu code.
+
+  - `--verbose`: This gives a bit of extra log output, including Rule IDs for any policies that have been violated.
+  - `-c terrascan.toml`: Use the settings in the configuration file `terrascan.toml` you created.
+
 #### Add unit tests for your OpenTofu code using the test command
+
+> [!NOTE]
+> The test in this example will deploy real resources into your AWS accounts.
+>
+> - It's closer to integration tests
+> - But it still test just a single unit - so it's still a unit test
+
+- Use the `test-endpoint` module (in example code repo at `ch4/tofu/modules/test-endpoint`) to make an HTTP request to an endpoint (from your OpenTofu code)
+
+> [!NOTE]
+> Currently, the `test` command can only use local modules, so use need to make a copy of it in your test.
+
+- Clone `test-endpoint` module
+
+  ```bash
+  cd examples
+  mkdir -p ch4/tofu/modules
+  cp -r ../../<EXAMPLE_CODE_REPO>/ch4/tofu/modules/test-endpoint ch4/tofu/modules
+  ```
+
+- In the `lambda-sample` module, create a test file
+
+  ```hcl
+  # examples/ch4/tofu/live/lambda-sample/deploy.tftest.hcl
+  run "deploy" {
+    command = apply
+  }
+
+  # (2)
+  run "validate" {
+    command = apply
+
+    # (3)
+    module {
+      source = "../../modules/test-endpoint"
+    }
+
+    # (4)
+    variables {
+      endpoint = run.deploy.api_endpoint
+    }
+
+    # (5)
+    assert {
+      condition     = data.http.test_endpoint.status_code == 200
+      error_message = "Unexpected status: ${data.http.test_endpoint.status_code}"
+    }
+
+    # (6)
+    assert {
+      condition     = data.http.test_endpoint.response_body == "Hello, World!"
+      error_message = "Unexpected body: ${data.http.test_endpoint.response_body}"
+    }
+  }
+  ```
+
+  - 1: The first `run` block will run `apply` on the `lambda-sample` module itself.
+
+  - 2: The second `run` block will run `apply` as well, but this time on a `test-endpoint` module, as described in (3).
+
+  - 3: This `module` block is how you tell the `run` block to run `apply` on the `test-endpoint` module (the module you copied from the blog post series’s sample code repo).
+
+  - 4: Read the API Gateway endpoint output from the `lambda-sample` module and pass it in as the `endpoint` input variable for the `test-endpoint` module.
+
+  - 5: `assert` blocks are used to check if the code actually works as you expect. This first `assert` block checks that the `test-endpoint` module’s HTTP request got a response status code of 200 OK.
+
+  - 6: The second `assert` block checks that the `test-endpoint` module’s HTTP request got a response body with the text "Hello, World!"
+
+- (Authenticate to AWS)
+- Run `tofu test`
+
+  ```bash
+  tofu test
+  ```
+
+  - OpenTofu will
+    - run `apply`, deploy your real resources, and then
+    - at the end of the test, run `destroy` to clean everthing up again.
+
+### Get your hands dirty with Infrastructure Test
+
+- Figure out how to encrypt the environment variables in the `lambda` module, which is a better fix for the Terrascan error.
+
+- Add a new endpoint in your `lambda` module and add a new automated test to validate the endpoint works as expected.
 
 ### Testing Best Practices
 
