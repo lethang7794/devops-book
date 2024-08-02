@@ -1,8 +1,10 @@
 {
   "cSpell.words": [
+    "buildx",
     "Dockerized",
     "Idempotency",
     "SDLC",
-    "templating"
+    "templating",
+    "tfstate"
   ]
 }

@@ -872,7 +872,7 @@ A pull request processes is as a follows:
   >   By default, any one can set the email used by Git to any email they want.
   >
   >   - What if a bad actor introduces some malicious code in your name (email).
-  >   - Fortunately, most VSC hosts (GitHub, GitLab...) allow you to enfore signed commits on your repos, where they reject any commit that doesn't have a valid cryptographic signature.
+  >   - Fortunately, most VSC hosts (GitHub, GitLab...) allow you to enforce signed commits on your repos, where they reject any commit that doesn't have a valid cryptographic signature.
   >
   >     Under the hood:
   >
@@ -919,17 +919,17 @@ The build system serves 2 audiences:
 You can:
 
 - create your own build system from ad-hoc scripts, duct tape & glue.
-- or use an off-the-shelft build system.
+- or use an off-the-shelf build system.
 
-There are many off-the-sheft build systems out there:
+There are many off-the-shelf build systems out there:
 
-- Some were originially designed for use with a specific programming language, framework. e.g
+- Some were originally designed for use with a specific programming language, framework. e.g
   - Rake for Ruby
   - Gradle, Mavan for Java
   - SBT for Scale
   - NPM for JavaScript (Node.js)
 - Some are language agnostic:
-  - Make: grandday of all build systems.
+  - Make: granddad of all build systems.
   - Bazel: fast, scalable, multi-language and extensible build system.
 
 > [!TIP]
@@ -1100,9 +1100,117 @@ The `example-app` is written is JavaScript (Node,js), so NPM is a good choice fo
 
 ### Dependency Management
 
+dependencies
+: software packages & libraries that your code uses.
+
+#### Kind of dependencies
+
+- **Code in the same repo**
+
+  You can
+
+  - break your code in a single repo into multiple modules/packages
+  - have these modules depend on each other
+
+  These modules/packages allow you
+
+  - develope different parts of your codebase in
+    - isolation from the others,
+    - (possible with completely separate teams working on each part)
+
+- **Code in different repos**
+
+  You can store code across multiple repos, which
+
+  - give you **more isolation** between different parts of your software
+    - make it even easier for separate teams to take **ownership** for each part.
+
+  Typically, when code in repo A depends on code in repo B:
+
+  - it's a specific **version of the code** in repo B, which may correspond to a specific Git tag.
+
+  - or it's a **versioned _artifact_** published form the repo B
+
+    e.g.
+
+    - a Jar file in the Java world
+    - a Ruby Gem in the Ruby world
+
+- **Open source code**
+
+  Most common type of dependency these days.
+  A type of code in different repos.
+
+#### Why use a dependency?
+
+Yoy use a dependency so
+
+- you can reply on someone else to solve certain problems for you
+- instead of having to
+  - solve everything yourself from scratch
+  - (maintain it)
+
 > [!IMPORTANT]
 > Key takeaway #3
 > Use a dependency management tool to pull in dependencies—not copy & paste.
+
+#### The problems with copy-paste dependency
+
+- **Transitive dependencies**
+
+  Copy/pasting a single dependency is easy, but if
+
+  - that dependency has its own dependencies, and
+    - those dependencies have their own dependencies, and
+      - so on (collectively known as _transitive dependencies_),
+
+  then copy/pasting becomes rather hard.
+
+- **Licensing**
+
+  Copy/pasting may violate the license terms of that dependency, especially if you end up modifying that code (because it now sits in your own repo).
+
+  > [!WARNING]
+  > Be especially aware of dependencies that uses **GPL**-style licenses (known as _copyleft_ or _viral_ licenses),
+  >
+  > - if you modify the code in those dependencies,
+  >   - you need to release your own code under the same license
+  >     i.e. you’ll be forced to open source your company’s proprietary code!.
+
+- **Staying up to date**
+
+  If you copy/paste the code, to get any future updates, you’ll have to
+
+  - copy/paste new code, and new transitive dependencies, and
+  - make sure you don’t lose any changes your team members made along the way.
+
+- **Private APIs**
+
+  (Since you can access those files locally), you may end up
+
+  - using private APIs
+    - instead of the public ones that were actually designed to be used,
+
+  which can lead to unexpected behavior, (and make staying up to date even harder)
+
+- **Bloating your repo**
+
+  Every dependency you copy/paste into your version control system makes it larger and slower.
+
+#### How to use dependencies
+
+- Instead of copy-paste, use a _dependency management tool_, which is usually built-in with build systems.
+
+- You define your dependencies
+
+  - as code
+  - in the build configuration
+  - including the version (of the dependencies)
+
+  the dependency management tools is then responsible for:
+
+  - downloading those dependencies (plus any transitive dependencies)
+  - making them available to your code.
 
 ### Example: Add Dependencies in NPM
 
@@ -1129,5 +1237,4 @@ The `example-app` is written is JavaScript (Node,js), so NPM is a good choice fo
 ## Conclusion
 
 [^1]: THE BOY SCOUTS HAVE A RULE: “Always leave the campground cleaner than you found it.”[^2]
-
 [^2]: https://learning.oreilly.com/library/view/97-things-every/9780596809515/ch08.html
