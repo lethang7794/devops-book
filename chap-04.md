@@ -1899,9 +1899,71 @@ In this example, you will add an automated tests for the `lambda-sample` OpenTof
 
 ### Testing Best Practices
 
-#### The test pyramid
+#### How to test - The test pyramid
+
+The first question with testing: Which testing approach should you use? Unit tests? Integration tests? E2E test?
+
+The answer: A mix of all of them.
+
+- Each type of test can catch different type of errors; and have different strengths & weaknesses.
+- The only way to be confident your code works as expected is to combine multiple types of tests.
+  In most cases, he proportion of tests follow the _test pyramid_.
+
+For more information, see:
+
+- [The test pyramid](https://www.gruntwork.io/fundamentals-of-devops/testing-your-systems#_the_test_pyramid)
+- [A comparison of different types of automated tests](https://www.gruntwork.io/fundamentals-of-devops/testing-your-systems#test_strengths_weaknesses)
 
 #### What to test
+
+The second question with testing: What should you test?
+
+- Some believe that every line of code must be tested (or you must achieve 100% code coverage).
+- But remember, each test has a cost, does the cost bring enough values?
+
+Before deciding if a part of your code should be test, evaluating your testing strategy & making trade-offs between the following factors:
+
+- The **code of bugs**
+
+  e.g.
+
+  - A prototype that will be throw away in a week -> the cost of bug is low
+  - A payment processing system -> the cost of bug is very high.
+
+  Usually, the cost of bug is high for systems that
+
+  - touches data storage
+  - relates to securiy
+  - cannot be break...
+
+- The **likelehood of bugs**
+
+  e.g.
+
+  - If there is a lot of people working on the same code, there might be more bugs (integration bugs...).
+  - Math problems.
+  - Your own distributed consensus algorithm
+
+- The **cost of testing**
+
+  - Usually, unit tests has low cost
+  - Integration tests, end-to-end tests, performance tests are more expensive to write, run.
+
+- The **cost of not having tests**
+
+  Many companies make analysis about cost/benefit of test and conlcude that tests aren't worth it.
+
+  But not have tests has a big cost: FEAR.
+
+  - The company may end up having a paralyzed dev team.
+
+#### When to test
+
+The third question about testing: When to test?
+
+- Add tests several years after you write the code: much expensive, but not as beneficial.
+- Add tests a day after you write the code: cheaper, more beneficial.
+- Add tests before you write the code: lowest cost, most beneficial.
 
 #### Test-Driven Development (TDD)
 
