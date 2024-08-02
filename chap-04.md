@@ -1214,6 +1214,103 @@ Yoy use a dependency so
 
 ### Example: Add Dependencies in NPM
 
+So far, the Node.js `example-app` has not any dependencies other than the `http` standard library built in Node.js.
+
+In this example, you will introduce an dependency named Express, which is a popular web framwork for Node.js
+
+- Install Express & save it to `dependencies` in `package.json`
+
+  ```bash
+  npm install express --save
+  ```
+
+  - The package will now have a new `dependencies` section:
+
+    ```json
+    {
+      "dependencies": {
+        "express": "^4.19.2"
+      }
+    }
+    ```
+
+- There will be 2 new file/folder next to the `package.json` file:
+
+  - `node_modules` folder: where NPM download & install dependencies
+
+    - Should be in your `.gitignore`; anyone check out this repo the first time can run `npm install` to install the dependencies.
+
+  - `package-lock.json` file: a _dependency lock file_, which captures the _exact_ dependencies what were installed.
+
+    - In `package.json`, you can specify a _version range_ instead of a specific version.
+    - Without the `package-lock.json`, every time you run `npm install`,
+      - you may get a new version of the dependencies,
+        - which make the builds not _reproducible_
+    - With the `package-lock.json` file, you can use `npm clean-install` (`npm ci` in short) to
+      - tell NPM to perform a _clean_ install (and install the exact versions in the lock file)
+        - so the build is reproducible (every time)
+
+- Re-write the code in `app.js` to use Express framework
+
+  ```javascript
+  const express = require("express");
+
+  const app = express();
+  const port = 8080;
+
+  app.get("/", (req, res) => {
+    res.send("Hello, World!");
+  });
+
+  app.listen(port, () => {
+    console.log(`Example app listening on port ${port}`);
+  });
+  ```
+
+  > [!TIP]
+  > By using the Express framework, it'll be a lot easier to evolve this code into a real app by leverage all the features built into Express
+  > e.g. routing, templating, error handling, middleware, security...
+
+- Update the Dockerfile to run `npm ci`
+
+  ```Dockerfile
+  FROM node:21.7
+
+  WORKDIR /home/node/app
+
+  # (1)
+  COPY package.json .
+  COPY package-lock.json .
+
+  # (2)
+  RUN npm ci --only=production
+
+  COPY app.js .
+
+  EXPOSE 8080
+
+  USER node
+
+  CMD ["npm", "start"]
+  ```
+
+  - 1: Copy not only `package.json`, but also `package-lock.json` into the Docker image.
+  - 2: Run `npm ci` to have a clean install with the exact dependencies in the lock file.
+
+  > [!NOTE]
+  > The `--only=production` flag tells NPM to only install the production dependencies.
+  >
+  > - An NPM package can also have dev-dependencies - which are only used in the dev environment.
+  > - When running in production environment, these dev dependencies are not needed.
+
+### Get your hands dirty with modern frontend build systems
+
+- PNPM
+- Yarn
+- Turborepo
+- Lerna
+- Parcel
+
 ## Automated Testing
 
 > [!IMPORTANT]
@@ -1237,4 +1334,5 @@ Yoy use a dependency so
 ## Conclusion
 
 [^1]: THE BOY SCOUTS HAVE A RULE: “Always leave the campground cleaner than you found it.”[^2]
+
 [^2]: https://learning.oreilly.com/library/view/97-things-every/9780596809515/ch08.html
