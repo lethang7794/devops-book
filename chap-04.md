@@ -1899,7 +1899,7 @@ In this example, you will add an automated tests for the `lambda-sample` OpenTof
 
 ### Testing Best Practices
 
-#### How to test - The test pyramid
+#### Which type of test to use? - The test pyramid
 
 The first question with testing: Which testing approach should you use? Unit tests? Integration tests? E2E test?
 
@@ -1967,8 +1967,129 @@ The third question about testing: When to test?
 
 #### Test-Driven Development (TDD)
 
+TDD (Test-Driven Development)
+: You write the test _before_ you write the implementation code
+: Isn't it weird? How can you test something not-existed?
+
+With TDD, The tests
+
+- will test the implementation code
+- provide a feedback that leads to a better design
+
+---
+
+By trying to write tests for your code (before you write the implementation codes), you're forced to take a step back & ask important questions:
+
+- How do I structure the code so I can test it?
+- What dependencies do I have?
+- What are the common use cases? Corner cases?
+
+> [!TIP]
+> If you find that your code is hard to test, it's almost always
+>
+> - a sign that it needs to be refactored (for some other reasons) too.
+>
+> e.g.
+>
+> - The code uses a lot of mutable state & side effects -> Hard to test & hard to reuse, understand.
+> - The code has many ocmplex interactions with its dependencies -> It's tightly coupld & hard to change.
+> - The code has many use cases to cover -> It's doing too much, needs to be broken up.
+
+---
+
+TDD cycle:
+
+0. Add basic **placeholders** for the new functionality (e.g., the function signatures):
+
+- just enough for the code to compile
+- but don’t actually implement the functionality.
+
+1. Add **tests** for the new functionality.
+
+1.2. (RED) _Run_ all the tests. The new tests should fail, but all other tests should pass.
+
+2. _Implement_ the new functionality.
+
+2.2. (GREEN) _Rerun_ the tests. Everything should now pass.
+
+3. (REFACTOR) _Refactor_ the code until you have a clean design, re-running the tests regularly to check everything is still working.
+
+> [!TIP]
+> A TDD cycle is also known as Red - Green - Refactor.
+
+> [!NOTE]
+> When using TDD, the design of your code _emerges_ as a result of a repeated test-code-test cycle.
+>
+> - Without TDD, you often come up with a design and make it your final design.
+> - With TDD:
+>   - you need to figure how to pass new tests (in each cycle), which forces you to iterate on your design.
+>   - you often ship something more effective.
+
+---
+
+Which type of test to apply TDD?
+
+- You can apply TDD for many type of tests:
+  - Unit tests -> Force you consider how to design the small parts of your code.
+  - Integration tetsts -> Force you to consider how your different parts communicate with each other.
+  - End-to-end tests -> Force you to consider how to deploy everything.
+  - Performance tests -> Force you to think what is the bottlenecks are & which metrics you need gather to identify them.
+
+For more information about TDD, see:
+
+- Growing Object-Oriented Software, Guided by Tests by Steve Freeman and Nat Pryce (Addison-Wesley Professional)
+- Hello, Startup: A Programmer’s Guide to Building Products, Technologies, and Teams (O’Reilly)
+
+---
+
+The other benefits of TDD:
+
+- By writing tests first, you increase the chance of having thorough test converage.
+  - Because you're forced to write code incrementally. Each incremental code can be tested more easy.
+
+---
+
+When not to use TDD?
+
+- If you're doing _exploratory coding_:
+  - you don't yet know exactly what you're building
+  - you're just exploring the problem space by coding & messing with data
+
+---
+
+How TDD works with legacy codebase (that doesn't have any tests)?
+
+- You can use TDD for any changes you make to the codebase
+
+  It's a standard TDD cycle with some extra steps at the front:
+
+  A. Write a test for the functionality you're about to modify.
+  B. Run all the tests. They should all pass.
+  C. Use the standard TDD process for new changes you're about to make.
+
+  So it's GREEN + Red-Green-Refactor.
+
+> [!TIP]
+> TDD can also be used for bug fixing.
+>
+> - If there's a bug in production, it's mean there was no test that caught the bug.
+>   - So you can do Test-Driven Bug Fixing.
+
 ## Conclusion
 
-[^1]: THE BOY SCOUTS HAVE A RULE: “Always leave the campground cleaner than you found it.”[^2]
+To allow your team members to **collaborate** on your code:
 
+- Always manage your code with a **version control** system.
+
+- Use a **build system** to capture, as code, important operations and knowledge for your project, in a way that can be _used both by developers and automated tools_.
+
+- Use a **dependency management tool** to pull in dependencies — not copy & paste.
+
+- Use **automated tests** to give your team the _confidence_ to make changes quickly.
+
+  - Automated testing makes you more **productive while coding** by providing a _rapid feedback loop_: make a change, run the tests, make another change, re-run the tests, and so on.
+
+  - Automated testing makes you more **productive in the future**, too: you save a huge amount of time not having to fix bugs because the tests prevented those bugs from slipping through in the first place.
+
+[^1]: THE BOY SCOUTS HAVE A RULE: “Always leave the campground cleaner than you found it.”[^2]
 [^2]: https://learning.oreilly.com/library/view/97-things-every/9780596809515/ch08.html
