@@ -2,21 +2,156 @@
 
 ## Continuous Integration (CI)
 
-Late Integration vs Continuous Integration
+### Late Integration vs Continuous Integration
+
+late integration
+: Come up with a _final_ design for all the components of the system
+: - Have each team works on the components in _isolated_ until it's _finished_
+: When all components are done, assemble at the _same time_.
+
+continuous integration (CI)
+: Come up with an initial design fo all the components of the system
+: - Have each team works on the components
+: - As teams make progress, they regularly test each component will all the other components & update the design (if there are any problems)
+: As components are completed, assemble _incrementally_
+
+#### The problem with late integration
+
+With late integration, there will a lot of conflicts and design problems:
+
+- What if there are problems when integration between components of 2 teams, which teams should solve that problem?
+- If the design has problems, how to go back and fix things?
+
+---
+
+In software development, late integration is
+
+- developers work in totally isolated _feature branches_ for weeks or months at a time.
+- when a release rolls around, these features branches are all merged to the release branch.
+
+When you don't merge your code together for a long time, you end up with a lot of _merge conflicts_, e.g.
+
+- 2 teams modified the same file in _incompatible_ ways:
+  - 1 team made changes in a file, another team deleted it
+  - 1 team - after a giant refactor - remove all usages of a deprecated service; another teams introduce new usages for that services...
+
+All these conflicts after resolved may still leads to bugs, problems that take days/weeks to stabilized. And the release process turned into a nightmare.
+
+#### Continuous integration and its benefits
+
+In software development, _continuous integration_ is:
+
+- developers merge their work together on a very regular basic: daily (or multiple times per day)
+
+which will
+
+- exposes problems with these works early in the process
+- allows developers to make improvements incrementally (before any problems gone too far)
 
 > [!IMPORTANT]
 > Key takeaway #1
 > Ensure all developers merge all their work together on a regular basis: typically daily or multiple times per day.
 
+#### Continuous integration and trunk-based development
+
+trunk-based development
+: developers collaboration on a single long-live branches - e.g. `main`, `master`, `trunk`
+: developers works on short-live branches; and open pull requests to merge them back into the shared branch on a regular basis
+
+Trunk-based development is the most common way to implement continuous integration (CI)
+
+> [!NOTE]
+> You might think having all developers work on a single branch (`main`) have a problem with scaling,
+>
+> - but in fact, it might be the only way to scale.
+>
+> e.g. By using trunk-based development
+>
+> - LinkedIn scale from 100 developers to 1000.
+> - Google scale to tens of thousands of developers, with 2+ billion lines of code, 86TB of source data, 40000 commits per day.
+
+### Three questions about continuous integration and trunk-based development
+
+1. Wouldn’t you have **merge conflicts** _all the time_?
+2. Wouldn’t the **build** always be _broken_?
+3. How do you make **large changes** that take weeks or months?
+
 ### Dealing with Merge Conflicts
+
+> [!NOTE]
+> With late integration (and long-live feature branches), resolving merge conflicts
+>
+> - occurs right before a release
+> - is a painful work that you only need to deal with once every few weeks/months.
+>
+> But with continuous integration (and trunk-based development), you merge your code every day, so you need to resolve conflicts every day? So you need to do the painful work every day?
+
+- If your branches are short-live, the odds of merge conflicts are much lower.
+- Even if there are a merge conflicts, it's much easier to resolve them (if you merge regularly).
+
+> [!TIP]
+> Merge conflicts are unavoidable:
+>
+> - (Don't try to avoid merge conflicts).
+> - Make them easy to be done by do them more often.
 
 ### Preventing Breakages with Self-Testing Builds
 
+- CI (and trunk-based development) is always used with a _self-testing build_, which runs automated tests after every commit.
+
+  For any commit on any branch,
+
+  - every time a developer opens a pull request (PR) to merge a branch to `main`
+    - **automated tests** are run (against their branch)
+      - test results are shown directly in the PR UI.
+
+> [!TIP]
+> By having a self-testing build after every commit:
+>
+> - Code doesn't pass your test suite doesn't get merged to `main`.
+> - For code does pass you test suite, but cause a breakage:
+>   - as soon as you detect it, you can revert that commit automatically.
+
+#### How to set up a self-testing build
+
+The most common way to set up a self-testing build is to run a _CI server_.
+
+---
+
+CI server
+: e.g. Jenkins, TeamCity Argo; GitHub Actions, GitLab, CircleCI.
+: a software that integrates with your VCS to _run_ various **automations**, e.g. automated tests
+: - in response to an event (in your VSC), e.g. new commits/branches/PRs...
+
+> [!TIP]
+> CI server are such an integral part of CI,
+>
+> - for many developers, CI server and CI are nearly synonymous.
+
+#### The benefits of CI (and Automated Tests)
+
+- Without continuous integration, your software is _broken until somebody proves it works_, usually during a testing or integration stage.
+
+- With continuous integration, your software is _proven to work_ (assuming a sufficiently comprehensive set of automated tests) with every new change — and you know the moment it breaks and can fix it immediately.
+
+> [!NOTE]
+> With continuous integration, your code is _always_ in a releasable state 👉 You can deploy at any time you want.
+
+> [!TIP]
+> The CI server act as a gatekeeper 👮🆔:
+>
+> - protecting your code from any changes that threaten your ability to deploy at any time.
+
 > [!IMPORTANT]
 > Key takeaway #2
-> Use a self-testing build after every commit to ensure your code is always in a working and deployable state.
+> Use a self-testing build after every commit to ensure your code is always in a **working & deployable** state.
 
 ### Making Large Changes
+
+For large changes that take weeks/months, e.g. major new feature, big refactor - how can you merge your in-compete work on a daily basis
+
+- without breaking the build
+- without releasing unfinished features to users?
 
 > [!IMPORTANT]
 > Key takeaway #3
@@ -24,13 +159,75 @@ Late Integration vs Continuous Integration
 
 #### Branch by abstraction
 
+branch by abstraction
+: a technique for making a large-scale change to a software system's codebase in _gradual_ way, that allows you
+: - to release the system regularly while the change is still in-progress
+
+Branch by abstraction works at **code-level**, allow you to
+
+- switch the implementation of the abstract easily (at code-level)
+- or even have 2 implementation (versions) of the feature in parallel (at code-level)
+
+For more information, see:
+
+- [Branch By Abstraction | Martin Fowler](https://martinfowler.com/bliki/BranchByAbstraction.html)
+- [Branch by abstraction pattern |AWS Prescriptive Guidance - Decomposing monoliths into microservices](https://docs.aws.amazon.com/prescriptive-guidance/latest/modernization-decomposing-monoliths/branch-by-abstraction.html)
+
 #### Feature toggles
+
+feature toggle
+: aka _feature flag_
+: you wrap a new feature in **conditionals**, that let you
+: - toggle that feature on/off dynamically at **deploy time/runtime**
+
+By wrap features in conditionals, at **code-level**,
+
+- you can make some part of your system invisible to the users without changing the code.
+
+e.g.
+
+- In the Node.js sample-app, you can add a feature toggle to pick between new homepage and the "Hello, World!" text
+
+  ```javascript
+  app.get("/", (req, res) => {
+    if (lookupFeatureToggle(req, "HOME_PAGE_FLAVOR") === "v2") {
+      res.send(newFancyHomepage());
+    } else {
+      res.send("Hello, World!");
+    }
+  });
+  ```
+
+  - The `lookupFeatureToggle` will check if the feature toggle is enables by querying a dedicated _feature toggle service_.
+
+For more information, see:
+
+- [Feature Toggles | Martin Flower's Article](https://martinfowler.com/articles/feature-toggles.html)
 
 ##### Feature toggle service
 
+A feature toggle service can:
+
 - Store a feature toggle mapping
-- Look up feature toggles programmatically
-- Update feature toggles without having to change code
+- Be used to look up feature toggles programmatically
+- Update feature toggle values without having to update/deploy code
+
+e.g.
+
+- growthbook, Flagsmith, flagr, OpenFeature
+- Managed feature: Split, LaunchDarkly, ConfigCat, Statsig.
+
+#### Feature toggle and continuous integration
+
+By
+
+- wrapping new features in conditionals (feature toggle check), and
+- keep the default value of all feature toggles to off
+
+you can merge your new unfinished feature into `main` and practice continuous integration.
+
+> [!TIP]
+> Feature toggles also give you many super powers, which you can see in the Continuous Delivery section
 
 ### Example: Run Automated Tests for Apps in GitHub Actions
 
@@ -40,7 +237,7 @@ To help catch bugs, update the GitHub Actions workflow to run a JavaScript linte
 
 To help keep your code consistently formatted, update the GitHub Actions workflow to run a code formatter, such as Prettier, after every commit.
 
-Run both the linter and code formatter as a precommit hook, so these checks run on your own computer before you can make a commit. You may wish to use the pre-commit framework to manage your precommit hooks.
+Run both the linter and code formatter as a pre-commit hook, so these checks run on your own computer before you can make a commit. You may wish to use the pre-commit framework to manage your pre-commit hooks.
 
 ### Machine User Credentials and Automatically-Provisioned Credentials
 

@@ -1,10 +1,13 @@
 {
   "cSpell.words": [
+    "automations",
     "buildx",
     "Dockerized",
     "Idempotency",
+    "OIDC",
     "SDLC",
     "templating",
+    "Terragrunt",
     "tfstate"
   ]
 }
