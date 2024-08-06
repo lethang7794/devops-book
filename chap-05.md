@@ -231,6 +231,124 @@ you can merge your new unfinished feature into `main` and practice continuous in
 
 ### Example: Run Automated Tests for Apps in GitHub Actions
 
+In this example, you will use GitHub Actions to run the automated tests (that added in Chap 4) after each commit and show the result in pull requests.
+
+- Copy the Node.js `sample-app` and the automated tests
+
+  ```bash
+  cd examples
+  mkdir -p ch5
+  cp -r ch4/sample-app ch5/sample-app
+  ```
+
+- From the root of the repo, create a folder called `.github/workflows`
+
+  ```bash
+  mkdir -p .github/workflows
+  ```
+
+- Inside `.github/workflows`, create a GitHub workflow file named `app-tests.yml`
+
+  ```yaml
+  # .github/workflows/app-tests.yaml
+  name: Sample App Tests
+
+  on: push #                                  (1)
+
+  jobs: #                                     (2)
+    sample_app_tests: #                       (3)
+      name: "Run Tests Using Jest"
+      runs-on: ubuntu-latest #                (4)
+      steps:
+        - uses: actions/checkout@v2 #         (5)
+
+        - name: Install dependencies #        (6)
+          working-directory: ch5/sample-app
+          run: npm install
+
+        - name: Run tests #                   (7)
+          working-directory: ch5/sample-app
+          run: npm test
+  ```
+
+  > [!NOTE]
+  > With GitHub Actions, you use YAML to
+  >
+  > - define _workflow_ - configurable automated processes - that
+  >   - run one or more _jobs_
+  >     - in response to certain _triggers_.
+
+  > [!TIP]
+  > If you don't know about YAMl, see
+  >
+  > - [YAML | Learn X in Y minutes](https://learnxinyminutes.com/docs/yaml/)
+  > - or [YAML Syntax | Ansible Docs](https://docs.ansible.com/ansible/latest/reference_appendices/YAMLSyntax.html)
+  > - or [YAML basics in Kubernetes | IBM Developer - Tutorials](https://developer.ibm.com/tutorials/yaml-basics-and-usage-in-kubernetes/)
+  > - or [YAML for beginners | Red Hat](https://www.redhat.com/sysadmin/yaml-beginners)
+  > - https://yaml.org/spec/1.2.2/#nodes
+
+- (1) `on` block: The trigger that will cause the workflow to run.
+
+  In this example, `on: push` configure this workflow to run every time you do a `git push` to this repo
+
+- (2) `jobs` block: One or more jobs - aka automations - to run in this workflow.
+
+  > [!NOTE]
+  > By default, jobs run _parallel_, but you can
+  >
+  > - configure jobs to run sequentially
+  > - (and define dependencies on other jobs, passing data between jobs)
+
+- (3) `sample_app_tests`: This workflow define a single job named `sample_app_tests`, which will run the automated tests for the sample app.
+
+  > [!NOTE]
+  > GitHub Actions use YAML syntax to define the workflow:
+  >
+  > - A YAML node can be one of three types:
+  >   - Scalar: arbitrary data (encoded in Unicode) such as strings, integers, dates
+  >   - Sequence: an ordered list of nodes
+  >   - Mapping: an unordered set of key/value node pairs
+  > - Most of the GitHub Actions's workflow syntax is a part of a mapping node - with:
+  >   - a pre-defined key, e.g. `name`, `on`, `jobs`,
+  >   - excepting some where you can specify your own key, e.g. `<job_id>`, `<input_id>`, `<service_id>`, `<secret_id>`
+
+  > [!TIP]
+  > In this example, `sample_app_test` is the `<job_id>` specified by you
+
+- (4) `runs-on` block: Uses `ubuntu-latest` runner that has:
+
+  - default hardware configuration (2 CPUs, 7GB RAM, as of 2024)
+  - software with Ubuntu & a lot of tools (including Node.js) pre-installed.
+
+  > [!NOTE]
+  > Each job runs on a certain type of _runner_, which is how you configure:
+  >
+  > - the hardware (CPU, memory)
+  > - the software (OS, dependencies)
+  >
+  > to use for the job.
+
+- (5) `uses` block: Uses a reusable unit of code (aka _action_) - `actions/checkout` - as the first step.
+
+  > [!NOTE]
+  > Each job consists of a series of _steps_ that are executed sequentially.
+
+  > [!NOTE]
+  > GitHub Actions allow you to share & reuse workflows, including
+  >
+  > - public, open source workflows (available on GitHub Actions Marketplace)
+  > - private, internal workflows within your own organization
+
+- (6): The second step has a `run` block to execute shell commands (`npm install`)
+
+  > [!NOTE]
+  > A step can has:
+  >
+  > - either a `run` block: to run any shell commands
+  > - or a `uses` block: to run an action
+
+- (7) The thirst step also has a `run` block to execute shell commands (`npm test`)
+
 ### Get your hands dirty: Run automated app tests in CI
 
 To help catch bugs, update the GitHub Actions workflow to run a JavaScript linter, such as JSLint or ESLint, after every commit.
