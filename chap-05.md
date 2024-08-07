@@ -76,7 +76,7 @@ Trunk-based development is the most common way to implement continuous integrati
 2. Wouldn’t the **build** always be _broken_?
 3. How do you make **large changes** that take weeks or months?
 
-### Dealing with Merge Conflicts
+#### Dealing with Merge Conflicts
 
 > [!NOTE]
 > With late integration (and long-live feature branches), resolving merge conflicts
@@ -95,7 +95,7 @@ Trunk-based development is the most common way to implement continuous integrati
 > - (Don't try to avoid merge conflicts).
 > - Make them easy to be done by do them more often.
 
-### Preventing Breakages with Self-Testing Builds
+#### Preventing Breakages with Self-Testing Builds
 
 - CI (and trunk-based development) is always used with a _self-testing build_, which runs automated tests after every commit.
 
@@ -112,7 +112,7 @@ Trunk-based development is the most common way to implement continuous integrati
 > - For code does pass you test suite, but cause a breakage:
 >   - as soon as you detect it, you can revert that commit automatically.
 
-#### How to set up a self-testing build
+##### How to set up a self-testing build
 
 The most common way to set up a self-testing build is to run a _CI server_.
 
@@ -128,7 +128,7 @@ CI server
 >
 > - for many developers, CI server and CI are nearly synonymous.
 
-#### The benefits of CI (and Automated Tests)
+##### The benefits of CI (and Automated Tests)
 
 - Without continuous integration, your software is _broken until somebody proves it works_, usually during a testing or integration stage.
 
@@ -146,7 +146,7 @@ CI server
 > Key takeaway #2
 > Use a self-testing build after every commit to ensure your code is always in a **working & deployable** state.
 
-### Making Large Changes
+#### Making Large Changes
 
 For large changes that take weeks/months, e.g. major new feature, big refactor - how can you merge your in-compete work on a daily basis
 
@@ -157,7 +157,7 @@ For large changes that take weeks/months, e.g. major new feature, big refactor -
 > Key takeaway #3
 > Use branch by abstraction and feature toggles to make large-scale changes while still merging your work on a regular basis.
 
-#### Branch by abstraction
+##### Branch by abstraction
 
 branch by abstraction
 : a technique for making a large-scale change to a software system's codebase in _gradual_ way, that allows you
@@ -173,7 +173,7 @@ For more information, see:
 - [Branch By Abstraction | Martin Fowler](https://martinfowler.com/bliki/BranchByAbstraction.html)
 - [Branch by abstraction pattern |AWS Prescriptive Guidance - Decomposing monoliths into microservices](https://docs.aws.amazon.com/prescriptive-guidance/latest/modernization-decomposing-monoliths/branch-by-abstraction.html)
 
-#### Feature toggles
+##### Feature toggles
 
 feature toggle
 : aka _feature flag_
@@ -204,7 +204,7 @@ For more information, see:
 
 - [Feature Toggles | Martin Flower's Article](https://martinfowler.com/articles/feature-toggles.html)
 
-##### Feature toggle service
+###### Feature toggle service
 
 A feature toggle service can:
 
@@ -217,7 +217,7 @@ e.g.
 - growthbook, Flagsmith, flagr, OpenFeature
 - Managed feature: Split, LaunchDarkly, ConfigCat, Statsig.
 
-#### Feature toggle and continuous integration
+##### Feature toggle and continuous integration
 
 By
 
@@ -229,7 +229,7 @@ you can merge your new unfinished feature into `main` and practice continuous in
 > [!TIP]
 > Feature toggles also give you many super powers, which you can see in the Continuous Delivery section
 
-### Example: Run Automated Tests for Apps in GitHub Actions
+#### Example: Run Automated Tests for Apps in GitHub Actions
 
 In this example, you will use GitHub Actions to run the automated tests (that added in Chap 4) after each commit and show the result in pull requests.
 
@@ -404,7 +404,7 @@ In this example, you will use GitHub Actions to run the automated tests (that ad
   - GitHub Actions will re-run your automated tests.
   - Open the GitHub PR UI to verify that the automated tests now is passing. (It's should show "All checks have passed")
 
-### Get your hands dirty: Run automated app tests in CI
+#### Get your hands dirty: Run automated app tests in CI
 
 To help catch bugs, update the GitHub Actions workflow to run a JavaScript linter, such as JSLint or ESLint, after every commit.
 
@@ -422,11 +422,13 @@ Run both the linter and code formatter as a pre-commit hook, so these checks run
 
 #### Automatically-provisioned credentials
 
-### Example: Configure OIDC with AWS and GitHub Actions
+#### Example: Configure OIDC with AWS and GitHub Actions
 
-### Example: Run Automated Tests for Infrastructure in GitHub Actions
+### Automated tests and infrastructure code
 
-### Get your hands dirty: Run automated infrastructure tests in CI
+#### Example: Run Automated Tests for Infrastructure in GitHub Actions
+
+#### Get your hands dirty: Run automated infrastructure tests in CI
 
 To help keep your code consistently formatted, update the GitHub Actions workflow to run a code formatter, such as `tofu fmt`, after every commit.
 
