@@ -287,67 +287,122 @@ In this example, you will use GitHub Actions to run the automated tests (that ad
   > - or [YAML for beginners | Red Hat](https://www.redhat.com/sysadmin/yaml-beginners)
   > - https://yaml.org/spec/1.2.2/#nodes
 
-- (1) `on` block: The trigger that will cause the workflow to run.
+  - (1) `on` block: The trigger that will cause the workflow to run.
 
-  In this example, `on: push` configure this workflow to run every time you do a `git push` to this repo
+    In this example, `on: push` configure this workflow to run every time you do a `git push` to this repo
 
-- (2) `jobs` block: One or more jobs - aka automations - to run in this workflow.
+  - (2) `jobs` block: One or more jobs - aka automations - to run in this workflow.
 
-  > [!NOTE]
-  > By default, jobs run _parallel_, but you can
-  >
-  > - configure jobs to run sequentially
-  > - (and define dependencies on other jobs, passing data between jobs)
+    > [!NOTE]
+    > By default, jobs run _parallel_, but you can
+    >
+    > - configure jobs to run sequentially
+    > - (and define dependencies on other jobs, passing data between jobs)
 
-- (3) `sample_app_tests`: This workflow define a single job named `sample_app_tests`, which will run the automated tests for the sample app.
+  - (3) `sample_app_tests`: This workflow define a single job named `sample_app_tests`, which will run the automated tests for the sample app.
 
-  > [!NOTE]
-  > GitHub Actions use YAML syntax to define the workflow:
-  >
-  > - A YAML node can be one of three types:
-  >   - Scalar: arbitrary data (encoded in Unicode) such as strings, integers, dates
-  >   - Sequence: an ordered list of nodes
-  >   - Mapping: an unordered set of key/value node pairs
-  > - Most of the GitHub Actions's workflow syntax is a part of a mapping node - with:
-  >   - a pre-defined key, e.g. `name`, `on`, `jobs`,
-  >   - excepting some where you can specify your own key, e.g. `<job_id>`, `<input_id>`, `<service_id>`, `<secret_id>`
+    > [!NOTE]
+    > GitHub Actions use YAML syntax to define the workflow:
+    >
+    > - A YAML node can be one of three types:
+    >   - Scalar: arbitrary data (encoded in Unicode) such as strings, integers, dates
+    >   - Sequence: an ordered list of nodes
+    >   - Mapping: an unordered set of key/value node pairs
+    > - Most of the GitHub Actions's workflow syntax is a part of a mapping node - with:
+    >   - a pre-defined key, e.g. `name`, `on`, `jobs`,
+    >   - excepting some where you can specify your own key, e.g. `<job_id>`, `<input_id>`, `<service_id>`, `<secret_id>`
 
-  > [!TIP]
-  > In this example, `sample_app_test` is the `<job_id>` specified by you
+    > [!TIP]
+    > In this example, `sample_app_test` is the `<job_id>` specified by you
 
-- (4) `runs-on` block: Uses `ubuntu-latest` runner that has:
+  - (4) `runs-on` block: Uses `ubuntu-latest` runner that has:
 
-  - default hardware configuration (2 CPUs, 7GB RAM, as of 2024)
-  - software with Ubuntu & a lot of tools (including Node.js) pre-installed.
+    - default hardware configuration (2 CPUs, 7GB RAM, as of 2024)
+    - software with Ubuntu & a lot of tools (including Node.js) pre-installed.
 
-  > [!NOTE]
-  > Each job runs on a certain type of _runner_, which is how you configure:
-  >
-  > - the hardware (CPU, memory)
-  > - the software (OS, dependencies)
-  >
-  > to use for the job.
+    > [!NOTE]
+    > Each job runs on a certain type of _runner_, which is how you configure:
+    >
+    > - the hardware (CPU, memory)
+    > - the software (OS, dependencies)
+    >
+    > to use for the job.
 
-- (5) `uses` block: Uses a reusable unit of code (aka _action_) - `actions/checkout` - as the first step.
+  - (5) `uses` block: Uses a reusable unit of code (aka _action_) - `actions/checkout` - as the first step.
 
-  > [!NOTE]
-  > Each job consists of a series of _steps_ that are executed sequentially.
+    > [!NOTE]
+    > Each job consists of a series of _steps_ that are executed sequentially.
 
-  > [!NOTE]
-  > GitHub Actions allow you to share & reuse workflows, including
-  >
-  > - public, open source workflows (available on GitHub Actions Marketplace)
-  > - private, internal workflows within your own organization
+    > [!NOTE]
+    > GitHub Actions allow you to share & reuse workflows, including
+    >
+    > - public, open source workflows (available on GitHub Actions Marketplace)
+    > - private, internal workflows within your own organization
 
-- (6): The second step has a `run` block to execute shell commands (`npm install`)
+  - (6): The second step has a `run` block to execute shell commands (`npm install`)
 
-  > [!NOTE]
-  > A step can has:
-  >
-  > - either a `run` block: to run any shell commands
-  > - or a `uses` block: to run an action
+    > [!NOTE]
+    > A step can has:
+    >
+    > - either a `run` block: to run any shell commands
+    > - or a `uses` block: to run an action
 
-- (7) The thirst step also has a `run` block to execute shell commands (`npm test`)
+  - (7) The thirst step also has a `run` block to execute shell commands (`npm test`)
+
+- Commit & push to your GitHub repo
+
+  ```bash
+  git add ch5/sample-app .github/workflows/app-tests.yml
+  git commit -m "Add sample-app and workflow"
+  git push origin main
+  ```
+
+- Verify that the automated tests run
+
+  - Create a new branch
+
+    ```bash
+    git switch -c test-workflow
+    ```
+
+  - Make a change to the app
+
+    ```bash
+    sed -i s/Hello, World!/Fundamentals of DevOps!/g ch5/sample-app/app.js
+    ```
+
+  - Commit & push
+
+    ```bash
+    git add ch5/sample-app
+    git commit -m "Add sample-app and workflow"
+    git push origin main
+    ```
+
+  - Open the GitHub URL for that branch; then "create pull request"
+  - Verify that the workflow run
+
+    > [!TIP]
+    > In GitHub PR UI, a workflow run is show as _check_
+
+  - Open the check detail to know what's wrong with the check (It's a fail test).
+
+- Update the automated test to match with the new response text
+
+  ```bash
+  sed -i s/Hello, World!/Fundamentals of DevOps!/g ch5/sample-app/app.test.js
+  ```
+
+  - Commit & push to the same branch
+
+    ```bash
+    git add ch5/sample-app/app.test.js
+    git commit -m "Update response text in test"
+    git push origin test-workflow
+    ```
+
+  - GitHub Actions will re-run your automated tests.
+  - Open the GitHub PR UI to verify that the automated tests now is passing. (It's should show "All checks have passed")
 
 ### Get your hands dirty: Run automated app tests in CI
 
