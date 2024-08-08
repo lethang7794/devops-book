@@ -412,17 +412,245 @@ To help keep your code consistently formatted, update the GitHub Actions workflo
 
 Run both the linter and code formatter as a pre-commit hook, so these checks run on your own computer before you can make a commit. You may wish to use the pre-commit framework to manage your pre-commit hooks.
 
-### Machine User Credentials and Automatically-Provisioned Credentials
+### Machine-User Credentials and Automatically-Provisioned Credentials
+
+If you want to run unit testing with OpenTofu's `test` command,
+
+- you need to give the automated tests a way to authenticated to cloud provider
+  - if these automated tests run on your local machine, they may use a _real-user credential_ - e.g. AWS IAM user credentials, GitHub personal access token -
+  - if these automated tests run on a CI server, you should never use a real-user credential.
+
+#### The problem of using real-user credentials for CI server
+
+- **Departures**
+
+  Typically, when someone leaves a company, you _revoke_ all their access.
+
+  If you were using their credentials for automation, then that automation will suddenly _break_.
+
+- **Permissions**
+
+  The permissions that a human user needs are typically _different_ than a machine user.
+
+- **Audit logs**
+
+  If you use same user account for both a human & automation, the _audit logs_[^1] aren't useful for debugging & investigating security incidents anymore.
+
+- **Management**
+
+  You typically want multiple developers at your company to be able to manage the automations you set up.
+
+  - If you use a single developer’s credentials for those automations,
+    - when he/she need to update the credentials or permissions,
+      - the other developers won’t be able to access that user account
 
 > [!IMPORTANT]
 > Key takeaway #4
 > Use machine user credentials or automatically-provisioned credentials to authenticate from a CI server or other automations.
 
-#### Machine user credentials
+#### Machine-user credentials
+
+machine-user
+: a user account that is only used for automation (not by any human user)
+
+machine-user credential
+: a credential of a machine-user
+: usually it's a long-live credential
+
+---
+
+##### How to use a machine-user credential
+
+- Create a machine-user
+- Generate credential - e.g. access token - for that machine-user
+- _Manually_ copy the credential into whatever tool you're using, GitHub Actions
+
+##### Machine-user credentials pros and cons
+
+- Pros:
+
+  - It solves all problems of using a shared real-user credential
+
+- Cons:
+
+  - You need to manually copy machine-user credentials (just as a password)
+  - Machine-user credentials are _long-lived_ credentials
+
+    If they are leaked, you would have a big problem.
 
 #### Automatically-provisioned credentials
 
+automatically-provisioned credential
+: credential that is provisioned automatically (by a system)
+: - without any need for you to manually create machine users or copy/paste credentials
+: - so it can be used by another system
+: usually it's a _short-live_ credential
+: e.g. AWS IAM roles
+
+This requires that the two systems
+
+- the system you're authenticating from, e.g. a CI server
+- the system you're authenticating to, e.g. AWS
+
+have an integration that supports automatically-provision credentials.
+
+The two systems can be
+
+- in the _same_ company's services 👉 via AWS IAM role (when using with EKS/EC2).
+- _across_ companies' services 👉 via _OpenID Connect (OIDC)_ - an open protocol for authentication.
+
+##### OpenID Connect (OIDC)
+
+To understand OIDC, let's examine an example for OIDC integration between GitHub and AWS:
+
+- You're authenticate from GitHub to AWS:
+
+  - GitHub: the system you're authenticating **from**
+  - AWS: the system you're authenticating **to**
+
+- In other words,
+
+  - GitHub system needs to have some permissions to do something with AWS.
+  - AWS systems will provision the credential that GitHub needs.
+
+- Under the hood, with OIDC, you configure AWS to
+
+  - _trust_ an IdP (e.g. GitHub)
+
+    > [!TIP]
+    > How can AWS trust an IdP, e.g. GitHub?
+    >
+    > OIDC trust is a digital signature system[^2]:
+    >
+    > - GitHub has the private key (and use it to sign the OIDC token).
+    > - AWS has the public key (and use it to validate the OIDC token).
+
+  - allow that IdP to _exchange_ an OIDC token[^3] for short-lived AWS credentials
+
+- Here is how the authenticate from GitHub to AWS works:
+
+  ![OIDC Github Diagram](assets/oidc-github-diagram.png)
+
+  1. **[GitHub] Generate an OIDC token:** includes claims about what repo/branch (the workflow is running in).
+  2. **[GitHub] Call the `AssumeRoleWithWebIdentity` API:** to specify the IAM Role to assume (and passing the OIDC token to AWS as authentication).
+  3. **[AWS] Validate the OIDC token:** using the public key (that you provide when setting up GitHub as an IdP).
+  4. **[AWS] Validate IAM role conditions:** against the claims (whether that repo/branch is allowed to assume the IAM role).
+  5. **[AWS] Grant short-lived AWS credentials:** then send back to GitHub.
+  6. **[GitHub] Use the AWS credentials:** to authenticate to AWS (and make changes in AWS account)
+
 #### Example: Configure OIDC with AWS and GitHub Actions
+
+##### The `github-aws-oidc` and `gh-actions-iam-roles` OpenTofu modules
+
+The sample code repo includes 2 OpenTofu modules
+
+- `github-aws-oidc` module:
+
+  - in `ch5/tofu/modules/github-aws-oidc` folder
+  - that can provision GitHub as an OIDC provider for AWS account.
+
+- `gh-actions-iam-roles` module:
+
+  - in `ch5/tofu/modules/gh-actions-iam-roles` folder
+  - that can provision severals IAM roles for CI/CD with GitHub Actions.
+
+##### Configure `github-aws-oidc` and `gh-actions-iam-roles` OpenTofu module
+
+- Create a new Git branch
+
+  ```bash
+  git switch -c opentofu-tests
+  ```
+
+- Create the folder for the OpenTofu root module
+
+  ```bash
+  cd examples
+  mkdir -p ch5/tofu/live/ci-cd-permissions
+  cd ch5/tofu/live/ci-cd-permissions
+  ```
+
+- Configure the `github-aws-oidc` module
+
+  ```t
+  # examples/ch5/tofu/live/ci-cd-permissions/main.tf
+
+  provider "aws" {
+    region = "us-east-2"
+
+  }
+
+  module "oidc_provider" {
+    source = "github.com/brikis98/devops-book//ch5/tofu/modules/github-aws-oidc"
+    provider_url = "https://token.actions.githubusercontent.com" # (1)
+  }
+  ```
+
+  - 1 `provider_url`: The URL of the IdP
+
+    > [!TIP]
+    > The `github-aws-oidc` will use this URL to fetch GitHub's fingerprint, that used by AWS to validate the OIDC token from GitHub.
+
+- Configure the `gh-actions-iam-roles` module to create examples IAM roles (to be assumed from GitHub Actions).
+
+  ```t
+  # examples/ch5/tofu/live/ci-cd-permissions/main.tf
+
+  module "oidc_provider" {
+    # ... (other params omitted) ...
+  }
+
+  module "iam_roles" {
+    source = "github.com/brikis98/devops-book//ch5/tofu/modules/gh-actions-iam-roles"
+
+    name              = "lambda-sample" #                           (1)
+    oidc_provider_arn = module.oidc_provider.oidc_provider_arn #    (2)
+
+    enable_iam_role_for_testing = true #                            (3)
+
+    # TODO: fill in your own repo name here!
+    github_repo      = "brikis98/fundamentals-of-devops-examples" # (4)
+    lambda_base_name = "lambda-sample" #                            (5)
+  }
+  ```
+
+  - 1 `name`: Base name for this module's resources
+
+  - 2 `oidc_provider_arn`: Specify the IdP (the one created by `github-aws-oidc` module) that will be allowed to assume created by this module.
+
+    > [!TIP]
+    > Under the hood, `gh-actions-iam-roles` module will
+    >
+    > - configure the _trust policy_ in the IAM roles to
+    >   - trust this OIDC provider (and allow it to assume the IAM roles)
+
+  - 3 `enable_iam_role_for_testing`: Set to `true` to create IAM roles used for testing.
+
+  - 4 `github_repo`: Specify the GitHub repo that will be allowed to assume the IAM roles.
+
+    > [!TIP]
+    > Under the hood, the `gh-actions-iam-roles` module
+    >
+    > - sets certain **conditions** in the _trust policies_ of each IAM role
+    >   - to specify which repos/branches in GitHub
+    >     - are allowed to assume that IAM role
+
+  - 5 `lambda_base_name`: Manually specify the lambda function base name.
+
+- Create the output variables
+
+  ```t
+  output "lambda_test_role_arn" {
+    value = module.iam_roles.lambda_test_role_arn
+  }
+  ```
+
+- Init & apply OpenTofu code
+
+  ```bash
+  tofu init
+  tofu apply
+  ```
 
 ### Automated tests and infrastructure code
 
@@ -490,9 +718,12 @@ Automating your entire SDLC through the use of CI/CD:
 - CI: Ensure all developers _merge_ all their work together on a regular basis: typically **daily** or multiple times per day.
 
   - Use a **self-testing build** after every commit to ensure your code is always in a working and **deployable state**.
-
   - Use **branch by abstraction** and **feature toggles** to _make large-scale changes_ while still merging your work on a regular basis.
 
 - Security: Use machine user credentials or automatically-provisioned credentials to _authenticate_ from a CI server or other automations.
 
 - CD: Ensure you can _deploy_ to production **at any time** in a manner that is fast, reliable, and sustainable.
+
+[^1]: Most systems maintain an audit log that records _**who** performed **what**_ actions in that system.
+[^2]: Digital signature system and public-key encryption system are 2 type of systems that use public-key cryptography (asymmetric cryptography).
+[^3]: OIDC token is a JSON Web Token - a JSON object that contains _claims_ (data that being asserted)
