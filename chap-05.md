@@ -656,6 +656,128 @@ The sample code repo includes 2 OpenTofu modules
 
 #### Example: Run Automated Tests for Infrastructure in GitHub Actions
 
+- Copy the infrastructure code
+
+  ```bash
+  cd examples
+  mkdir -p ch5/tofu/modules
+  cp -r ch4/tofu/live/lambda-sample ch5/tofu/live
+  cp -r ch4/tofu/modules/test-endpoint ch5/tofu/modules
+  ```
+
+- Remove hard-codes names in `lambda-sample` (so the tests can run concurrently)
+
+  - Define an input variable for `lambda-sample`
+
+    ```t
+    # examples/ch5/tofu/live/lambda-sample/variables.tf
+    variable "name" {
+      description = "The base name for the function and all other resources"
+      type        = string
+      default     = "lambda-sample"
+    }
+    ```
+
+    - This defines a `name` variable to use as the base name for `lambda-sample` module with the default value `"lambda-sample"` (same as before).
+
+  - Update `main.tf` to use `var.name` (instead of hard-coded names)
+
+    ```t
+    # examples/ch5/tofu/live/lambda-sample/main.tf
+    module "function" {
+      # ... (other params omitted) ...
+      name = var.name
+    }
+
+    module "gateway" {
+      # ... (other params omitted) ...
+      name = var.name
+    }
+    ```
+
+- Define the GitHub Actions workflow to run the infrastructure automated tests
+
+  The workflow
+
+  - runs on `push`,
+  - contains 2 jobs: `terrascan`, `opentofu_test`
+
+  ***
+
+  - ```yaml
+    # .github/workflows/infra-tests.yml
+    name: Infrastructure Tests
+
+    on: push
+
+    jobs:
+      terrascan:
+        name: "Run Terrascan"
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v2
+
+          - name: Run Terrascan
+            uses: tenable/terrascan-action@main
+            with:
+              iac_type: "terraform"
+              iac_dir: "ch5/tofu/live/lambda-sample"
+              verbose: true
+              non_recursive: true
+              config_path: "ch5/tofu/live/lambda-sample/terrascan.toml"
+    # opentofu_test:
+    ```
+
+  - The first job `terrascan`:
+
+    - checkout code
+    - install then run `terrascan` using `tenable/terrascan-action` action
+
+  ***
+
+  - ```yaml
+    opentofu_test:
+      name: "Run OpenTofu tests"
+      runs-on: ubuntu-latest
+      permissions: #                                                                (1)
+        id-token: write
+        contents: read
+      steps:
+        - uses: actions/checkout@v2
+
+        - uses: aws-actions/configure-aws-credentials@v3 #                          (2)
+          with:
+            # TODO: fill in your IAM role ARN!
+            role-to-assume: arn:aws:iam::111111111111:role/lambda-sample-tests #    (3)
+            role-session-name: tests-${{ github.run_number }}-${{ github.actor }} # (4)
+            aws-region: us-east-2
+
+        - uses: opentofu/setup-opentofu@v1 #                                        (5)
+
+        - name: Tofu Test
+          env:
+            TF_VAR_name: lambda-sample-${{ github.run_id }} #                       (6)
+          working-directory: ch5/tofu/live/lambda-sample
+          #                                                                         (7)
+          run: |
+            tofu init -backend=false -input=false
+            tofu test -verbose
+    ```
+
+  - The second job `opentofu_test`:
+
+    - 1 `permissions`: In additional to `contents: read` (the default one), add `id-token: write` permissions to issue an OIDC token.
+    - 2: Authenticate to AWS with OIDC using `aws-actions/configure-aws-credentials` action to 👉 This calls `AssumeRoleWithWebIdentity`)
+    - 3: Manually fill in the IAM role to assume, it's the IAM role created in the previous example.
+    - 4: Specify the session name when assume the IAM role 👉 This shows up in audit logs.
+    - 5: Install OpenTofu using `opentofu/setup-opentofu` action.
+    - 6: Use the environment variable `TF_VAR_name` to set the `name` input variable of the `lambda-sample` module.
+    - 7: Run the tests
+      Skip backend initialization with `backend=false` flag.
+
+- Commit & push to `opentofu-tests` branch; then open a PR.
+- Verify the infrastructure automated tests run.
+
 #### Get your hands dirty: Run automated infrastructure tests in CI
 
 To help keep your code consistently formatted, update the GitHub Actions workflow to run a code formatter, such as `tofu fmt`, after every commit.
