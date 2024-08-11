@@ -853,85 +853,100 @@ This section will go over the most common deployment strategies. For each strate
 
 #### Downtime deployment
 
-|                  | Downtime deployment                                               |
-| ---------------- | ----------------------------------------------------------------- |
-| Overview         | 1. (v1 replicas)                                                  |
-|                  | 2. Undeploy all v1 replicas; deploy v2 replicas (to same servers) |
-| Advantages       | - Easy to implement                                               |
-|                  | - Works with all type of apps                                     |
-| Disadvantages    | - Downtime                                                        |
-| Common use cases | - Single-replica systems                                          |
-|                  | - Data migrations                                                 |
+![Downtime deployment](assets/deployment-strategy-downtime.png)
+
+|                  | Downtime deployment                            |
+| ---------------- | ---------------------------------------------- |
+| Overview         | 1. (v1 replicas)                               |
+|                  | 2. Undeploy all v1 replicas 👉 Outage/downtime |
+|                  | 3. Deploy v2 replicas (to same servers)        |
+| Advantages       | - Easy to implement                            |
+|                  | - Works with all type of apps                  |
+| Disadvantages    | - Downtime                                     |
+| Common use cases | - Single-replica systems                       |
+|                  | - Data migrations                              |
 
 #### Rolling deployment without replacement
 
-|                  | Rolling deployment without replacement |
-| ---------------- | -------------------------------------- |
-| Overview         | 1. (v1 replicas)                       |
-|                  | 2. Deploy v2 replicas (to new server)  |
-|                  | 3. Gradually undeploy v1 replicas.     |
-| Advantages       | - No downtime                          |
-|                  | - Widely supported                     |
-| Disadvantages    | - Poor UX                              |
-|                  | - Works only with stateless apps       |
-| Common use cases | - Deploying stateless apps             |
+![Rolling deployment without replacement](assets/deployment-strategy-rolling-without-replacement.png)
+
+|                  | Rolling deployment without replacement                                       |
+| ---------------- | ---------------------------------------------------------------------------- |
+| Overview         | 1. (v1 replicas)                                                             |
+|                  | 2. Deploy v2 replicas (to new server) 👈 Both versions are running & serving |
+|                  | 3. Gradually undeploy v1 replicas.                                           |
+| Advantages       | - No downtime                                                                |
+|                  | - Widely supported                                                           |
+| Disadvantages    | - Poor UX                                                                    |
+|                  | - Works only with stateless apps                                             |
+| Common use cases | - Deploying stateless apps                                                   |
 
 #### Rolling deployment with replacement
 
-|                  | Rolling deployment with replacement                                                   |
-| ---------------- | ------------------------------------------------------------------------------------- |
-| Overview         | 1. (v1 replicas with hard-drive attached)                                             |
-|                  | 2. Disconnect one v1 replica; shut down server; move its hard-drive to new v2 server. |
-|                  | 3. Repeat for each v1 server                                                          |
-| Advantages       | - No downtime                                                                         |
-|                  | - Works with all types of apps                                                        |
-|                  | - Widely supported                                                                    |
-| Disadvantages    | - Limited support for hard-drive replacement                                          |
-|                  | - Poor UX                                                                             |
-| Common use cases | - Deploying stateful apps                                                             |
+![Rolling deployment with replacement](assets/deployment-strategy-rolling-with-replacement.png)
+
+|                  | Rolling deployment with replacement                                                                                          |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Overview         | 1. (v1 replicas with hard-drive attached)                                                                                    |
+|                  | 2. Disconnect one v1 replica; shut down server; move its hard-drive to new v2 server. 👈 Both versions are running & serving |
+|                  | 3. Repeat for each v1 server                                                                                                 |
+| Advantages       | - No downtime                                                                                                                |
+|                  | - Works with all types of apps                                                                                               |
+|                  | - Widely supported                                                                                                           |
+| Disadvantages    | - Limited support for hard-drive replacement                                                                                 |
+|                  | - Poor UX                                                                                                                    |
+| Common use cases | - Deploying stateful apps                                                                                                    |
 
 #### Blue-green deployment
 
-|                  | Blue-green deployment                                                       |
-| ---------------- | --------------------------------------------------------------------------- |
-| Overview         | 1. (v1 replicas) - aka blue 🔵                                              |
-|                  | 2. Deploy v2 replicas - aka green 🟢                                        |
-|                  | 3. When all v2 replicas pass health checks, do an instantaneous switchover. |
-| Advantages       | - No downtime                                                               |
-|                  | - Good UX                                                                   |
-| Disadvantages    | - Limited support                                                           |
-|                  | - Works only with stateless apps                                            |
-| Common use cases | - Deploying stateless apps                                                  |
+![Blue-green deployment](assets/deployment-strategy-blue-green.png)
+
+|                  | Blue-green deployment                                                                               |
+| ---------------- | --------------------------------------------------------------------------------------------------- |
+| Overview         | 1. (v1 replicas) - aka blue 🔵                                                                      |
+|                  | 2. Deploy v2 replicas - aka green 🟢 👈 Both versions are running, but only v1 replicas are serving |
+|                  | 3. When all v2 replicas pass health checks, do an instantaneous switchover.                         |
+| Advantages       | - No downtime                                                                                       |
+|                  | - Good UX                                                                                           |
+| Disadvantages    | - Limited support                                                                                   |
+|                  | - Works only with stateless apps                                                                    |
+| Common use cases | - Deploying stateless apps                                                                          |
 
 #### Canary deployment
 
-|                  | Canary deployment                                                                                             |
-| ---------------- | ------------------------------------------------------------------------------------------------------------- |
-| Overview         | 1. (v1 replicas)                                                                                              |
-|                  | 2. Deploy a single v2 replica - aka _canary server_;<br/>- Compare to a _control_ (a random v1 replica)       |
-|                  | 3. If there isn't any differences, roll out all v2 replicas using another strategy (e.g. rolling, blue-green) |
-| Advantages       | - Catch errors early                                                                                          |
-| Disadvantages    | - Poor UX                                                                                                     |
-| Common use cases | - Large deployments                                                                                           |
-|                  | - Risky deployments                                                                                           |
+![Canary deployment](assets/deployment-strategy-canary.png)
+
+|                  | Canary deployment                                                                                                                              |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview         | 1. (v1 replicas)                                                                                                                               |
+|                  | 2. Deploy a single v2 replica - aka _canary server_;<br/>- Compare to a _control_ (a random v1 replica) 👈 Both versions are running & serving |
+|                  | 3. If there isn't any differences, roll out all v2 replicas using another strategy (e.g. rolling, blue-green)                                  |
+| Advantages       | - Catch errors early                                                                                                                           |
+| Disadvantages    | - Poor UX                                                                                                                                      |
+| Common use cases | - Large deployments                                                                                                                            |
+|                  | - Risky deployments                                                                                                                            |
 
 #### Feature toggle deployment
 
-|                  | Feature toggle deployment                                                                                                                 |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Overview         | 1. (v1 replicas)                                                                                                                          |
-|                  | 2. Deploy v2 replicas: <br/>- Use another strategy, e.g. rolling, blue-green. <br/>- Wrap new features in a feature flag (off by default) |
-|                  | 3. Enable v2 features with feature toggle service                                                                                         |
-| Advantages       | - Separate deployment from release                                                                                                        |
-|                  | - Resolve issues without deploying new code                                                                                               |
-|                  | - Ramp new features                                                                                                                       |
-|                  | - A/B test features                                                                                                                       |
-| Disadvantages    | - Requires an extra service                                                                                                               |
-|                  | - Forked code                                                                                                                             |
-| Common use cases | - All new feature development                                                                                                             |
-|                  | - Data-driven development                                                                                                                 |
+![Feature toggle deployment](assets/deployment-strategy-feature-toggle.png)
+
+|                  | Feature toggle deployment                                                                                                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview         | 1. (v1 replicas)                                                                                                                                                                                                    |
+|                  | 2. Deploy v2 replicas: <br/>- Use another strategy, e.g. rolling, blue-green. <br/>- Wrap new features in a feature flag (off by default)<br/>☝️ v2 replicas are running; serving old features but not new features |
+|                  | 3. Enable v2 features with feature toggle service 👈 The users start to see new features (of new version)                                                                                                           |
+| Advantages       | - Separate deployment from release                                                                                                                                                                                  |
+|                  | - Resolve issues without deploying new code                                                                                                                                                                         |
+|                  | - Ramp new features                                                                                                                                                                                                 |
+|                  | - A/B test features                                                                                                                                                                                                 |
+| Disadvantages    | - Requires an extra service                                                                                                                                                                                         |
+|                  | - Forked code                                                                                                                                                                                                       |
+| Common use cases | - All new feature development                                                                                                                                                                                       |
+|                  | - Data-driven development                                                                                                                                                                                           |
 
 #### Promotion deployment
+
+![Promotion deployment](assets/deployment-strategy-promotion.png)
 
 |                  | Promotion deployment                                                                                                                                      |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
