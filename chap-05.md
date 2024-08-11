@@ -10,9 +10,9 @@ late integration
 : When all components are done, assemble at the _same time_.
 
 continuous integration (CI)
-: Come up with an initial design fo all the components of the system
+: Come up with an _initial design_ fo all the components of the system
 : - Have each team works on the components
-: - As teams make progress, they regularly test each component will all the other components & update the design (if there are any problems)
+: - As teams make progress, they regularly test each component will all the other components & _update_ the design (if there are any problems)
 : As components are completed, assemble _incrementally_
 
 #### The problem with late integration
@@ -135,7 +135,7 @@ CI server
 - With continuous integration, your software is _proven to work_ (assuming a sufficiently comprehensive set of automated tests) with every new change — and you know the moment it breaks and can fix it immediately.
 
 > [!NOTE]
-> With continuous integration, your code is _always_ in a releasable state 👉 You can deploy at any time you want.
+> With continuous integration, your code is _always_ in a working & deployable state 👉 You can deploy at any time you want.
 
 > [!TIP]
 > The CI server act as a gatekeeper 👮🆔:
@@ -786,27 +786,182 @@ To help keep your code consistently formatted, update the GitHub Actions workflo
 
 ### Continuous Delivery and Continuous Deployment
 
+continuous delivery (CD)
+: a software development practice where you ensure that you can
+: - _deploy_ to production **_at any time_** - e.g. daily, several times a days - in a manner that is **fast, reliable, sustainable**.
+
+continuous deployment (CD\*)
+: a software development practice where you
+: - _deploy_ to production **after every single commit** in a manner that is fast, reliable, sustainable
+
+---
+
+With continuous delivery (CD), you ensure that the _frequency of deployment_ is
+
+- purely a **business decision**
+- not limited by your technology
+
 > [!IMPORTANT]
 > Key takeaway #5
 > Ensure you can deploy to production at any time in a manner that is fast, reliable, and sustainable.
 
+---
+
+To achieve continuous delivery (and continuous deployment), you need to fulfill 2 requirements:
+
+1. The **code** is always in a _working_ & _deployable_ state:
+
+   This is the key benefit of practicing CI:
+
+   - Everyone integrates their work regularly
+     - with a self-testing build and a sufficient suite of tests.
+
+2. The **deployment process** is sufficiently _automated_:
+
+   A manually deployment deployment process typically aren't fast, reliable, sustainable.
+
+---
+
+This section focus on the second requirement - automating the deployment process using IaC:
+
+- Implementing deployment strategies
+- Implementing a deployment pipeline
+
+deployment strategy
+: a _deployment strategy_ is **how you want** to deploy your software
+
+deployment pipeline
+: a _deployment pipeline_ is a system of **automated processes** that deploy your software to production
+
 ### Deployment Strategies
+
+There are many deployment strategies that you can use to deploy (aka _roll out_) changes:
+
+- some have **downtime**, others don't
+- some are **easy to implement**, others are complicated
+- some only work with **stateless apps**[^4]
+- some only work with **stateful apps**[^5]
+
+This section will go over the most common deployment strategies. For each strategy, there are:
+
+- Basic overview
+- Advantages & disadvantages
+- Common use cases
+
+> [!TIP]
+> You can combine multiple strategies together.
 
 #### Downtime deployment
 
+|                  | Downtime deployment                                               |
+| ---------------- | ----------------------------------------------------------------- |
+| Overview         | 1. (v1 replicas)                                                  |
+|                  | 2. Undeploy all v1 replicas; deploy v2 replicas (to same servers) |
+| Advantages       | - Easy to implement                                               |
+|                  | - Works with all type of apps                                     |
+| Disadvantages    | - Downtime                                                        |
+| Common use cases | - Single-replica systems                                          |
+|                  | - Data migrations                                                 |
+
 #### Rolling deployment without replacement
+
+|                  | Rolling deployment without replacement |
+| ---------------- | -------------------------------------- |
+| Overview         | 1. (v1 replicas)                       |
+|                  | 2. Deploy v2 replicas (to new server)  |
+|                  | 3. Gradually undeploy v1 replicas.     |
+| Advantages       | - No downtime                          |
+|                  | - Widely supported                     |
+| Disadvantages    | - Poor UX                              |
+|                  | - Works only with stateless apps       |
+| Common use cases | - Deploying stateless apps             |
 
 #### Rolling deployment with replacement
 
+|                  | Rolling deployment with replacement                                                   |
+| ---------------- | ------------------------------------------------------------------------------------- |
+| Overview         | 1. (v1 replicas with hard-drive attached)                                             |
+|                  | 2. Disconnect one v1 replica; shut down server; move its hard-drive to new v2 server. |
+|                  | 3. Repeat for each v1 server                                                          |
+| Advantages       | - No downtime                                                                         |
+|                  | - Works with all types of apps                                                        |
+|                  | - Widely supported                                                                    |
+| Disadvantages    | - Limited support for hard-drive replacement                                          |
+|                  | - Poor UX                                                                             |
+| Common use cases | - Deploying stateful apps                                                             |
+
 #### Blue-green deployment
+
+|                  | Blue-green deployment                                                       |
+| ---------------- | --------------------------------------------------------------------------- |
+| Overview         | 1. (v1 replicas) - aka blue 🔵                                              |
+|                  | 2. Deploy v2 replicas - aka green 🟢                                        |
+|                  | 3. When all v2 replicas pass health checks, do an instantaneous switchover. |
+| Advantages       | - No downtime                                                               |
+|                  | - Good UX                                                                   |
+| Disadvantages    | - Limited support                                                           |
+|                  | - Works only with stateless apps                                            |
+| Common use cases | - Deploying stateless apps                                                  |
 
 #### Canary deployment
 
+|                  | Canary deployment                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| Overview         | 1. (v1 replicas)                                                                                              |
+|                  | 2. Deploy a single v2 replica - aka _canary server_;<br/>- Compare to a _control_ (a random v1 replica)       |
+|                  | 3. If there isn't any differences, roll out all v2 replicas using another strategy (e.g. rolling, blue-green) |
+| Advantages       | - Catch errors early                                                                                          |
+| Disadvantages    | - Poor UX                                                                                                     |
+| Common use cases | - Large deployments                                                                                           |
+|                  | - Risky deployments                                                                                           |
+
 #### Feature toggle deployment
+
+|                  | Feature toggle deployment                                                                                                                 |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview         | 1. (v1 replicas)                                                                                                                          |
+|                  | 2. Deploy v2 replicas: <br/>- Use another strategy, e.g. rolling, blue-green. <br/>- Wrap new features in a feature flag (off by default) |
+|                  | 3. Enable v2 features with feature toggle service                                                                                         |
+| Advantages       | - Separate deployment from release                                                                                                        |
+|                  | - Resolve issues without deploying new code                                                                                               |
+|                  | - Ramp new features                                                                                                                       |
+|                  | - A/B test features                                                                                                                       |
+| Disadvantages    | - Requires an extra service                                                                                                               |
+|                  | - Forked code                                                                                                                             |
+| Common use cases | - All new feature development                                                                                                             |
+|                  | - Data-driven development                                                                                                                 |
 
 #### Promotion deployment
 
+|                  | Promotion deployment                                                                                                                                      |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview         | For example, you have 3 environments (env): `dev`, `stage`, `prod`                                                                                        |
+|                  | 1. (v1 replicas is running in all 3 envs)                                                                                                                 |
+|                  | 2. Deploy v2 across `dev` environment (using another strategy, e.g. rolling, blue-green)<br/>- Then do a round of testing in `dev` env                    |
+|                  | 3. If everything works well in `dev` env, deploy exactly the same v2 across `stage` env (aka _promoting_)<br/>- Then do a round of testing in `stage` env |
+|                  | 4. If everything works well in `stage` env, you finally promote v2 to `prod` env                                                                          |
+| Advantages       | - Multiple chances to catch errors                                                                                                                        |
+| Disadvantages    | - Requires multiple environments                                                                                                                          |
+| Common use cases | - All deployments                                                                                                                                         |
+
 #### Infrastructure deployment
+
+All the previous deployment strategies (except promotion deployment) only applicable for deploying _application code_, e.g. apps written in Go, Javascript, Ruby, Python.
+
+For infrastructure code (e.g. OpenTofu, CloudFormation, Pulumi), the deployment strategies are:
+
+- much more limited
+- typically _binary_: make a change or not (no gradual rollout, no feature toggle, no canary...)
+
+|                  | Infrastructure deployment                                                                |
+| ---------------- | ---------------------------------------------------------------------------------------- |
+| Overview         | 1. (v1 replicas)                                                                         |
+|                  | 2. **Validate plan output**: e.g. `tofu plan`, `kubectl apply --dry-run`                 |
+|                  | 3. **Use a promotion deployment** to promote infrastructure changes between environments |
+| Advantages       | - Works with infrastructure deployments                                                  |
+|                  | - Even more chances to catch errors                                                      |
+| Disadvantages    | - Requires multiple environments                                                         |
+| Common use cases | - All infrastructure deployments                                                         |
 
 ### Deployment Pipelines
 
@@ -849,3 +1004,5 @@ Automating your entire SDLC through the use of CI/CD:
 [^1]: Most systems maintain an audit log that records _**who** performed **what**_ actions in that system.
 [^2]: Digital signature system and public-key encryption system are 2 type of systems that use public-key cryptography (asymmetric cryptography).
 [^3]: OIDC token is a JSON Web Token - a JSON object that contains _claims_ (data that being asserted)
+[^4]: Stateless apps are apps that don’t need to persist (across deployments) any of the data that they store on their local hard drives (e.g., most web frontend apps are stateless)
+[^5]: Stateful apps are apps that need to persist (across deployments) any of the data that they store on their local hard drives (e.g., any sort of database or distributed data system).
