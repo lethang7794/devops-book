@@ -1042,18 +1042,523 @@ Deployment pipelines are typically defined as code, by using:
 
 #### Example: Configure an automated deployment pipeline in GitHub Actions
 
-#### Example: Use a remote backend for OpenTofu state
+In this example, you will deploy a deployment pipeline for the `lambda-sample` OpenTofu module:
+![Deployment Pipeline Example](assets/deployment-pipeline-example.png)
 
-#### Get your hands dirty: Terragrunt
+The deployment pipeline has 5 typical steps:
 
-If you’re like me, you’re probably annoyed by all the copy/paste you need to do with these backend configurations. Unfortunately, OpenTofu does not support using variables or any other kind of logic in backend blocks, so some amount of copy/paste is necessary. However, you can try out one of the following approaches to significantly reduce the code duplication:
+1. **Commit code to a branch in your VCS**:
 
-- Partial backend configuration
-- Terragrunt
+   First, you make some code changes in a branch.
+
+2. **Open a pull request**:
+
+   Once the changes are ready to review, you open a PR.
+
+3. **Run automations for open pull request**:
+
+   Your deployment server runs automations on the open PR, such as
+
+   - compiling the code, static analysis
+   - _functional tests_, e.g., unit tests, integration tests...
+   - generating the plan output by running `tofu plan`.
+
+4. **Review and merge the pull request**:
+
+   Your team members
+
+   - review the PR:
+     - the code
+     - the outputs of the automations, e.g. test results, plan output
+   - if everything looks good, merge the PR in.
+
+5. **Run automations for the merged pull request**:
+
+   Finally, your deployment server runs automations for the merged PR, such as
+
+   - compiling the code, static analysis, functional tests...
+   - deploying the changes by running `tofu apply`.
+
+> [!NOTE]
+> This type of pipeline, where you drive actions through Git's operations (e.g. commits, branches, pull requests...) is referred to as _GitOps pipeline_.
+
+---
+
+In [Example: Run Automated Tests for Infrastructure in GitHub Actions](#example-run-automated-tests-for-infrastructure-in-github-actions), most of the steps in this deployment pipeline has been implemented, except:
+
+- When you open a PR, run `tofu plan` on the `lambda-sample` module.
+- When you merge a PR, run `tofu apply` on the `lambda-sample` module.
+
+To implement these 2 items, you need to:
+
+- Share OpenTofu state (by using a remote backend for OpenTofu state)
+- Add IAM roles for infrastructure deployments in GitHub Actions.
+- Define a pipeline for infrastructure deployments.
+
+#### Sharing OpenTofu state files
+
+In [Chapter 2 - Example: Update Infrastructure Using OpenTofu](/chap-02.md#example-update-infrastructure-using-opentofu), you learned that, by default, OpenTofu uses the _local backend_ to store OpenTofu state in `.tfstate` files (on your local hard drive).
+
+- Local backend works file when you're learning and working alone.
+- If you want to use OpenTofu in a team, you need a way to share these state files.
+
+> [!WARNING]
+> The problems with sharing state files using version control:
+>
+> - **Manual error**
+>
+>   It's just a matter of time before someone
+>
+>   - run `tofu apply` with out-of-date state files and:
+>     - accidentally rolls back
+>     - accidentally duplicates previous deployments
+>
+> - **No Locking Mechanism**
+>
+>   2 teams members might run `tofu apply` at the same time (on the same state files).
+>
+> - **Exposed Secrets**
+>
+>   OpenTofu state files are just plain-text, which might including secrets (sensitive data from some resources).
+>
+>   - If you store these state file in VCS, any one has access to your infrastructure code also have access to your infrastructure.
+
+The best way to share state files (in a team) is to use a _remote backend_, e.g. Amazon S3.
+
+- In additional to solving all problems of using VSC to store state files:
+
+  - **No manual error**:
+
+    When using remote backend, OpenTofu will automatically
+
+    - load state files from that backend before each `tofu plan`/`apply`.
+    - store state files in that backend after each `tofu apply`.
+
+  - **Locking mechanism**:
+
+    Most of the remote backends natively support locking.
+    Before each `tofu apply`, OpenTofu will automatically:
+
+    - acquire a lock
+    - if the lock is already acquired by someone else, you will have to wait.
+
+  - **Secrets are encrypt-in-transit and encrypt-at-rest**
+
+#### Example: Use S3 as a remote backend for OpenTofu state
+
+If you're using OpenTofu with AWS, S3 is the best choice for remote backend. S3:
+
+- supports locking (via DynamoDB)
+- supports encryption
+- supports versioning 👈 ~ VSC (you can roll back to an older version)
+- is designed for 99.999999999% durability and 99.99% availability 👈 no data loss, no outages
+- is a managed services 👈 no needs to deploy & manage extra infrastructure
+- is inexpensive 👈 almost "free" with AWS Free Tier.
+
+##### The `state-bucket` OpenTofu module
+
+The sample code repo includes `state-bucket` OpenTofu module:
+
+- in `ch5/tofu/modules/state-bucket` folder
+- that can:
+  - provision an S3 bucket to store OpenTofu state, including:
+    - enable versioning on the S3 bucket.
+    - enable server-side encryption for all files written to the S3 bucket.
+    - block all public access to the S3 bucket.
+  - provision a DynamoDB table for OpenTofu locking.
+
+##### Configure `state-bucket` OpenTofu module
+
+- Checkout the `main` branch
+
+  ```bash
+  cd devops-book
+  git checkout main
+  git pull origin main
+  ```
+
+- Create a folder for the root module
+
+  ```bash
+  cd examples
+  mkdir -p ch5/tofu/live/tofu-state
+  cd ch5/tofu/live/tofu-state
+  ```
+
+- Configure the `state-bucket` module
+
+  ```terraform
+  # examples/ch5/tofu/live/tofu-state/main.tf
+  provider "aws" {
+    region = "us-east-2"
+  }
+
+  module "state" {
+    source = "github.com/brikis98/devops-book//ch5/tofu/modules/state-bucket"
+
+    # TODO: fill in your own S3 bucket name!
+    name = "fundamentals-of-devops-tofu-state"
+  }
+  ```
+
+- Init & apply OpenTofu module to create a S3 bucket (that will be used as a remote backend)
+
+  ```bash
+  tofu init
+  tofu apply
+  ```
+
+---
+
+- Configure S3 bucket and DynamoDB table as a remote backend
+
+  ```terraform
+  # examples/ch5/tofu/live/tofu-state/backend.tf
+  terraform {
+    backend "s3" {
+      # TODO: fill in your own bucket name here!
+      bucket         = "fundamentals-of-devops-tofu-state" # (1)
+      key            = "ch5/tofu/live/tofu-state"          # (2)
+      region         = "us-east-2"                         # (3)
+      encrypt        = true                                # (4)
+
+      # TODO: fill in your own DynamoDB table name here!
+      dynamodb_table = "fundamentals-of-devops-tofu-state" # (5)
+    }
+  }
+  ```
+
+  - 1 `bucket`: The S3 bucket to use as a remote backend.
+  - 2 `key`: The path within the S3 bucket, where the OpenTofu state file should be written.
+  - 3 `region`: The AWS region where you created the S3 bucket.
+  - 4 `encrypt`: Encrypt the OpenTofu state when store in S3.
+  - 5 `dynamodb_table`: The DynamoDB table to use for locking.
+
+- Re-run `tofu init` to initialized the new backend config
+
+  ```bash
+  tofu init
+  ```
+
+---
+
+- Update the same backend configuration for `lambda-sample` module
+
+  ```terraform
+  # examples/ch5/tofu/live/lambda-sample/backend.tf
+  terraform {
+    backend "s3" {
+      # TODO: fill in your own bucket name here!
+      bucket         = "fundamentals-of-devops-tofu-state" # (1)
+      key            = "ch5/tofu/live/lambda-sample"       # (2)
+      region         = "us-east-2"
+      encrypt        = true
+
+      # TODO: fill in your own DynamoDB table name here!
+      dynamodb_table = "fundamentals-of-devops-tofu-state" # (3)
+    }
+  }
+  ```
+
+  - 1 `bucket`: Use the same S3 bucket as `tofu-state` module.
+  - 2 `key`: Use a different key from `tofu-state` module.
+  - 3 `dynamodb_table`: Use the same DynamoDB table as `tofu-state` module.
+
+- Re-run `tofu init` for `lambda-sample` module.
+
+---
+
+- Commit your changes to `tofu-state` and `lambda-sample` module; then push to `main`.
 
 #### Example: Add IAM roles for infrastructure deployments in GitHub Actions
 
+In [previous section](#example-configure-oidc-with-aws-and-github-actions), you have configure an OIDC provider to give GitHub Actions access to your AWS account for running automated tests.
+
+In this example, you will give GitHub Actions access to your AWS account for deployments.
+
+> [!NOTE]
+> Normally, you would deploy to a totally separate environment (separate AWS account) from where you run automated tests.
+>
+> - So you'd need to configure a new OIDC provider for your deployment environment.
+
+To keep this example simple, you will use the same AWS account for both testing and deployment:
+
+- (You don't need a new OIDC provider)
+- You only need new IAM roles with different permissions:
+  - For deployment
+    - For `plan`, which is run on any branch _before_ a PR has merged: read-only permissions.
+    - For `apply`, which is run on `main` _after_ a PR has merged: read & write permissions.
+
+---
+
+- Update the `ci-cd-permissions` module to enable IAM roles for `plan` and `apply`
+
+  ```terraform
+  # examples/ch5/tofu/live/ci-cd-permissions/main.tf
+
+  module "iam_roles" {
+    # ... (other params omitted) ...
+    enable_iam_role_for_testing  = true
+    enable_iam_role_for_plan  = true                                # (1)
+    enable_iam_role_for_apply = true                                # (2)
+
+    # TODO: fill in your own bucket and table name here!
+    tofu_state_bucket         = "fundamentals-of-devops-tofu-state" # (3)
+    tofu_state_dynamodb_table = "fundamentals-of-devops-tofu-state" # (4)
+  }
+  ```
+
+  - 1: Enable IAM role for `plan`
+    - This IAM role has read-only permissions.
+    - The OIDC provider is allowed to assume this role from any branch.
+  - 2: Enable IAM role for `apply`
+    - This IAM role has both read & write permissions.
+    - The OIDC provider is allowed to assume this role from `main` branch, which ensures that only merged PRs can be deployed.
+  - 3, 4: Configure the S3 bucket and DynamoDB table.
+
+- Add output variables for new IAM roles
+
+  ```terraform
+  # examples/ch5/tofu/live/ci-cd-permissions/outputs.tf
+  output "lambda_deploy_plan_role_arn" {
+    value = module.iam_roles.lambda_deploy_plan_role_arn
+  }
+
+  output "lambda_deploy_apply_role_arn" {
+    value = module.iam_roles.lambda_deploy_apply_role_arn
+  }
+  ```
+
+- Apply the OpenTofu module `ci-cd-permissions`
+
+  ```bash
+  tofu apply
+  ```
+
+- Commit changes to `ci-cd-permissions` and push to `main`
+
 #### Example: Define a pipeline for infrastructure deployments
+
+In this examples, you can finally implement a deployment pipeline for deploying infrastructure (the `lambda-sample` module):
+
+- When you open a PR, run `plan` on the `lambda-sample` module.
+- When you merge a PR, run `apply` on the `lambda-sample` module.
+
+> [!DANGEROUS]
+> Watch out for snakes: this is a very simplified pipeline
+>
+> - The pipeline described here represents only a small piece of a real-world deployment pipeline.
+> - It’s missing several important aspects.
+
+---
+
+- Create workflow for `tofu plan`
+
+  ````yaml
+  # .github/workflows/tofu-plan.yml
+  name: Tofu Plan
+
+  on:
+    pull_request: #                             (1)
+      branches: ["main"]
+      paths: ["examples/ch5/tofu/live/lambda-sample/**"]
+
+  jobs:
+    plan:
+      name: "Tofu Plan"
+      runs-on: ubuntu-latest
+      permissions:
+        pull-requests: write #                  (2)
+        id-token: write
+        contents: read
+
+      steps:
+        - uses: actions/checkout@v2
+
+        - uses: aws-actions/configure-aws-credentials@v3
+          with:
+            # TODO: fill in your IAM role ARN!
+            role-to-assume: arn:aws:iam::111111111111:role/lambda-sample-plan # (3)
+            role-session-name: plan-${{ github.run_number }}-${{ github.actor }}
+            aws-region: us-east-2
+
+        - uses: opentofu/setup-opentofu@v1
+
+        - name: tofu plan #                               (4)
+          id: plan
+          working-directory: ch5/tofu/live/lambda-sample
+          run: |
+            tofu init -no-color -input=false
+            tofu plan -no-color -input=false -lock=false
+
+        - uses: peter-evans/create-or-update-comment@v4 # (5)
+          if: always()
+          env:
+            RESULT_EMOJI: ${{ steps.plan.outcome == 'success' && '✅' || '⚠️' }}
+          with:
+            issue-number: ${{ github.event.pull_request.number }}
+            body: |
+              ## ${{ env.RESULT_EMOJI }} `tofu plan` output
+              ```${{ steps.plan.outputs.stdout }}```
+  ````
+
+  - (1): Run on `pull requests` (instead of on push):
+
+    - on `main` branch
+    - that have modifications to the `examples/ch5/tofu/live/lambda-sample` folder.
+
+  - (2): Add the `pull-request: write` permission so in (5), the workflow can post a comment on your pull request.
+
+  - (3): Assume the `plan` IAM role.
+
+  - (4): Run `tofu init` and `tofu plan` with a few flag to ensure the command run well in a CI environment.
+
+  - (5): Use `peter-evans/create-or-update-comment` action to post commend (`plan`'s output) on the pull requests that run this workflow.
+
+---
+
+- Create workflow for `tofu apply`
+
+  ````yaml
+  # .github/workflows/tofu-apply.yml
+  name: Tofu Apply
+
+  on:
+    push: #                                      (1)
+      branches: ["main"]
+      paths: ["examples/ch5/tofu/live/lambda-sample/**"]
+
+  jobs:
+    apply:
+      name: "Tofu Apply"
+      runs-on: ubuntu-latest
+      permissions:
+        pull-requests: write
+        id-token: write
+        contents: read
+
+      steps:
+        - uses: actions/checkout@v2
+
+        - uses: aws-actions/configure-aws-credentials@v3
+          with:
+            # TODO: fill in your IAM role ARN!
+            role-to-assume: arn:aws:iam::111111111111:role/lambda-sample-apply # (2)
+            role-session-name: apply-${{ github.run_number }}-${{ github.actor }}
+            aws-region: us-east-2
+
+        - uses: opentofu/setup-opentofu@v1
+
+        - name: tofu apply #                              (3)
+          id: apply
+          working-directory: ch5/tofu/live/lambda-sample
+          run: |
+            tofu init -no-color -input=false
+            tofu apply -no-color -input=false -lock-timeout=60m -auto-approve
+
+        - uses: jwalton/gh-find-current-pr@master #       (4)
+          id: find_pr
+          with:
+            state: all
+
+        - uses: peter-evans/create-or-update-comment@v4 # (5)
+          if: steps.find_pr.outputs.number
+          env:
+            RESULT_EMOJI: ${{ steps.apply.outcome == 'success' && '✅' || '⚠️' }}
+          with:
+            issue-number: ${{ steps.find_pr.outputs.number }}
+            body: |
+              ## ${{ env.RESULT_EMOJI }} `tofu apply` output
+              ```${{ steps.apply.outputs.stdout }}```
+  ````
+
+  - (1): Run only on `push` to the `main` branch that have modifications to the `examples/ch5/tofu/live/lambda-sample` folder.
+
+  - (2): Assume the `apply` IAM role.
+
+  - (3): Run `tofu init` and `tofu apply`, again passing a few flags to ensure the commands run well in a CI environment.
+
+  - (4): Use `jwalton/gh-find-current-pr` to find the pull request that this push came from.
+
+  - (5): Use `peter-evans/create-or-update-comment` action to post commend (`apply`'s output) on the pull requests that run this workflow.
+
+---
+
+- Commit these new workflows to `main` and push to GitHub
+
+  ```bash
+  git add .github/workflows
+  git commit -m "Add plan and apply workflows"
+  git push origin main
+  ```
+
+---
+
+Let's try your new deployment pipeline
+
+- Create a new branch
+
+  ```bash
+  git switch -c deployment-pipeline-test
+  ```
+
+- Make a change to `lambda-sample` module
+
+  - Update the Lambda function response text
+
+    ```javascript
+    // examples/ch5/tofu/live/lambda-sample/src/index.js
+    exports.handler = (event, context, callback) => {
+      callback(null, { statusCode: 200, body: "Fundamentals of DevOps!" });
+    };
+    ```
+
+  - Update the automation test
+
+    ```hcl
+    # examples/ch5/tofu/live/lambda-sample/deploy.tftest.hcl
+    assert {
+      condition     = data.http.test_endpoint.response_body == "Fundamentals of DevOps!"
+      error_message = "Unexpected body: ${data.http.test_endpoint.response_body}"
+    }
+    ```
+
+  - Commit the changes, then push to the `deployment-pipeline-test` branch
+
+- Open a new pull request
+- Verify
+  - workflow for `tofu plan` run as a check.
+  - after the deployment pipeline has finished, the PR should be automatically update with a comment that shows the `plan` output.
+
+#### Get your hands dirty: Terragrunt
+
+If you’re like me, you’re probably annoyed by all the copy/paste you need to do with these backend configurations.
+
+- Unfortunately, OpenTofu does not support using variables or any other kind of logic in backend blocks, so some amount of copy/paste is necessary.
+- However, you can try out one of the following approaches to significantly reduce the code duplication:
+
+  - Partial backend configuration
+  - Terragrunt
+
+#### Get your hands dirty: IAM roles
+
+- Open up the code for the `gh-actions-iam-roles` module and read through it.
+
+  - What permissions, exactly, is the module granting to those IAM roles?
+  - Why?
+
+- Create your own version of the `gh-actions-iam-roles` module that you can use for deploying other types of infrastructure, and not just Lambda functions.
+
+  e.g. try to create IAM roles for deploying EKS clusters, EC2 instances, and so on.
+
+#### Get your hands dirty: Deployment pipelines
+
+- Update the pipeline to
+
+  - automatically detect changes in an any folder with OpenTofu code (rather than only the `lambda-sample` folder)
+  - automatically run `plan` and `apply` in each one. The open source `changed-files` action can be helpful here.
+
+- If a pull request updates multiple folders with OpenTofu code, have the pipeline run plan and apply across multiple folders concurrently by using a _matrix strategy_.
 
 ### Deployment pipeline best practices
 

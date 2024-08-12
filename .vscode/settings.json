@@ -5,12 +5,17 @@
     "buildx",
     "Dockerized",
     "Idempotency",
+    "jwalton",
     "OIDC",
     "opentofu",
+    "Pulumi",
+    "Scalr",
     "SDLC",
+    "Spacelift",
     "templating",
     "Terragrunt",
     "terrascan",
-    "tfstate"
+    "tfstate",
+    "tftest"
   ]
 }
