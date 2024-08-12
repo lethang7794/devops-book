@@ -980,6 +980,66 @@ For infrastructure code (e.g. OpenTofu, CloudFormation, Pulumi), the deployment 
 
 ### Deployment Pipelines
 
+deployment pipeline
+: the **process** that you use to
+: - go from an **idea to _live code_**[^13]
+: consists of all the steps (you must go through) to _release_
+
+---
+
+Most deployment pipelines include the following steps:
+
+1. **Commit**
+
+   - How do you get code into **version control**?
+   - Do you use a **pull-request** based process?
+   - Do you use **trunk-based** development?
+
+2. **Build**
+
+   - 🏗️ What compilation & **build steps** do you need?
+   - 📦 How do you _package_ the code?
+
+3. **Test**
+
+   - 🦾 What **automated** tests do you run against the code?
+   - 👐 What **manual** tests?
+
+4. **Review**
+
+   - ❓ What **review processes** do you use?
+   - ✅ Who has to sign off & _approve_ merges and deployments?
+
+5. **Deploy**
+
+   - 🔟 How do you get the **new code** into production?
+   - ✨ How do you release **new functionality** to users?
+
+> [!NOTE]
+> Delivery, deploy, release?
+> TODO
+
+---
+
+Typically, you run a deployment pipeline on a _deployment server_, which is:
+
+- the same server used for CI, e.g. GitHub Actions, CircleCI, GitLab CI
+- a server that is designed for a specific technology
+
+  e.g. For OpenTofu/Terraform: HashiCorp Cloud Platform, Spacelift, Atlantis, env0, Scalr.
+
+---
+
+Deployment pipelines are typically defined as code, by using:
+
+- the same Domain-Specific Language (DSL) for CI, e.g. GitHub Actions workflow (via YAML)
+- a scripting language, e.g. Ruby, Python, Bash
+- build system's language, e.g. NPM, Maven, Make
+- a workflow-specific tool to define workflows that can run on multi platforms, e.g. Dagger, Common Workflow Language (via YAML)
+
+> [!NOTE]
+> In many cases, a deployment pipeline will use multiple languages & tools together.
+
 #### Example: Configure an automated deployment pipeline in GitHub Actions
 
 #### Example: Use a remote backend for OpenTofu state
@@ -1028,3 +1088,4 @@ Automating your entire SDLC through the use of CI/CD:
 [^10]: For canary deployment, both versions may be running & serving
 [^11]: For feature toggle deployment; both versions may be running & serving; but only old features not new features.
 [^12]: The users start to see new features (of new version) only the feature is enabled.
+[^13]: Live code is code that affects your users.
