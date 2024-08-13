@@ -1,1 +1,1 @@
-# Chapter 8: How to Work with Multiple Teams and Environments
+# Chapter 8: How to Secure Communication, Storage, and Authentication

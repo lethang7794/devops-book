@@ -1,1 +1,1 @@
-# Chapter 7: How to Manage Authentication, Authorization, and Secrets
+# Chapter 7: How to Set Up Networking

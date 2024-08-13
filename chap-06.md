@@ -1,4 +1,4 @@
-# Chapter 6: How to Set Up Networking: VPCs, VPN, and DNS
+# Chapter 6: How to Work with Multiple Teams and Environments
 
 ## Breaking Up Your Deployments
 
