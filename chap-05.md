@@ -1564,9 +1564,118 @@ If you’re like me, you’re probably annoyed by all the copy/paste you need to
 
 #### Automate all the steps that can be automated
 
+In a deployment pipeline, there are steps that
+
+- can not be automated - _must_ be done by humans:
+  - writing code (for now)
+  - reviewing code (for now)
+  - manual testing & verification
+- can be automated.
+
+All the steps that can be automated - done without a human - should be automated.
+
+> [!TIP]
+> For things that can be automated, the computers are excel over humans.
+
 #### Deploy only from a deployment server
 
+These automated steps should be run on a dedicated deployment server (not from any developer's computer) because of:
+
+- **Full automation**
+
+  By deploying only from a deployment server, it forces you to automate everything that can be automated.
+
+  It's only when you have a fully automated pipeline, that you get a CD pipeline that is fast, reliable & sustainable:
+
+  - You will have environments that are truly reproducible (consistent, repeatable)
+  - You can achieve world-class software delivery (and deploy thousands of times per day.)
+
+  > [!TIP]
+  > Mostly automated vs fully automated
+  >
+  > - A _mostly automated_ pipeline still requires a few manual steps.
+  > - A _fully automated_ pipeline doesn't requires any manual step.
+
+- **Repeatability**
+
+  If developers run deployment from their own computers, there will be problems due to differences in how their computers are configured:
+
+  - OSes, dependencies, configurations
+  - modified infrastructure code
+
+- **Permissions management**
+
+  It's easier to enforce good security practices
+
+  - for some dedicated servers
+  - then a lot of developer's computer
+
 #### Protect the deployment server
+
+Typically, a deployment server
+
+- has "admin permissions" (fancy words for arbitrary permissions):
+  - it can access to sensitive permissions
+  - it is designed to execute arbitrary code
+- is a tempting target for malacious actors
+
+---
+
+To protect your deployment server, you should:
+
+- **Lock down your deployment server**:
+
+  - Make it accessible only over HTTPs
+  - Make it accessible only over VPN connections, your company's networks
+  - Require all users to be authenticated
+  - Ensure all actions are logged
+  - ...
+
+- **Protect your code (version control system)**
+
+  Since deployment server can execute arbitrary code from your VSC, if an attacker can slip malicious code into your VSC, the deployment server may execute that malicious code.
+
+  So protect your code with signed commit and branch protection.
+
+- **Enforce an approval workflow**
+
+  Each request to deployment should be approved by at least one person (other than the person that make the request).
+
+- **Limit permissions before approval/merge**
+
+  Before the PR are approved/merged, the pipeline's steps should have read-only permissions, so the approval workflow cannot be bypassed.
+
+- **Give the deployment server short-lived credentials**
+
+  Whenever possible,
+
+  - use an automatically-managed, short-lived credentials, e.g. OIDC
+  - instead of manuanlly-managed, long-lived credentials, e.g. machine-user, human-user's credentials.
+
+- **Limit the permissions granted to each pipeline (What does a pipeline can do?**
+
+  Instead of a single pipeline that do everything and therefore needs arbitrary permissions:
+
+  - create multiple pipelines, each for a specific tasks:
+    - grant each pipeline a limited set of permissions (it needs for that specific task).
+
+  You can also restrict access to each pipeline so only the developers who needs to use it have access to it.
+
+- **Limit the permissions granted to each developer (To which scope a developer can apply their permissions?)**
+
+  For example,
+
+  - a developer can access a pipeline that have "admin permission"
+  - you might limit the scope to which the developer can use "admin permission" and run arbitrary code:
+    - only for a specific commands, e.g. `tofu apply`
+    - only on code from specific repos, e.g. repos with OpenTofu modules
+    - only on speficic branches, e.g. `main`
+    - only in speficic folders
+
+  You should also lock down the workflow definitions, so
+
+  - only a set of admins can update them
+  - only with PR approval from at least one of other admin.
 
 ## Conclusion
 
