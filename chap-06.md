@@ -11,13 +11,47 @@ The most common approach to solve these problem of scale is _divide and conquer_
 
 - **Break up your deployments**: into multiple separated, isolated **environments**.
 - **Break up your codebase**: into multiple **libraries**, **(micro)services**
+
 ## Breaking Up Your Deployments
+
+- In this book, you deploy everything - servers, Kubernetes, cluster, serverless functions, ... - into a single AWS account 👈 Fine for learning & testing
+- In real world, it's common to have multiple deployment _environments_, each environment has its own set of _isolated_ infrastructure.
 
 ### Why Deploy Across Multiple Environments
 
 #### Isolating tests
 
+Typically, you need a way to test changes to your software
+
+- _before_ you expose those changes (to users)
+- in a way that limits the _blast radius_ (that affects users, production environment).
+
+You do that by deploying more environments that closely resemble production.
+
+A common setup is having 3 environments:
+
+- **Production**: the environment that is exposed to _users_.
+
+- **Staging**: a scaled-down clone of production that is exposed to inside your _company_.
+
+  👉 The releases are staged in **staging** so other teams - e.g. QA - can test them.
+
+- **Development**: another scaled-down clone of production that is exposed to _dev team_.
+
+  👉 Dev teams test code changes in **development** during _development_ process (before those changes make it to staging).
+
+> [!TIP]
+> These trio environments have many other names:
+>
+> - **Production**: `prod`
+> - **Staging**: `stage`, `QA`
+> - **Development**: `dev`
+
 #### Isolating products & teams
+
+> [!IMPORTANT]
+> Key takeaway #1
+> Breaking up your deployment into multiple environments allows you to isolate tests from production and teams from each other.
 
 #### Reducing latency
 
@@ -45,6 +79,10 @@ The most common approach to solve these problem of scale is _divide and conquer_
 
 #### Increased data storage complexity
 
+> [!IMPORTANT]
+> Key takeaway #2
+> Breaking up your deployment into multiple regions allows you to reduce latency, increase resiliency, and comply with local laws and regulations, but usually at the cost of having to rework your entire architecture.
+
 #### Increased application configuration complexity
 
 - Performance settings
@@ -58,6 +96,11 @@ The most common approach to solve these problem of scale is _divide and conquer_
 2 methods of configuring application
 
 - At build time: configuration files checked into version control
+
+  > [!IMPORTANT]
+  > Key takeaway #3
+  > Configuration changes are just as likely to cause outages as code changes.
+
 - At run time: configuration data read from a data store
 
 ### Example: Set Up Multiple AWS Accounts
@@ -84,7 +127,15 @@ The most common approach to solve these problem of scale is _divide and conquer_
 
 #### Breaking a codebase into multiple libraries
 
+> [!IMPORTANT]
+> Key takeaway #4
+> Breaking up your codebase into libraries allows developers to focus on one smaller part of the codebase at a time.
+
 #### Breaking a codebase into multiple services
+
+> [!IMPORTANT]
+> Key takeaway #5
+> Breaking up your codebase into services allows different teams to own, develop, and scale each part independently.
 
 ### Challenges with Breaking Up Your Codebase
 
@@ -92,9 +143,17 @@ The most common approach to solve these problem of scale is _divide and conquer_
 
 #### Challenges with global changes
 
+> [!IMPORTANT]
+> Key takeaway #6
+> The trade-off you make when you split up a codebase is that you are optimizing for being able to make changes much faster within each part of the codebase, but this comes at the cost of it taking much longer to make changes across the entire codebase.
+
 #### Challenges with where to split the code
 
 #### Challenges with testing and integration
+
+> [!IMPORTANT]
+> Key takeaway #7
+> Splitting up a codebase into multiple parts means you are choosing to do late integration instead of continuous integration between those parts, so only do it when those parts are truly independent.
 
 #### Dependency hell
 
@@ -109,6 +168,10 @@ The most common approach to solve these problem of scale is _divide and conquer_
 #### Performance overhead
 
 #### Distributed system complexities
+
+> [!IMPORTANT]
+> Key takeaway #8
+> Splitting up a codebase into libraries and services has a considerable cost: you should only do it when the benefits outweigh those costs, which typically only happens at a larger scale.
 
 ### Example: Deploy Microservices in Kubernetes
 
