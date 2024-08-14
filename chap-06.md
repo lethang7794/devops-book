@@ -19,7 +19,7 @@ The most common approach to solve these problem of scale is _divide and conquer_
 
 ### Why Deploy Across Multiple Environments
 
-#### Isolating tests
+#### Isolating Tests
 
 Typically, you need a way to test changes to your software
 
@@ -47,43 +47,43 @@ A common setup is having 3 environments:
 > - **Staging**: `stage`, `QA`
 > - **Development**: `dev`
 
-#### Isolating products & teams
+#### Isolating Products and Teams
 
 > [!IMPORTANT]
 > Key takeaway #1
 > Breaking up your deployment into multiple environments allows you to isolate tests from production and teams from each other.
 
-#### Reducing latency
+#### Reducing Latency
 
-#### Complying with local laws & regulations
+#### Complying With Local Laws and Regulations
 
-#### Increasing resiliency
+#### Increasing Resiliency
 
 ### How to Set Up Multiple Environments
 
-#### Logical environments
+#### Logical Environments
 
-#### Separate servers
+#### Separate Servers
 
-#### Separate networks
+#### Separate Networks
 
-#### Separate accounts
+#### Separate Accounts
 
-#### Separate data centers in the same geographical region
+#### Separate Data Centers In The Same Geographical Region
 
-#### Separate data centers in different geographical regions
+#### Separate Data Centers In Different Geographical Regions
 
 ### Challenges with Multiple Environments
 
-#### Increased operational overhead
+#### Increased Operational Overhead
 
-#### Increased data storage complexity
+#### Increased Data Storage Complexity
 
 > [!IMPORTANT]
 > Key takeaway #2
 > Breaking up your deployment into multiple regions allows you to reduce latency, increase resiliency, and comply with local laws and regulations, but usually at the cost of having to rework your entire architecture.
 
-#### Increased application configuration complexity
+#### Increased Application Configuration Complexity
 
 - Performance settings
 - Security settings
@@ -111,27 +111,29 @@ A common setup is having 3 environments:
 - Use different configurations for different environments
 - Close your child accounts
 
+### Get Your Hand Dirty: Manage Multiple AWS accounts
+
 ## Breaking Up Your Codebase
 
 ### Why Break Up Your Codebase
 
-#### Managing complexity
+#### Managing Complexity
 
-#### Isolating products and teams
+#### Isolating Products And Teams
 
-#### Handling different scaling requirements
+#### Handling Different Scaling Requirements
 
-#### Using different programming languages
+#### Using Different Programming Languages
 
 ### How to Break Up Your Codebase
 
-#### Breaking a codebase into multiple libraries
+#### Breaking A Codebase Into Multiple Libraries
 
 > [!IMPORTANT]
 > Key takeaway #4
 > Breaking up your codebase into libraries allows developers to focus on one smaller part of the codebase at a time.
 
-#### Breaking a codebase into multiple services
+#### Breaking A Codebase Into Multiple Services
 
 > [!IMPORTANT]
 > Key takeaway #5
@@ -139,41 +141,43 @@ A common setup is having 3 environments:
 
 ### Challenges with Breaking Up Your Codebase
 
-#### Challenges with backward compatibility
+#### Challenges With Backward Compatibility
 
-#### Challenges with global changes
+#### Challenges With Global Changes
 
 > [!IMPORTANT]
 > Key takeaway #6
 > The trade-off you make when you split up a codebase is that you are optimizing for being able to make changes much faster within each part of the codebase, but this comes at the cost of it taking much longer to make changes across the entire codebase.
 
-#### Challenges with where to split the code
+#### Challenges With Where To Split The Code
 
-#### Challenges with testing and integration
+#### Challenges With Testing And Integration
 
 > [!IMPORTANT]
 > Key takeaway #7
 > Splitting up a codebase into multiple parts means you are choosing to do late integration instead of continuous integration between those parts, so only do it when those parts are truly independent.
 
-#### Dependency hell
+#### Dependency Hell
 
-#### Operational overhead
+#### Operational Overhead
 
-#### Dependency overhead
+#### Dependency Overhead
 
-#### Debugging overhead
+#### Debugging Overhead
 
-#### Infrastructure overhead
+#### Infrastructure Overhead
 
-#### Performance overhead
+#### Performance Overhead
 
-#### Distributed system complexities
+#### Distributed System Complexities
 
 > [!IMPORTANT]
 > Key takeaway #8
 > Splitting up a codebase into libraries and services has a considerable cost: you should only do it when the benefits outweigh those costs, which typically only happens at a larger scale.
 
 ### Example: Deploy Microservices in Kubernetes
+
+### Get Your Hands Dirty: Running Microservices
 
 ## Conclusion
 
