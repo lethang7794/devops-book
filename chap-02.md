@@ -744,7 +744,7 @@ For this example, the OpenTofu module for an EC2 instance looks like this:
       > - several kinds of _resources_ that you can create
       >   - e.g. servers, databases, load balancers, firewall settings...
       >
-      > ***
+      > ---
       >
       > The syntax for creating a resource (of a provider) in OpenTofu is as follows:
       >

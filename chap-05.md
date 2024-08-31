@@ -702,7 +702,7 @@ The sample code repo includes 2 OpenTofu modules
   - runs on `push`,
   - contains 2 jobs: `terrascan`, `opentofu_test`
 
-  ***
+  ---
 
   - ```yaml
     # .github/workflows/infra-tests.yml
@@ -733,7 +733,7 @@ The sample code repo includes 2 OpenTofu modules
     - checkout code
     - install then run `terrascan` using `tenable/terrascan-action` action
 
-  ***
+  ---
 
   - ```yaml
     opentofu_test:
