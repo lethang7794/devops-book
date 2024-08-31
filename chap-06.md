@@ -296,7 +296,7 @@ e.g. A web app that needed to lookup data in a database before sending a respons
     - Locking, transaction
   - ...
 
-  ---
+  ***
 
   To solve these data storage problems, you can:
 
@@ -312,29 +312,78 @@ e.g. A web app that needed to lookup data in a database before sending a respons
 
 #### Increased Application Configuration Complexity
 
-When you have multiple environments, you have many unexpected costs in configuring your environments.
+- When you have multiple environments, you have many unexpected costs in configuring your environments.
 
-Each environment needs many different configuration:
+- Each environment needs many different configuration:
 
-| Type of settings           | The settings                                                      |
-| -------------------------- | ----------------------------------------------------------------- |
-| Performance settings       | CPU, memory, hard-drive, garbage collection...                    |
-| Security settings          | Database passwords, API keys, TLS certifications...               |
-| Networking settings        | IP address/domain name, port...                                   |
-| Service discovery settings | The networking settings to use for other services you reply on... |
-| Feature settings           | Feature toggles...                                                |
+  | Type of settings           | The settings                                                      |
+  | -------------------------- | ----------------------------------------------------------------- |
+  | Performance settings       | CPU, memory, hard-drive, garbage collection...                    |
+  | Security settings          | Database passwords, API keys, TLS certifications...               |
+  | Networking settings        | IP address/domain name, port...                                   |
+  | Service discovery settings | The networking settings to use for other services you reply on... |
+  | Feature settings           | Feature toggles...                                                |
 
----
+- Pushing configuration changes is just as risky as pushing code changes (pushing a new binary), and the longer a system has been around, the more configuration changes tend to become the dominant cause of outages.
 
-2 methods of configuring application
-
-- At build time: configuration files checked into version control
+  > [!TIP]
+  > Configuration changes are one of the biggest causes of outages at Google[^11].
+  >
+  > | Cause                  | Percent of outages |
+  > | ---------------------- | ------------------ |
+  > | Binary push            | 37%                |
+  > | Configuration push     | 31%                |
+  > | User behavior change   | 9%                 |
+  > | Processing pipeline    | 6%                 |
+  > | Service provider chang | 5%                 |
+  > | Performance decay      | 5%                 |
+  > | Capacity management    | 5%                 |
+  > | Hardware               | 2%                 |
 
   > [!IMPORTANT]
   > Key takeaway #3
   > Configuration changes are just as likely to cause outages as code changes.
 
-- At run time: configuration data read from a data store
+---
+
+##### How to configure your application
+
+- There a 2 methods of configuring application:
+
+  - At build time: configuration files checked into version control (along with the source code of the app).
+
+    > [!NOTE]
+    > When checked into version control, the configuration files can be:
+    >
+    > - In the same language as the code, e.g. Ruby...
+    > - In a language-agnostic format, e.g. JSON, YAML, TOML, XML, Cue, Jsonnet, Dhall...
+
+  - At run time: configuration data read from a data store (when the app is booting up or while it is running).
+
+    > [!NOTE]
+    > When stored in a data store, the configuration files can be stored:
+    >
+    > - In a general-purpose data store, e.g. MySQL, Postgres, Redis...
+    > - In a data store specifically designed for configuration data, e.g. Consul, etcd, Zookeeper...
+
+    > [!TIP]
+    > The data store specifically designed for configuration data allows updating your app quickly when a configuration changed
+    >
+    > - Your app subscribes to change notifications.
+    > - Your app is notified as soon as any configuration changes.
+
+- In other words, there 2 types of configuration:
+
+  - Build-time configuration.
+  - Run-time configuration.
+
+---
+
+- You should use build-time configuration as much as possible:
+
+  Every build-time configuration is checked into version control, get code reviewed, and go through your entire CI/CD pipeline.
+
+- Only using run-time configuration when the configuration changes very frequently, e.g. service discovery, feature toggles.
 
 ### Example: Set Up Multiple AWS Accounts
 
@@ -444,21 +493,13 @@ Each environment needs many different configuration:
   |                             |                                                                                            | 8. Has a considerable **cost**, so only do it when the benefits outweigh the cost, which only happens at a **larger scale**          |
 
 [^1]: Latency is the amount of time it takes to send data between your servers and users' devices.
-
 [^6]: GDPR (Global Data Protection Regulation)
-
 [^3]: HIPAA (Health Insurance Portability and Accountability Act)
-
 [^2]: HITRUST (Health Information Trust Alliance)
-
 [^4]: PCI DSS (Payment Card Industry Data Security Standard);
-
 [^5]: FedRAMP (Federal Risk and Authorization Management Program)
-
 [^7]: <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#available-availability-zones>
-
 [^8]: <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-regions>
-
 [^9]: With _active/standby_ mode, you have:
 
     1. One _active_ database that serves live traffic.
@@ -467,3 +508,5 @@ Each environment needs many different configuration:
     When the active database went down, another standby database would become the new active database, and serve live traffic.
 
 [^10]: With _active/active_ mode, you have multiple databases that serve live traffic at the same time.
+
+[^11]: TODO
