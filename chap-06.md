@@ -385,7 +385,36 @@ e.g. A web app that needed to lookup data in a database before sending a respons
 
 - Only using run-time configuration when the configuration changes very frequently, e.g. service discovery, feature toggles.
 
-### Example: Set Up Multiple AWS Accounts
+### Example: Set Up Multiple Environments with AWS Accounts
+
+> [!NOTE]
+> IAM and environments
+>
+> - IAM has no notion of environments
+>
+>   Almost everything in an AWS account is managed via API calls, and by default, AWS APIs have no first-class notion of environments, so your changes can affect anything in the entire account.
+>
+> - IAM is powerful
+>   - You can use various IAM features - such as tags, conditions, permission boundaries, and SCPs - to create your own notion of environments and enforce isolation between them, even in a single account.
+>   - However, to be powerful, IAM is very complicated. Teams can mis-use IAM, which leads to disastrous results.
+
+> [!NOTE]
+> The recommend way to organize multiple AWS environments is using multiple AWS accounts[^12]:
+>
+> - You use _AWS Organizations_ to create and manage your AWS accounts,
+>   - with one account at the root of the organization, called the _management account_,
+>   - and all other accounts as _child accounts_ of the root.
+>
+> e.g.
+>
+> - An AWS organization with one management account (`management`), and 3 child accounts (e.g., `dev`, `stage`, `prod`)
+>
+>   ![AWS organization example](assets/aws-organization-example.png)
+
+> [!TIP]
+> Using multiple AWS accounts gives you isolation between environments _by default_, so you’re much less likely to get it wrong.
+
+---
 
 - Create child accounts
 - Access your child accounts
@@ -508,5 +537,5 @@ e.g. A web app that needed to lookup data in a database before sending a respons
     When the active database went down, another standby database would become the new active database, and serve live traffic.
 
 [^10]: With _active/active_ mode, you have multiple databases that serve live traffic at the same time.
-
 [^11]: TODO
+[^12]: <https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/organizing-your-aws-environment.html>
