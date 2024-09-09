@@ -222,26 +222,26 @@ e.g.
 
 ### How Should You Set Up Multiple Environments
 
-Each approach to set up multiple environments has advantages and drawbacks.
+- Each approach to set up multiple environments has advantages and drawbacks.
 
-When choosing your approach, consider these dimensions:
+- When choosing your approach, consider these dimensions:
 
-- What is the _isolated level_?
+  - What is the _isolated level_?
 
-  ~ How isolated one environment is from another?
+    ~ How isolated one environment is from another?
 
-  - Could a bug in `dev-env` somehow affect `prod-env`.
+    - Could a bug in `dev-env` somehow affect `prod-env`.
 
-- What is the _resiliency_?
+  - What is the _resiliency_?
 
-  ~ How well the environment tolerate an outage? A server, network, or the entire data center goes down?
+    ~ How well the environment tolerate an outage? A server, network, or the entire data center goes down?
 
-- Do you need to reduce latency to users? Comply with laws & regulations?
+  - Do you need to reduce latency to users? Comply with laws & regulations?
 
-  ~ Only some approaches can do this.
+    ~ Only some approaches can do this.
 
-- What is the _operational overhead_?
-  ~ What is the cost to set up, maintain, pay for?
+  - What is the _operational overhead_?
+    ~ What is the cost to set up, maintain, pay for?
 
 ### Challenges with Multiple Environments
 
@@ -863,15 +863,14 @@ In this example, to have different configurations for different environments, yo
 
 - Update the CI/CD configuration to work with multiple AWS accounts
 
-  > [!TIP]
-  > You’ll need to
-  >
-  > - create OIDC providers and IAM roles in each AWS account
-  > - have the CI/CD configuration authenticate to the right account depending on the change
-  > - configure, e.g.
-  >   - Run `tofu test` in the `development` account for changes on any branch
-  >   - Run `plan`, `apply` in the `staging` account for any PR against `main`
-  >   - Run `plan`, `apply` in the `production` account whenever you push a Git tag of the format `release-xxx`, e.g. `release-v3.1.0`.
+  You’ll need to
+
+  - create OIDC providers and IAM roles in each AWS account
+  - have the CI/CD configuration authenticate to the right account depending on the change
+  - configure, e.g.
+    - Run `tofu test` in the `development` account for changes on any branch
+    - Run `plan`, `apply` in the `staging` account for any PR against `main`
+    - Run `plan`, `apply` in the `production` account whenever you push a Git tag of the format `release-xxx`, e.g. `release-v3.1.0`.
 
 ## Breaking Up Your Codebase
 
