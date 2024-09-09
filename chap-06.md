@@ -416,13 +416,182 @@ e.g. A web app that needed to lookup data in a database before sending a respons
 
 ---
 
-- Create child accounts
-- Access your child accounts
-- Deploy into your child accounts
-- Use different configurations for different environments
-- Close your child accounts
+#### Create child accounts
+
+In this example, you will
+
+1. Treat the initial AWS account as the _management account_
+
+   > [!CAUTION]
+   > The management account should only be used to create & manage other AWS accounts.
+
+2. Configure initial account as the management account of an AWS Organization.
+
+3. Use AWS Organizations to create 3 other accounts as _child accounts_ (for `dev`, `stage`, `prod`).
+
+---
+
+To treat the initial AWS account as the management account, you need to undeploy everything deployed in earlier chapters:
+
+- Run `tofu destroy` on any OpenTofu modules previously deployed.
+- Use EC2 Console to manually undeploy anything deployed via Ansible, Bash...
+
+---
+
+- The code for this example (the OpenTofu `child-accounts` root module) will be in `tofu/live/child-accounts` folder:
+
+  ```bash
+  mkdir -p ch6/tofu/live/child-accounts
+  cd ch6/tofu/live/child-accounts
+  ```
+
+  > [!TIP]
+  > Under the hood, the root module will use the OpenTofu module `aws-organizations` in the sample code repo at `ch6/tofu/modules/aws-organizations` folder.
+
+- The OpenTofu module `main.tf`
+
+  ```t
+  # examples/ch6/tofu/live/child-accounts/main.tf
+  provider "aws" {
+    region = "us-east-2"
+  }
+
+  module "child_accounts" {
+    # (1)
+    source = "github.com/brikis98/devops-book//ch6/tofu/modules/aws-organization"
+
+    # (2) Set to false if you already enabled AWS Organizations in your account
+    create_organization = true
+
+
+    # (3) TODO: fill in your own account emails!
+    dev_account_email   = "username+dev@email.com"
+    stage_account_email = "username+stage@email.com"
+    prod_account_email  = "username+prod@email.com"
+  }
+  ```
+
+  - (1): Use the `aws-organization` module.
+  - (2): Enable AWS Organizations before using it.
+  - (3): Fill in root user's email address for `dev`, `stage`, `prod` accounts.
+
+    > [!TIP]
+    > If you're using Gmail, you can create multiple aliases for a a single email address by using plus sign (`+`).
+
+- Proxy output variables from the `aws-organization` module
+
+  ```t
+  # examples/ch6/tofu/live/child-accounts/outputs.tf
+
+  # (1)
+  output "dev_account_id" {
+    description = "The ID of the dev account"
+    value       = module.child_accounts.dev_account_id
+  }
+
+  output "stage_account_id" {
+    description = "The ID of the stage account"
+    value       = module.child_accounts.stage_account_id
+  }
+
+  output "prod_account_id" {
+    description = "The ID of the prod account"
+    value       = module.child_accounts.prod_account_id
+  }
+
+  # (2)
+  output "dev_role_arn" {
+    description = "The ARN of the IAM role you can use to manage dev from mgmt"
+    value       = module.child_accounts.dev_role_arn
+  }
+
+  output "stage_role_arn" {
+    description = "The ARN of the IAM role you can use to manage stage from mgmt"
+    value       = module.child_accounts.stage_role_arn
+  }
+
+  output "prod_role_arn" {
+    description = "The ARN of the IAM role you can use to manage prod from mgmt"
+    value       = module.child_accounts.prod_role_arn
+  }
+  ```
+
+  - (1): The IDs of created accounts
+  - (2): The IAM role's ARN used to manage child accounts from management account.
+
+- Deploy `child-accounts` module
+
+  ```bash
+  tofu init
+  tofu apply
+  ```
+
+#### Access your child accounts
+
+To access child accounts, you need to assume the **IAM role** that has permission to access them (`OrganizationAccountAccessRole`).
+
+To assume the IAM role `OrganizationAccountAccessRole`, you can use:
+
+- AWS Web Console:
+
+  - Click your username / Choose `Switch role`
+  - Enter the information to switch role:
+    - account ID
+    - IAM Role
+    - display name
+    - display color
+  - Click `Switch role`
+
+- Terminal:
+
+  One way to assume IAM role in the terminal is to configure an _AWS profile_ (in the _AWS config file_) for each child account.
+
+  > [!TIP]
+  > The _AWS config file_ is default at `~/.aws/config`
+
+  e.g. To assume IAM role for `dev` child account:
+
+  - Create an AWS profile named `dev-admin`
+
+    ```toml
+    [profile dev-admin]                                           # (1)
+    role_arn=arn:aws:iam::<ID>:role/OrganizationAccountAccessRole # (2)
+    credential_source=Environment                                 # (3)
+    ```
+
+    - (1): The AWS profile will be named `dev-admin`.
+    - (2): The IAM role that this profile will assume.
+    - (3): Use the environment variable as credential source.
+
+  - Specify the profile when you use AWS CLI with `--profile` argument
+
+    e.g. Use `aws sts get-caller-identity` command to get the identity of the `dev-admin` profile
+
+    ```bash
+    aws sts get-caller-identity --profile dev-admin
+    ```
+
+#### Deploy into your child accounts
+
+#### Use different configurations for different environments
+
+#### Close your child accounts
 
 ### Get Your Hand Dirty: Manage Multiple AWS accounts
+
+- The child accounts after created will not have a password:
+
+  - Go through the root user password [reset flow] to "reset" the password.
+  - Then enable [MFA] for the root user of child account.
+
+- As a part of multi-account strategy,
+
+  - in additional to _workload accounts_ (`dev`, `stage`, `prod`)
+  - AWS recommends several _foundation accounts_, e.g. log account, backup account...
+
+  Create your own aws-organizations module to set up all these foundational accounts.
+
+- Configure the `child-accounts` module to store its state in an S3 backend (in the management account).
 
 ## Breaking Up Your Codebase
 
@@ -539,3 +708,6 @@ e.g. A web app that needed to lookup data in a database before sending a respons
 [^10]: With _active/active_ mode, you have multiple databases that serve live traffic at the same time.
 [^11]: TODO
 [^12]: <https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/organizing-your-aws-environment.html>
+
+[reset flow]: https://docs.aws.amazon.com/IAM/latest/UserGuide/reset-root-password.html
+[MFA]: https://docs.aws.amazon.com/IAM/latest/UserGuide/enable-mfa-for-root.html
