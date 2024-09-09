@@ -1,3 +1,9 @@
+---
+markmap:
+  htmlParser:
+    selector: h1,h2,h3,h4,h5,h6
+---
+
 # Chapter 6: How to Work with Multiple Teams and Environments
 
 - CI/CD will allow developers work together efficiently and safety,
@@ -940,34 +946,34 @@ In this example, to have different configurations for different environments, yo
 
 ## Conclusion
 
-- When your company grows, there will be scaling problems, which you can solve by:
+### When your company grows, there will be scaling problems, which you can solve by
 
-  - breaking up your deployment into multiple environments
-  - breaking up your codebase into multiple libraries & services
+- breaking up your deployment into multiple environments
+- breaking up your codebase into multiple libraries & services
 
-- Both approaches have pros and cons:
+### Both approaches have pros and cons
 
-  |                             | Pros                                                                                       | Cons                                                                                                                                 |
-  | --------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-  | Breaking up your deployment | 1. _Isolate_:                                                                              |                                                                                                                                      |
-  |                             | - tests from production                                                                    |                                                                                                                                      |
-  |                             | - teams from each other                                                                    |                                                                                                                                      |
-  |                             |                                                                                            |                                                                                                                                      |
-  |                             | 2. If the environments are in different _regions_:                                         |                                                                                                                                      |
-  |                             | - Reduce latency                                                                           | (at the cost of) having to rework your entire architecture                                                                           |
-  |                             | - Increase resiliency                                                                      |                                                                                                                                      |
-  |                             | - Comply with local laws/regulations                                                       |                                                                                                                                      |
-  |                             |                                                                                            | 3. Configuration changes can cause outages (just as code changes)                                                                    |
-  |                             |                                                                                            |                                                                                                                                      |
-  | Breaking up your codebase   | 4. ... into libraries: Developers can _focus_ on a smaller part (of codebase) at a time    |                                                                                                                                      |
-  |                             |                                                                                            |                                                                                                                                      |
-  |                             | 5. ... into services: Different teams can _own_, developer & scale each part independently |                                                                                                                                      |
-  |                             |                                                                                            |                                                                                                                                      |
-  |                             | 6. You can make change much faster _within_ each part (library, service)                   | (at the cost of) it taking longer to make change _across_ the entire codebase                                                        |
-  |                             |                                                                                            |                                                                                                                                      |
-  |                             |                                                                                            | 7. You choose to do _late integration_ (instead of continuous integration), so it only works for those parts are truly _independent_ |
-  |                             |                                                                                            |                                                                                                                                      |
-  |                             |                                                                                            | 8. Has a considerable **cost**, so only do it when the benefits outweigh the cost, which only happens at a **larger scale**          |
+|                             | Pros                                                                                       | Cons                                                                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Breaking up your deployment | 1. _Isolate_:                                                                              |                                                                                                                                      |
+|                             | - tests from production                                                                    |                                                                                                                                      |
+|                             | - teams from each other                                                                    |                                                                                                                                      |
+|                             |                                                                                            |                                                                                                                                      |
+|                             | 2. If the environments are in different _regions_:                                         |                                                                                                                                      |
+|                             | - Reduce latency                                                                           | (at the cost of) having to rework your entire architecture                                                                           |
+|                             | - Increase resiliency                                                                      |                                                                                                                                      |
+|                             | - Comply with local laws/regulations                                                       |                                                                                                                                      |
+|                             |                                                                                            | 3. Configuration changes can cause outages (just as code changes)                                                                    |
+|                             |                                                                                            |                                                                                                                                      |
+| Breaking up your codebase   | 4. ... into libraries: Developers can _focus_ on a smaller part (of codebase) at a time    |                                                                                                                                      |
+|                             |                                                                                            |                                                                                                                                      |
+|                             | 5. ... into services: Different teams can _own_, developer & scale each part independently |                                                                                                                                      |
+|                             |                                                                                            |                                                                                                                                      |
+|                             | 6. You can make change much faster _within_ each part (library, service)                   | (at the cost of) it taking longer to make change _across_ the entire codebase                                                        |
+|                             |                                                                                            |                                                                                                                                      |
+|                             |                                                                                            | 7. You choose to do _late integration_ (instead of continuous integration), so it only works for those parts are truly _independent_ |
+|                             |                                                                                            |                                                                                                                                      |
+|                             |                                                                                            | 8. Has a considerable **cost**, so only do it when the benefits outweigh the cost, which only happens at a **larger scale**          |
 
 [^1]: Latency is the amount of time it takes to send data between your servers and users' devices.
 [^6]: GDPR (Global Data Protection Regulation)
