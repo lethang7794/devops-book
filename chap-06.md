@@ -884,11 +884,100 @@ In this example, to have different configurations for different environments, yo
 
 #### Managing Complexity
 
+> Software development doesn’t happen in a chart, an IDE, or a design tool; it happens in your head.
+>
+> (Practices of an Agile Developer)
+
+- Once a codebase gets big enough:
+
+  - no one can understand all of it
+  - if you need to deal with all of them at once:
+    - your pace of development will slow to a crawl
+    - the number of bugs will explode
+
+- According to Code Completion:
+
+  - Bug density in software projects of various sizes
+
+    | Project size (lines of code) | Bug density (bugs per 1K lines of code) |
+    | ---------------------------- | --------------------------------------- |
+    | < 2K                         | 0 – 25                                  |
+    | 2K – 6K                      | 0 – 40                                  |
+    | 16K – 64K                    | 0.5 – 50                                |
+    | 64K – 512K                   | 2 – 70                                  |
+    | > 512K                       | 4 – 100                                 |
+
+  - Larger software projects have more bugs and a higher bug density
+
+- The author of Code Completion defines "managing complexity" as "the most important technical topic in software development."
+
+---
+
+- The basic principle to manage complexity is _divide and conquer_:
+
+  - So you can focus on one small part at a time, while being able to _safely_ ignore the rest.
+
+> [!TIP]
+> One of the main goals of most software abstractions (object-oriented programming, functional programming, libraries, microservices...) is to break-up codebase into discrete pieces.
+>
+> Each piece
+>
+> - hide its implementation details (which are fairly complicated)
+> - expose some sort of interface (which is much simpler)
+
 #### Isolating Products And Teams
+
+As your company grows, different teams will have different development practices:
+
+- How to design systems & architecture
+- How to test & review code
+- How often to deploy
+- How much tolerance for bugs & outages
+- ...
+
+If all teams work in a single, tightly-coupled codebase, a problem in any team/product can affect all the other teams/product.
+
+e.g.
+
+- You open a pull request, there is an failed automated test in some unrelated product. Should you be blocked from merging?
+- You deploy new code that includes changes to 10 products, one of them has a bug. Should all 10 products be roll-backed?
+- One team has a product in an industry where they can only deploy once per quarter. Should other teams also be slow?
+
+By breaking up codebase, teams can
+
+- work _independently_ from each other
+  - teams are now interact via a well-defined interfaces, e.g. API of a library/web service
+- have total ownership of their part of the product
+
+> [!TIP]
+> These well-defined interfaces allows everyone to
+>
+> - benefit from the _outputs_ of a team, e.g. the data return by they API
+> - without being subject about the _inputs_ they need to make that possible
 
 #### Handling Different Scaling Requirements
 
+Some parts of your software have different scaling requirements than the other parts.
+
+e.g.
+
+- A part benefit from distributing workload across a large number of CPUs on many servers.
+- Another part benefits from a large amount of memory on a single server
+
+If everything is in one codebase and deployed together, handling these different scaling requirements can be difficult.
+
 #### Using Different Programming Languages
+
+Most companies start with a single programming language, but as you grow, you may end up using multiple programming languages:
+
+- It may be a personal choice of a group of developers.
+- The company may acquire another company that uses a different language.
+- A different language is a better fit for different problems.
+
+For every new language,
+
+- you have a new app to deploy, configure, update...
+- your codebase consists of multiple tools (for each languages)
 
 ### How to Break Up Your Codebase
 
