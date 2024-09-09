@@ -573,9 +573,270 @@ To assume the IAM role `OrganizationAccountAccessRole`, you can use:
 
 #### Deploy into your child accounts
 
+Now you will re-deploy the `lambda-sample` module into `dev`, `stage`, `prod` accounts.
+
+- Copy the `lambda-sample` module (and its dependency `test-endpoint` module) from chapter 5
+
+  ```bash
+  cd fundamentals-of-devops/examples
+  mkdir -p ch6/tofu/live
+  cp -r ch5/tofu/live/lambda-sample ch6/tofu/live
+  mkdir -p ch6/tofu/modules
+  cp -r ch5/tofu/modules/test-endpoint ch6/tofu/modules
+  ```
+
+- Update to copied module to use new path
+
+  ```t
+  # ch6/tofu/live/lambda-sample/backend.tf
+      key = "ch6/tofu/live/lambda-sample"
+  ```
+
+- Add support for AWS profiles
+
+  ```t
+  # ch6/tofu/live/lambda-sample/variables.tf
+  variable "aws_profile" {
+    description = "If specified, the profile to use to authenticate to AWS."
+    type        = string
+    default     = null
+  }
+  ```
+
+  ```t
+  # ch6/tofu/live/lambda-sample/main.tf
+  provider "aws" {
+    region  = "us-east-2"
+    profile = var.aws_profile
+  }
+  ```
+
+  > [!NOTE]
+  > Later, you will specify the AWS profile via `-var aws_profile=XXX` flag when running `tofu apply`.
+
+- Dynamically show the environment name
+
+  - Update the Lambda function to response with the environment name
+
+    ```javascript
+    // examples/ch6/tofu/live/lambda-sample/src/index.js
+    exports.handler = (event, context, callback) => {
+      callback(null, {
+        statusCode: 200,
+        body: `Hello from ${process.env.NODE_ENV}!`,
+      });
+    };
+    ```
+
+  - Dynamically set the `NODE_ENV` to the value of `terraform.workspace`
+
+    ```t
+    # examples/ch6/tofu/live/lambda-sample/main.tf
+    module "function" {
+      source = "github.com/brikis98/devops-book//ch3/tofu/modules/lambda"
+
+      # ... (other params omitted) ...
+
+      environment_variables = {
+        NODE_ENV = terraform.workspace
+      }
+    }
+    ```
+
+    > [!NOTE]
+    > What is OpenTofu workspace?
+    >
+    > ***
+    >
+    > - In OpenTofu, you can use _workspaces_ to manage
+    >
+    >   - **multiple deployments** of the same configuration.
+    >
+    > - Each workspace:
+    >
+    >   - has its own state file
+    >   - represents a separate copy of all the infrastructure
+    >   - has a unique name (returned by `terraform.workspace`)
+    >
+    > - If you don't specify a workspace explicitly, you end up using a workspace called `default`.
+
+- (Optional) Authenticate to your management account
+
+- Initialize the OpenTofu module
+
+  ```bash
+  cd examples/ch6/tofu/live/lambda-sample
+  tofu init
+  ```
+
+- Create a new workspace for `dev` environment and deploy the environment to the `dev` account:
+
+  - Create workspace
+
+    ```bash
+    tofu workspace new development
+    ```
+
+  - Deploy infrastructure and the lambda function
+
+    ```bash
+    tofu apply -var aws_profile=dev-admin
+    ```
+
+  - Verify that the lambda function works
+
+    ```bash
+    curl <DEV_URL>
+    ```
+
+- Do the same for `stage` and `prod` environments
+
+  ```bash
+  tofu workspace new stage
+  tofu apply -var aws_profile=stage-admin
+  curl <STAGE_URL>
+  ```
+
+  ```bash
+  tofu workspace new production
+  tofu apply -var aws_profile=prod-admin
+  curl <PROD_URL>
+  ```
+
+- Congratulation, you have three environments, across three AWS accounts, with a separate copy of the serverless webapp in each one, and the OpenTofu code to manage it all.
+
 #### Use different configurations for different environments
 
+In this example, to have different configurations for different environments, you'll use JSON configuration files checked into version control.
+
+- Create a folder called `config` for the configuration files
+
+  ```bash
+  mkdir -p src/config
+  ```
+
+- Create configs for the each environment:
+
+  - Dev: `ch6/tofu/live/lambda-sample/src/config/development.json`
+
+    ```json
+    {
+      "text": "dev config"
+    }
+    ```
+
+  - Stage: `ch6/tofu/live/lambda-sample/src/config/stage.json`
+
+    ```json
+    {
+      "text": "stage config"
+    }
+    ```
+
+  - Production: `ch6/tofu/live/lambda-sample/src/config/production.json`
+
+    ```json
+    {
+      "text": "production config"
+    }
+    ```
+
+- Update the lambda function to load the config file (of the current environment) and return the `text` value in the response:
+
+  ```javascript
+  // examples/ch6/tofu/live/lambda-sample/src/index.js
+
+  const config = require(`./config/${process.env.NODE_ENV}.json`); // (1)
+
+  exports.handler = (event, context, callback) => {
+    callback(null, { statusCode: 200, body: `Hello from ${config.text}!` }); // (2)
+  };
+  ```
+
+  - (1): Load the config file (of the current environment).
+  - (2): Response with the `text` value from the config file.
+
+---
+
+- Deploy the new configurations (of each environment) in each workspace (AWS account):
+
+  - Switch to an OpenTofu workspace
+
+    ```bash
+    tofu workspace select development
+    ```
+
+  - Run the OpenTofu commands with the corresponding AWS profile
+
+    ```bash
+    tofu apply -var aws_profile=dev-admin
+    ```
+
+- Repeat for the other environments.
+
+  > [!TIP]
+  > To see all OpenTofu workspaces, use the `tofu workspace list` command.
+  >
+  > ```bash
+  >  $ tofu workspace list
+  >    default
+  >    development
+  >    staging
+  >  * production
+  > ```
+
 #### Close your child accounts
+
+> [!CAUTION]
+> AWS doesn't charge you extra for the number of the child accounts, but it DOES charge you for the resources running in those accounts.
+>
+> - The more child accounts you have, the more chance you accidentally leave resources running.
+> - Be safe and close any child accounts that you don't need.
+
+- Undeploy the infrastructure in each workspace (corresponding to an AWS account):
+
+  - For `dev`:
+
+    ```bash
+    tofu workspace select development
+    tofu destroy -var aws_profile=dev-admin
+    ```
+
+  - For `stage`:
+
+    ```bash
+    tofu workspace select stage
+    tofu destroy -var aws_profile=stage-admin
+    ```
+
+  - For `prod`
+
+    ```bash
+    tofu workspace select production
+    tofu destroy -var aws_profile=prod-admin
+    ```
+
+- Run `tofu-destroy` on the `child-accounts` module to closing the child accounts
+
+  ```bash
+  cd ../child-accounts
+  tofu destroy
+  ```
+
+  > [!TIP]
+  > The destroy may fail if you create a new AWS with the OpenTofu module.
+  >
+  > - It's because an AWS Organization cannot be disabled until all of its child accounts are closed.
+  > - Wait 90 days then re-run the `tofu destroy`.
+
+> [!NOTE]
+> When you run close an AWS account:
+>
+> - Initially, AWS will suspense that account for 90 days,
+>
+>   This gives you a chance to recover anything you may have forgotten in those accounts before they are closed forever.
+>
+> - After 90 days, AWS will automatically close those accounts.
 
 ### Get Your Hand Dirty: Manage Multiple AWS accounts
 
@@ -592,6 +853,25 @@ To assume the IAM role `OrganizationAccountAccessRole`, you can use:
   Create your own aws-organizations module to set up all these foundational accounts.
 
 - Configure the `child-accounts` module to store its state in an S3 backend (in the management account).
+
+### Get Your Hand Dirty: Managing multiple environments with OpenTofu and AWS
+
+- Using workspaces to manage multiple environments has some drawbacks, see [this blog post][how-to-manage-multiple-environments-with-terraform] to learn about
+
+  - these drawbacks
+  - alternative approaches for managing multiple environments, e.g. Terragrunt, Git branches.
+
+- Update the CI/CD configuration to work with multiple AWS accounts
+
+  > [!TIP]
+  > You’ll need to
+  >
+  > - create OIDC providers and IAM roles in each AWS account
+  > - have the CI/CD configuration authenticate to the right account depending on the change
+  > - configure, e.g.
+  >   - Run `tofu test` in the `development` account for changes on any branch
+  >   - Run `plan`, `apply` in the `staging` account for any PR against `main`
+  >   - Run `plan`, `apply` in the `production` account whenever you push a Git tag of the format `release-xxx`, e.g. `release-v3.1.0`.
 
 ## Breaking Up Your Codebase
 
@@ -711,3 +991,4 @@ To assume the IAM role `OrganizationAccountAccessRole`, you can use:
 
 [reset flow]: https://docs.aws.amazon.com/IAM/latest/UserGuide/reset-root-password.html
 [MFA]: https://docs.aws.amazon.com/IAM/latest/UserGuide/enable-mfa-for-root.html
+[how-to-manage-multiple-environments-with-terraform]: https://blog.gruntwork.io/how-to-manage-multiple-environments-with-terraform-32c7bc5d692
