@@ -983,11 +983,203 @@ For every new language,
 
 #### Breaking A Codebase Into Multiple Libraries
 
+- Most codebase are broken up into various abstractions - depending on the programming language - such as functions, interfaces, classes, modules...
+
+- If the codebase get big enough, it can be broken up even further into _libraries_.
+
+---
+
+A library
+
+- is a unit of code that can be _developed independently_ from other units
+
+- has these properties:
+
+  1. A library exposes a **well-defined API** to the outside world
+
+     - A well defined API is an an interface with well-defined inputs/outputs.
+
+     - The code from the outside world can interact with the library only via this well-defined API.
+
+  1. A library implementation can be developed independently from the rest of the codebase
+
+     - The implementation - the internal - of the library are hidden from the outside world
+       - can be developed independently (from other units and the outside world)
+       - as long as the library still fulfills its promises (the interface)
+
+  1. You can only depend on _versioned artifact_ produced by a library, without directly depending on its source code
+
+     The exact type of artifact depends on a programming language, e.g.
+
+     - Java: a `.jar` file
+     - Ruby: a Ruby Gem
+     - JavaScript: an npm package
+
+     As long as you use artifact dependencies, the underlying source code can live in anywhere:
+
+     - In a single repo, or
+     - In multiple repos (more common for library)
+
+---
+
+Example of a codebase before and after break up:
+
+| Before break up                                     | Break up                                                                      | After break up                                              |
+| --------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| ![Before](./assets/break-up-codebase-libraries-before.png) |                                                                               | ![After](./assets/break-up-codebase-libraries-after.png)           |
+| A codebase with 3 parts: A, B, C                    | Turn B, C into libraries that publish artifacts , e.g. `a.jar`, `b.jar` files | Update A to depend on a specific version of these artifacts |
+| Part A depends directly on source code of B and C   |                                                                               | Part A depends on artifacts published by libraries B and C  |
+
+---
+
+The advantage of breaking up codes base into libraries:
+
+- Managing complexity
+- Isolating teams/products
+  - The team that develope a library can work independently (and publish versioned artifact)
+  - The other teams that use that library
+    - instead of being affects immediately by any code changes (from the library)
+    - can explicitly choose to pull the new versioned artifact
+
 > [!IMPORTANT]
 > Key takeaway #4
 > Breaking up your codebase into libraries allows developers to focus on one smaller part of the codebase at a time.
 
+##### Best practices to break a codebase into multiple libraries
+
+###### Sematic versioning
+
+Semantic versioning (SemVer)
+: What? A set of rules for how to assign version numbers to your code
+: Why? Communicate (to users) if a new version of your library has _backward **incompatible** changes_[^13]
+
+---
+
+With SemVer:
+
+- you use the version numbers of the format `MAJOR.MINOR.PATCH`, e.g. `1.2.3`
+
+- you increment these 3 parts of the version number as follows:
+
+  - Increment the `MAJOR` version when you make _incompatible_ API changes.
+
+  - Increment the `MINOR` version when you add **functionality** in a backward _compatible_ manner.
+
+  - Increment the `PATCH` version when you make backward _compatible_ **bug fixes**.
+
+---
+
+e.g. Your library is currently at version `1.2.3`
+
+- If you've made a backward incompatible change to the API -> The next release would be `2.0.0`
+- If you've add functionality that is backward compatible -> The next release would be `1.3.0`
+- If you've made a backward compatible bug fix -> The next release would be `1.2.4`
+
+> [!NOTE]
+> With SemVer:
+>
+> - `1.0.0` is typically seen as the first `MAJOR` version (first backward compatible release)
+> - `0.x.y` is typically used by new software to indicate incompatible change (breaking change) may be introduced anytime.
+
+###### Automatic updates
+
+Automatic updates
+: What? A way to keep your dependencies up to date
+: Why? When using a library, you can explicitly specify a version of library:
+: - This give you the control of when to use a new version.
+: - But it's also easy to forget to update to a new version and stuck with an old version - which may have bugs or security vulnerabilities - for months, years.
+: - If you don't update for a while, updating to the latest version can be difficult, especially if there any many breaking changes (since last update).
+
+---
+
+This is another place where, if it hurst, you need to do it more often:
+
+- You should set up an automatically process where
+
+  - dependencies are updated to source code
+  - the updates are rolled out to production (aka _software patching_ [^14])
+
+- This applies to all sort of dependencies - software you depend on - including:
+
+  - open source libraries
+  - internal libraries
+  - OS your software runs on
+  - software from cloud providers (AWS, GCP, Azure...)
+
+- You can setup the automation process
+
+  - to run:
+
+    - on a schedule, e.g. weekly
+    - in response to new versions being released
+
+  - using tools: [DependaBot], [Renovate], [Snyk], [Patcher]
+
+    These tools will
+
+    - detect dependencies in your code
+    - open pull requests to update the code to new versions
+
+    You only need to:
+
+    - check that these pull requests pass your test suite
+    - merge the pull requests
+    - (let the code deploy automatically)
+
 #### Breaking A Codebase Into Multiple Services
+
+| Before                                                                 | After                                                         |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------- |
+| ![Before](./assets/break-up-codebase-services-before.png)                     | ![After](./assets/break-up-codebase-services-after.png)              |
+| Codebase are broken up into source code, library/artifact dependencies | Codebase are broken up into separate services                 |
+|                                                                        |                                                               |
+| All the parts of the codebase                                          | Each part of the codebase (a service):                        |
+| - run in a single process                                              | - runs in a separate process (typically on a separate server) |
+| - communicate via in-memory function calls                             | - communicates by sending messages over the network           |
+
+---
+
+A service has all properties of a library:
+
+- It exposes a well-defined API to the outside world
+- Its implementation can be developed independently of the rest of the codebase
+- It can be deployed independently of the rest of the codebase
+
+with an additional property:
+
+- You can only talk to a service via messages over the network (via messages)
+
+---
+
+There are many approaches to build services:
+
+| Approach to build services          | How                                                                                            | Example                                                                                                          |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Service-oriented architecture (SOA) | Build large services that handle all the logic for an entire business/product within a company | API exposed by companies - aka _Web 2.0_ <br/>e.g. Twitter, Facebook, Google Map...                              |
+| Microservices                       | Build smaller, more fine-grain services that handle one domain within a company                | - One service to handle user profiles<br/>- One service to handle search<br/>- One service to do fraud detection |
+| Event-driven architecture           | Instead of interacting _synchronously_[^15], services interact _asynchronously_[^16]           |                                                                                                                  |
+
+---
+
+The advantages of breaking a codebase into services:
+
+- **Isolating teams**
+
+  Each service is usually owned by a different team.
+
+- **Using multiple programming languages**
+
+  - For each service, you can pick the programming language that are best fit for a certain problem/domain.
+  - It's also easier to integrate code bases from acquisitions & other companies (without rewrite all the code).
+
+- **Scaling services independently**
+
+  e.g. You can:
+
+  - Scale one service _horizontally_ (across multiple servers as CPU load goes up)
+  - Scale another service _vertically_ (on a single server with large amount of RAM)
+
+---
 
 > [!IMPORTANT]
 > Key takeaway #5
@@ -1064,6 +1256,14 @@ For every new language,
 |                             |                                                                                            |                                                                                                                                      |
 |                             |                                                                                            | 8. Has a considerable **cost**, so only do it when the benefits outweigh the cost, which only happens at a **larger scale**          |
 
+[reset flow]: https://docs.aws.amazon.com/IAM/latest/UserGuide/reset-root-password.html
+[MFA]: https://docs.aws.amazon.com/IAM/latest/UserGuide/enable-mfa-for-root.html
+[how-to-manage-multiple-environments-with-terraform]: https://blog.gruntwork.io/how-to-manage-multiple-environments-with-terraform-32c7bc5d692
+[DependaBot]: https://docs.github.com/en/code-security/getting-started/dependabot-quickstart-guide
+[Renovate]: https://docs.renovatebot.com/
+[Snyk]: https://snyk.io/
+[Patcher]: https://www.gruntwork.io/products/patcher
+
 [^1]: Latency is the amount of time it takes to send data between your servers and users' devices.
 [^6]: GDPR (Global Data Protection Regulation)
 [^3]: HIPAA (Health Insurance Portability and Accountability Act)
@@ -1082,7 +1282,25 @@ For every new language,
 [^10]: With _active/active_ mode, you have multiple databases that serve live traffic at the same time.
 [^11]: TODO
 [^12]: <https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/organizing-your-aws-environment.html>
+[^13]:
+    A backward incompatible change (of a library) is a change that would require the users to
 
-[reset flow]: https://docs.aws.amazon.com/IAM/latest/UserGuide/reset-root-password.html
-[MFA]: https://docs.aws.amazon.com/IAM/latest/UserGuide/enable-mfa-for-root.html
-[how-to-manage-multiple-environments-with-terraform]: https://blog.gruntwork.io/how-to-manage-multiple-environments-with-terraform-32c7bc5d692
+    - update how they use the library in their code
+    - in order to make use of this new version (of the library)
+
+    e.g.
+
+    - you remove something (that was in the API before)
+    - you add something (that is now required)
+
+[^14]: <https://en.wikipedia.org/wiki/Patch_(computing)>
+[^15]: _**Sync**hronously_ means each service
+
+    - messages each other
+    - wait for the responses.
+
+[^16]: _**Async**hronously_ means each service
+
+    - listens for _events_ (messages) on an _event bus_
+    - processes those events
+    - creates new events by writing back to the event bus
