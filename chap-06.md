@@ -95,14 +95,15 @@ markmap:
       | --------------------- | --------- | ----------------------------------------------- | ----- | ------- | ----------- | ------ |
       | Read (Random)         |           | from CPU cache (L1)                             | 0.001 |         |             |        |
       | Read (Random)         |           | from DRAM - main memory                         | 0.1   |         |             |        |
-      | Read (Sequentially)   | 1 MB      | from DRAM                                       |       | 3       |             |        |
+      | Compress with Snappy  | $1 KB$    |                                                 |       | 2       |             |        |
+      | Read (Sequentially)   | $1 MB$    | from DRAM                                       |       | 3       |             |        |
       | Read (Random)         |           | from SSD - solid state disk                     |       | 16      |             |        |
-      | Read (Sequentially)   | 1 MB      | from SSD                                        |       | 49      |             |        |
-      | TCP packet round trip | 1.5 KB    | within same data-center                         |       | **500** |             | 0.5 ms |
+      | Read (Sequentially)   | $1 MB$    | from SSD                                        |       | 49      |             |        |
+      | TCP packet round trip | $1.5 KB$  | within same data-center                         |       | **500** |             | 0.5 ms |
       | Read (Random)         |           | from HDD - rotational disk                      |       |         | 2,000       |        |
-      | Read (Sequentially)   | 1 MB      | from HDD                                        |       |         | 5,000       |        |
-      | TCP packet round trip | 1.5 KB    | from California to New York<br/>(1 continent)   |       |         | **40,000**  | 40 ms  |
-      | TCP packet round trip | 1.5 KB    | from California to Australia<br/>(2 continents) |       |         | **183,000** | 183 ms |
+      | Read (Sequentially)   | $1 MB$    | from HDD                                        |       |         | 5,000       |        |
+      | TCP packet round trip | $1.5 KB$  | from California to New York<br/>(1 continent)   |       |         | **40,000**  | 40 ms  |
+      | TCP packet round trip | $1.5 KB$  | from California to Australia<br/>(2 continents) |       |         | **183,000** | 183 ms |
 
 - If you have users around the world,
 
@@ -1024,11 +1025,11 @@ A library
 
 Example of a codebase before and after break up:
 
-| Before break up                                     | Break up                                                                      | After break up                                              |
-| --------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| ![Before](./assets/break-up-codebase-libraries-before.png) |                                                                               | ![After](./assets/break-up-codebase-libraries-after.png)           |
-| A codebase with 3 parts: A, B, C                    | Turn B, C into libraries that publish artifacts , e.g. `a.jar`, `b.jar` files | Update A to depend on a specific version of these artifacts |
-| Part A depends directly on source code of B and C   |                                                                               | Part A depends on artifacts published by libraries B and C  |
+| Before break up                                            | Break up                                                                      | After break up                                              |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| ![Before](./assets/break-up-codebase-libraries-before.png) |                                                                               | ![After](./assets/break-up-codebase-libraries-after.png)    |
+| A codebase with 3 parts: A, B, C                           | Turn B, C into libraries that publish artifacts , e.g. `a.jar`, `b.jar` files | Update A to depend on a specific version of these artifacts |
+| Part A depends directly on source code of B and C          |                                                                               | Part A depends on artifacts published by libraries B and C  |
 
 ---
 
@@ -1130,7 +1131,7 @@ This is another place where, if it hurst, you need to do it more often:
 
 | Before                                                                 | After                                                         |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------- |
-| ![Before](./assets/break-up-codebase-services-before.png)                     | ![After](./assets/break-up-codebase-services-after.png)              |
+| ![Before](./assets/break-up-codebase-services-before.png)              | ![After](./assets/break-up-codebase-services-after.png)       |
 | Codebase are broken up into source code, library/artifact dependencies | Codebase are broken up into separate services                 |
 |                                                                        |                                                               |
 | All the parts of the codebase                                          | Each part of the codebase (a service):                        |
@@ -1187,9 +1188,84 @@ The advantages of breaking a codebase into services:
 
 ### Challenges with Breaking Up Your Codebase
 
+> [!CAUTION]
+> In recent years, it became trendy to break up a codebase, especially into microservices, almost to the extent where "monolith" became a dirty word.
+>
+> - At a certain scale, moving into services is inevitable.
+> - But until you get to that scale, a monolith is a _good thing_
+
 #### Challenges With Backward Compatibility
 
+> [!NOTE]
+> Libraries and services consist of 2 parts:
+>
+> - The public API.
+> - The internal implementation detail.
+
+When breaking up your codebase:
+
+- the internal implementation detail can be changed much more quickly 👈 each team can have full control of it
+- but the public API is much more difficult to be changed 👈 any breaking changes can cause a lot of troubles for the users
+
+---
+
+e.g. You need to change a function's name from `foo` to `bar`
+
+| `B` is part of your codebase                                            | `B` is a library                                                | `B` is a service                                                                                                                                                               |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|                                                                         | 1. Discuss with your team if you really need a breaking change  | 1. Discuss with your team if you really need a breaking change                                                                                                                 |
+| 1. In `B`, rename `foo` to `bar`                                        | 2. In `B`, rename `foo` to `bar`                                | 2. Add new version of your API and/or new endpoint that has `bar`                                                                                                              |
+|                                                                         |                                                                 |    - Don't remove `foo` yet                                                                                                                                                    |
+|                                                                         | 3. Create a new release of B:                                   | 3. Deploy the new version of your service that has both `foo` and `bar`                                                                                                        |
+|                                                                         |    - Update the `MAJOR` version number                          | 4. Notify all users                                                                                                                                                            |
+|                                                                         |    - Add release notes with migration instructions              |    - Update your docs to indicate there is a new `bar` endpoint and that `foo` is deprecated                                                                                   |
+|                                                                         | 4. Other teams choose when to update the new version:           | 5. You wait for every team to switch from `foo` to `bar` in their code and to deploy a new version of their service.                                                           |
+|                                                                         |    - It's a breaking change, they'll wait longer before update. |                                                                                                                                                                                |
+|                                                                         |    - They decide to upgrade                                     |                                                                                                                                                                                |
+| 2. Find all usages of `foo` (in the same codebase) and rename to `bar`. |    - They all usages of `foo` and rename to `bar`               |                                                                                                                                                                                |
+|                                                                         |                                                                 |    - You might even monitor the access logs of `B` to see if the `foo` endpoint is still being used, identify the teams responsible, and bargain with them to switch to `bar`. |
+|                                                                         |                                                                 |    - Depending on the company and competing priorities, this could take weeks or months.                                                                                       |
+|                                                                         |                                                                 | 6. At some point, if usage of `foo` goes to zero, you can finally remove it from your code, and deploy a new version of your service.                                          |
+|                                                                         |                                                                 |    - Sometimes, especially with public APIs, you might have to keep the old foo endpoint forever.                                                                              |
+| 3. Done.                                                                | 5. Done                                                         | 7. Done                                                                                                                                                                        |
+
+> [!TIP]
+> You may spend a lot of time over your public API design.
+>
+> - But you'll never get it exactly right
+> - You'll always have to evolve it overtime.
+>
+> Public API maintenance is always a cost of breaking up your codebase.
+
 #### Challenges With Global Changes
+
+When breaking up your codebase, any _global_ changes - changes that require updating multiple libraries/services - become considerably harder.
+
+---
+
+e.g.
+
+- LinkedIn stared with a single monolithic application, written in Java, called Leo.
+
+- Leo became bottleneck to scaling (more developers, more traffic).
+
+- Leo is broken into libraries/services.
+
+  - Each team was able to iterate on features within their libraries/services much faster.
+  - But there are also global changes.
+
+- Almost every single service relied on some security utilities in a library called `util-security.jar`.
+
+- When a vulnerability in that library was found, rolling out new version to all services took an enormous effort:
+
+  1. A few developers is assigned to lead the effort
+  1. They dig through dozens of services (in different repos) to find all services that depends on `util-security.jar`
+  1. They update each of those services to new version, which can:
+     - be a simple version number bump.
+     - require a number of changes throughout the service's code base to upgrade through many breaking changes.
+  1. They open pull request, wait for code reviews (from many teams) and prodding each team.
+  1. The code is merged; then they have to bargain with each team to deploy their service.
+  1. Some of the deployments have bugs or cause outages, which requires: rolling back, fixing issues, re-deploying.
 
 > [!IMPORTANT]
 > Key takeaway #6
@@ -1197,25 +1273,358 @@ The advantages of breaking a codebase into services:
 
 #### Challenges With Where To Split The Code
 
+If you split the codebase correctly:
+
+- Changes done by each team are within their own part of the codebase, which
+  - allows each team to go much faster.
+
+If you split the codebase wrong,
+
+- Most changes are global changes, which
+  - makes you go much slower.
+
+> [!CAUTION]
+> When to break up a codebase?
+>
+> ---
+>
+> Don't split the codebase too early
+>
+> - It's easy to identify the "seam" in a codebase that has been around for a long time.
+> - It's hard to predict/guess in a totally new codebase.
+
+---
+
+Some hints for where the codebase could be split:
+
+- **Files that change together**
+
+  e.g.
+
+  - Every time you make a change of type `X`, you update a group of files `A`
+  - Every time you make a change of type `Y`, you update a group of files `B`
+
+  Then `A` and `B` are good candidates to be broken out into separate libraries/services.
+
+- **Files that teams focus on**
+
+  e.g.
+
+  - 90% of the change by team `Z` are in a group of files `C`
+  - 90% of the change by team `W` are in a group of files `D`
+
+  Then `C` and `D` are good candidates to be broken out into separate libraries/services.
+
+- **Parts that could be open sourced our outsourced**
+
+  If you could envision a part of your codebase that would be:
+
+  - a successful, standalone open source project
+  - exposed as as successful, standalone APIs
+
+  then that part is a good candidate to be broken into a library/service.
+
+- **Performance bottlenecks**
+
+  e.g.
+
+  - If 90% of the time it takes to serve a request is spent in part `E` of your code,
+    - and it's most limited by RAM
+      then part E is a good candidate to be broken out in to a service (to be scaled vertically).
+
+> [!CAUTION]
+> Don't try to predict any of these hints! Especially for performance bottlenecks[^17].
+>
+> ---
+>
+> The only way to know where to split the code is:
+>
+> - Start with a monolith
+> - Grow it as far as you can
+> - Only when you can scale it any further, then break it up into smaller pieces
+
 #### Challenges With Testing And Integration
+
+> [!CAUTION]
+> Breaking up a codebase into libraries/services is the opposite of continuous integration.
+
+When you've break up your codebase, you choose to
+
+- allow teams to work more independently from each other
+- in the cost of doing late integration (instead of continuous integration)
+
+So only break up those parts that are truly decoupled, independent from other parts.
+
+> [!WARNING]
+> If you split up the parts are tightly coupled, there would be many problems.
+>
+> Teams will try to
+>
+> - work independently, and not doing much testing and integration with other teams...
+> - or integrate all the time and make a lot of global changes...
 
 > [!IMPORTANT]
 > Key takeaway #7
-> Splitting up a codebase into multiple parts means you are choosing to do late integration instead of continuous integration between those parts, so only do it when those parts are truly independent.
+> Breaking up a codebase into multiple parts means you are choosing to do late integration instead of continuous integration between those parts, so only do it when those parts are truly independent.
 
 #### Dependency Hell
 
+If you break up your codebase into libraries, you may face dependency hell:
+
+- **Too many dependencies**
+
+  If you depends on dozens of libraries
+
+  - each library depends of dozens more libraries
+    - each library depends of dozens more libraries
+      - ...
+
+  Then only to download all your dependencies can take up a lot of time, disk space & bandwidth.
+
+- **Long dependency chains**
+
+  e.g.
+
+  - Library `A` depends on `B`
+    - `B` depends on `C`
+      - ...
+        - `X` depends on `Y`
+          - `Y` depends on `Z`
+  - If you need to make an important security patch to `Z`, how to roll it out to `A`?
+    - Update `Z`, release new version for `Z`
+      - Update `Y`, release new version for `Y`
+        - ...
+          - Update `B`, release new version for `B`
+            - Update `A`, release new version for `A`
+
+- **Diamond dependencies**
+
+  e.g.
+
+  - `A` depends on `B`, `C`
+    - `B` depends on `D` (at `1.0.0`)
+    - `C` depends on `D` (at `1.0.0`)
+  - Then you upgrade `C`:
+    - `B` still depends on `D` at `1.0.0`
+    - `C` now depends on `D` at `2.0.0`
+
+  You can't have 2 conflicts versions of `D` at onces, now you're stuck unless:
+
+  - `B` upgrade `D` to `2.0.0`
+  - or you can't upgrade `C`
+
 #### Operational Overhead
+
+- Each application need its own mechanism for software delivery: CI/CD pipeline, testing, deployment, monitoring, configuration...
+
+- If you split up a monolith into services that
+
+  - using the **same** programming language, each services needs its own CI/CD pipelines... for delivery. In other words, there will be many duplications, which means more operation overhead.
+  - using **different** programming languages, each services needs its own CI/CD pipelines that are completely different, which means even more operational overhead.
 
 #### Dependency Overhead
 
+With $N$ services,
+
+- you have $N$ services to deploy & manage.
+- but there are also the interactions between those services, which grows at a rate of $N^2$.
+
+---
+
+e.g.
+
+- Service `A` depends on service `B`
+
+  - Add endpoint `foo` to `B` (`B` at version `v2`)
+  - Update the code in `A` to make calls to `foo` endpoint (`A` at version `v2`)
+
+- When to deploy `A` v2 and `B` v2?
+
+  - If `A` v2 is deployed before `B` v2, `A` may try to call `foo` endpoint, which cause a failure (because `B` v1 doesn't have the `foo` endpoint yet)
+  - `B` MUST be deployed before `A` 👈 This is called _deployment ordering_
+
+- `B` itself may depend on services `C` and `D` and so on...
+
+  - Now you need to have a _deployment graph_ to ensure the right services are deployed in the right order.
+
+- If service `C` has a bug, you need to:
+
+  - rollback `C`
+  - rollback the services that depends on `C` and so on...
+  - things become so much messy
+
+---
+
+> [!TIP]
+> Deployment ordering can be avoided if
+>
+> - the services are written in a way that they can be deployed/rolled back in any order & at any time.
+>
+>   - one way to do that is use feature flags.
+>
+> e.g.
+>
+> - Service `A` depends on service `B`
+>   - Add endpoint `foo` to `B` (`B` at version `v2`)
+> - Update the code in `A` to make calls to `foo` endpoint (`A` at version `v2`)
+>   - Wrap that code in an if-statement which is off by default 👈 The new functionality is wrapped in a feature flag.
+> - Now `A` and `B` can be deployed in at any order & at any time
+>   - When you're sure both the new versions of `A` and `B` are deployed, then you turn the feature toggle on.
+>     - Everything should start working.
+>   - If there is any issue with `A` or `B` (or any of their dependencies), you turn the feature toggle off, then roll back the services.
+
 #### Debugging Overhead
+
+- If you have dozens of services, and users report a bug:
+
+  - You have to investigate to figure out which service is at fault.
+
+- To track down a bug across dozens of services can be a nightmare:
+
+  |                       | Monolith                                                                   | Services                                                                                          |
+  | --------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+  | Logs                  | In a single place/format                                                   | In different places/formats                                                                       |
+  | How to reproduce bug? | Run a single app locally                                                   | Run dozens of services locally                                                                    |
+  | How to debug?         | Hook a debugger (to a single process) and go through the code step-by-step | Use all sorts of tracing tools to identify dozens of processes (that processing a single request) |
+  | How long to debug?    | A bug that take an hour to figure out                                      | The same bug could takes weeks to track down                                                      |
+
+- Even if you you figure out the service at fault, there are still other problems:
+  - Each team will immediately blame other teams, because no one want to take ownership the bug.
+  - Your services are communicate over the network, there are a lot of new, complicated failure conditions that are tricky to debug.
 
 #### Infrastructure Overhead
 
+When you have multiple services:
+
+- In additional to deploy the services themselves
+- You need to deploy a lot of extra infrastructure to support the services.
+  - The more services you have, the more infrastructure you need to support them.
+
+e.g. To deploy 12 services, you may also need to deploy:
+
+- an orchestration tool, e.g. Kubernetes
+- a service mesh tool, e.g. Istio 👈 To help services communicate more securely
+- an event bus, e.g. Kafka
+- a distributed tracing tool, e.g. Jaeger 👈 To help with debugging & monitoring
+  - (You also need to integrate a tracing library - e.g. OpenTracing - to all services)
+
 #### Performance Overhead
 
+When you breaking your codebase into services:
+
+- the performance may be _improved_ 👈 you can [handle different scaling requirements](#handling-different-scaling-requirements) by horizontally or vertically scaling some parts of your software.
+- or the performance may also be _worse_.
+
+  This is due to:
+
+  - **Networking overhead**
+
+    | Operation             | How much? | Where?                                          | Time  | in    | $μs$      | Notes    |
+    | --------------------- | --------- | ----------------------------------------------- | ----- | ----- | --------- | -------- |
+    | Read (Random)         |           | from DRAM - main memory                         | $0.1$ |       |           |          |
+    | TCP packet round trip | 1.5 KB    | within same data-center                         |       | $500$ |           | $0.5 ms$ |
+    | TCP packet round trip | 1.5 KB    | from California to New York<br/>(1 continent)   |       |       | $40,000$  | $40 ms$  |
+    | TCP packet round trip | 1.5 KB    | from California to Australia<br/>(2 continents) |       |       | $183,000$ | $183 ms$ |
+
+    - For a monolith, different parts (of the codebase) run in a single process, and communicate via function calls (in the memory) 👈 A random read from main memory takes $0.1μs$
+    - For services, different parts (of the codebase) run in multiple processes, and communicate over network 👈 A roundtrip for a single TCP package in the same data center takes $500μs$
+
+    The mere act of moving a part of your code to a separate service makes it at least $5,000$ times slower to _communicate_.
+
+  - **Serialization[^18] overhead**
+
+    When communicating over the network, the messages need to be processed, which means:
+
+    - packing, encoding (serialization)
+    - unpacking, decoding (de-serialization)
+
+    This includes:
+
+    - the format of the messages, e.g. JSON, XML, Protobuf...
+    - the format of the application layer, e.g. HTTP...
+    - the format for encryption, e.g. TLS
+    - the format for compression, e.g. Snappy
+      👈 Just compressing 1 KB with Snappy is 20 times slower than random read from main memory.
+
+> [!WARNING]
+> When splitting a monolith into services, you often minimize this performance overhead by
+>
+> - rewriting a lot of code for:
+>   - concurrency
+>   - caching
+>   - batching
+>   - de-dupling
+>
+> But all of these things make your code a lot more complicated (compare to keeping everything in a monolith)
+
 #### Distributed System Complexities
+
+Splitting a monolith into services is a _MAJOR_ shift: your single app is becoming a _distributed system_.
+
+Dealing with distributed system is hard:
+
+- **New failure modes**
+
+  - For a monolith, there are only several types of errors:
+
+    - a **function** return
+      - an expected error
+      - an unexpected error
+    - the whole **process** crash
+
+  - For services that run in separate processes that communicate over the network, there are a lot of possible errors:
+
+    The request may fail because
+
+    - the **network**
+      - is down
+      - is misconfigured, and send it to the wrong place
+    - the **service**
+      - is down
+      - takes too long to response
+      - starts responding but crash halfway through
+      - sends multiple responses
+      - sends response in wrong format
+    - ...
+
+    You need to deal with all of these errors, which makes your code a lot more complicated.
+
+- **I/O complexity**
+
+  Sending a request over the network is a type of _I/O_ (_input/output_).
+
+  - Most types of I/O are extremely slower than operations on the CPU or in memory (See [Reducing Latency](#reducing-latency) section)
+
+  - Most programming languages use special code to make these I/O operations faster, e.g.
+
+    - Use _synchronous I/O_ that blocks the thread until the I/O completes (aka use a _thread pool_)
+    - Use _asynchronous I/O_ that is non-blocking so code
+      - can keep executing while waiting for I/O,
+      - will be notified when that I/O completes
+
+| Approach to handle I/O | _synchronous I/O_                                                                         | _asynchronous I/O_                                    |
+| ---------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| How?                   | _Blocks_ the thread until the I/O completes 👈 aka use a _thread pool_                    | The I/O is _non-blocking_:                            |
+|                        |                                                                                           | - Code can keep executing (while waiting for I/O)     |
+|                        |                                                                                           | - Code will be notified when the I/O completes        |
+|                        |                                                                                           |                                                       |
+| Pros                   | Code structure is the same                                                                | Avoid dealing with thread pool sizes                  |
+|                        |                                                                                           |                                                       |
+| Cons                   | The thread pools need to be carefully sized:                                              | Rewrite code to handle those notifications            |
+|                        | - Too many threads: CPU spends all its time context switching between them 👈 _thrashing_ | - By using mechanisms: callbacks, promises, actors... |
+|                        | - Too few threads: code spends all time waiting 👉 decrease throughput                    |                                                       |
+
+- **Data storage complexity**
+
+  When you have multiple services, each service typically manages its own, separate data store:
+
+  - allow each team to store & manage data to best fits their needs, and to work independently.
+  - with the cost of sacrificing the consistency of your data
+
+> [!WARNING]
+> If you try to have data consistent you will end up with services that are tightly coupled and not resilient to outages.
+>
+> In the distributed system world, you can have all both of data consistent and services that are highly decoupled.
 
 > [!IMPORTANT]
 > Key takeaway #8
@@ -1304,3 +1713,11 @@ The advantages of breaking a codebase into services:
     - listens for _events_ (messages) on an _event bus_
     - processes those events
     - creates new events by writing back to the event bus
+
+[^17]: For performance bottlenecks, you can never really predict without running a profiler against real code and real data.
+[^18]: Serialization is the process of
+
+    - translating a data structure or object state into a format that can be
+      - stored (e.g. files in secondary storage devices, data buffers in primary storage devices) or
+      - transmitted (e.g. data streams over computer networks) and
+      - reconstructed later (possibly in a different computer environment).
