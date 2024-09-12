@@ -1632,7 +1632,277 @@ Dealing with distributed system is hard:
 
 ### Example: Deploy Microservices in Kubernetes
 
+In this example, you'll
+
+1. Convert the simple Node.js `sample-app` into 2 apps:
+
+- `backend`: represents a _backend_ microservice that
+
+  - is responsible for _data management_ (for some domain within your company)
+
+    - exposes the data via an **API** - e.g. JSON over HTTP - to other microservices (within your company and not directly to users)
+
+- `frontend`: represents a _frontend_ microservice that
+
+  - is responsible for _presentation_
+
+    - gathering data from backends
+    - showing that data to users in some **UI**, e.g. HTML rendered in web browser
+
+2. Deploy these 2 apps into a Kubernetes cluster
+
+---
+
+#### Creating a backend sample app
+
+- Copy the Node.js `sample-app` from chap 5
+
+  ```bash
+  cd examples
+  cp -r ch5/sample-app ch6/sample-app-backend
+  ```
+
+- Copy the Kubernetes configuration for Deployment and Service from chap 3
+
+  ```bash
+  cp ch3/kubernetes/sample-app-deployment.yml ch6/sample-app-backend/
+  cp ch3/kubernetes/sample-app-service.yml ch6/sample-app-backend/
+  ```
+
+- Update the `sample-app-backend` app
+
+  - `app.js`
+
+    Make the `sample-app` act like a backend:
+
+    - by exposing a simple API that
+      - response to HTTP requests with JSON
+
+    ```javascript
+    app.get("/", (req, res) => {
+      res.json({ text: "backend microservice" });
+    });
+    ```
+
+    > [!TIP]
+    > Normally, a backend microservice would look up data in a database.
+
+  - `package.json`
+
+    ```json
+    {
+      "name": "sample-app-backend",
+      "version": "0.0.1",
+      "description": "Backend app for 'Fundamentals of DevOps and Software Delivery'"
+    }
+    ```
+
+  - `sample-app_deployment.yml`
+
+    ```yaml
+    metadata:
+      name: sample-app-backend-deployment #     (1)
+    spec:
+      replicas: 3
+      template:
+        metadata:
+          labels:
+            app: sample-app-backend-pods #      (2)
+        spec:
+          containers:
+            - name: sample-app-backend #        (3)
+              image: sample-app-backend:0.0.1 # (4)
+              ports:
+                - containerPort: 8080
+              env:
+                - name: NODE_ENV
+                  value: production
+      selector:
+        matchLabels:
+          app: sample-app-backend-pods #        (5)
+    ```
+
+  - `sample-app_service.yml`
+
+    ```yaml
+    metadata:
+      name: sample-app-backend-service # (1)
+    spec:
+      type: ClusterIP #                  (2)
+      selector:
+        app: sample-app-backend-pods #   (3)
+      ports:
+        - protocol: TCP
+          port: 80
+          targetPort: 8080
+    ```
+
+    - (2): Switch the service type from `LoadBalancer` to `ClusterIP`
+
+      > [!NOTE]
+      > A service of type `ClusterIP` is only reachable from within the Kubernetes cluster.
+
+#### Build and deploy the backend sample app
+
+- Build the Docker image (See [Chap 4 - Example: Configure your Build Using NPM](./chap-04.md#example-configure-your-build-using-npm))
+
+  ```bash
+  npm run dockerize
+  ```
+
+- Deploy the Docker image into a Kubernetes cluster
+
+  In this example, you'll use a local Kubernetes cluster, that is a part of Docker Desktop.
+
+  - Update the config to use context from Docker Desktop
+
+    ```bash
+    kubectl config use-context docker-desktop
+    ```
+
+  - Deploy the Deployment and Service
+
+    ```bash
+    kubectl apply -f sample-app-deployment.yml
+    kubectl apply -f sample-app-service.yml
+    ```
+
+  - Verify the Service is deployed
+
+    ```bash
+    kubectl get services
+    ```
+
+#### Creating a frontend sample app
+
+- Copy the Node.js `sample-app` from chap 5
+
+  ```bash
+  cd examples
+  cp -r ch5/sample-app ch6/sample-app-frontend
+  ```
+
+- Copy the Kubernetes configuration for Deployment and Service from chap 3
+
+  ```bash
+  cp ch3/kubernetes/sample-app-deployment.yml ch6/sample-app-frontend/
+  cp ch3/kubernetes/sample-app-service.yml ch6/sample-app-frontend/
+  ```
+
+- Update the `sample-app-frontend` app
+
+  - `app.js`
+
+    Update the frontend to make an HTTP request to the backend and render the response using HTML
+
+    ```javascript
+    const backendHost = "sample-app-backend-service"; //             (1)
+
+    app.get("/", async (req, res) => {
+      const response = await fetch(`http://${backendHost}`); //      (2)
+      const responseBody = await response.json(); //                 (3)
+      res.send(`<p>Hello from <b>${responseBody.text}</b>!</p>`); // (4)
+    });
+    ```
+
+    - (1): This is an example of service discovery in Kubernetes
+
+      > [!NOTE]
+      > In Kubernetes, when you create a Service named `foo`:
+      >
+      > - Kubernetes will creates a DNS entry for that Service `foo`.
+      > - Then you can use `foo` as a hostname (for that Service)
+      >   - When you make a request to that hostname, e.g. `http://foo`,
+      >     - Kubernetes routes that request to the Service `foo`
+
+    - (2): Use `fetch` function to make an HTTP request to the backend microservice.
+    - (3): Read the body of the response, and parse it as JSON.
+    - (4): Send back HTML which includes the `text` from the backend's JSON response.
+
+      > [!WARNING]
+      > If you insert _dynamic data_ into the template literal as in the example, you are opened to _injection attacks_.
+      >
+      > - If an attacker include malicious code in that dynamic data
+      >   - you'd end up executing their malicious code.
+      >
+      > So remember to _sanitize_ all user input.
+
+  - `package.json`
+
+    ```json
+    {
+      "name": "sample-app-frontend",
+      "version": "0.0.1",
+      "description": "Frontend app for 'Fundamentals of DevOps and Software Delivery'"
+    }
+    ```
+
+  - `sample-app_deployment.yml`
+
+    ```yaml
+    metadata:
+      name: sample-app-frontend-deployment #       (1)
+    spec:
+      replicas: 3
+      template:
+        metadata:
+          labels:
+            app: sample-app-frontend-pods #        (2)
+        spec:
+          containers:
+            - name: sample-app-frontend #          (3)
+              image: sample-app-frontend:0.0.1 #   (4)
+              ports:
+                - containerPort: 8080
+              env:
+                - name: NODE_ENV
+                  value: production
+      selector:
+        matchLabels:
+          app: sample-app-frontend-pods #          (5)
+    ```
+
+  - `sample-app_service.yml`
+
+    ```yml
+    metadata:
+      name: sample-app-frontend-loadbalancer # (1)
+    spec:
+      type: LoadBalancer #                     (2)
+      selector:
+        app: sample-app-frontend-pods #        (3)
+    ```
+
+    - (2): Keep the service type as `LoadBalancer` so the frontend service can be access from the outside world.
+
+#### Build and deploy the frontend sample app
+
+Repeat the steps in [Build and deploy the backend sample app](#build-and-deploy-the-backend-sample-app)
+
+> [!TIP]
+> When you're done testing, remember to run `kubectl delete` for each of the Deployment and Service objects to undeploy them from your local Kubernetes cluster.
+
 ### Get Your Hands Dirty: Running Microservices
+
+- The frontend and backend both listen on port 8080.
+
+  - This works fine when running the apps in Docker containers,
+  - but if you wanted to test the apps without Docker (e.g., by running `npm start` directly), the ports will clash.
+
+  Consider updating one of the apps to listen on a different port.
+
+- After all these updates, the automated tests in `app.test.js` for both the frontend and backend are now failing.
+
+  - Fix the test failures.
+  - Also, look into _dependency injection_ and _test doubles_ (AKA _mocks_) to find ways to test the frontend without having to run the backend.
+
+- Update the frontend app to handle errors:
+
+  e.g. The HTTP request to the backend could fail for any number of reasons, and right now, if it does, the app will simply crash.
+
+  - You should instead catch these errors and show users a reasonable error message.
+
+- Deploy these microservices into a remote Kubernetes cluster: e.g., the EKS cluster you ran in AWS in Part 3.
 
 ## Conclusion
 
