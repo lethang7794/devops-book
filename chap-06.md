@@ -1339,7 +1339,7 @@ Some hints for where the codebase could be split:
 >
 > The only way to know where to split the code is:
 >
-> - Start with a monolith
+> - Start with a monolith[^19]
 > - Grow it as far as you can
 > - Only when you can scale it any further, then break it up into smaller pieces
 
@@ -1991,3 +1991,5 @@ Repeat the steps in [Build and deploy the backend sample app](#build-and-deploy-
       - stored (e.g. files in secondary storage devices, data buffers in primary storage devices) or
       - transmitted (e.g. data streams over computer networks) and
       - reconstructed later (possibly in a different computer environment).
+
+[^19]: <https://martinfowler.com/bliki/MonolithFirst.html>
