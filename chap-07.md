@@ -1,3 +1,9 @@
+---
+markmap:
+  htmlParser:
+    selector: h1,h2,h3,h4,h5,h6
+---
+
 # Chapter 7: How to Set Up Networking
 
 Networking is what needed to:
@@ -23,17 +29,298 @@ This chapter will walkthrough the concepts and examples:
 
 ## Public Networking
 
+Almost everything you've deployed so far has been accessible directly over the public internet.
+
+e.g.
+
+- An EC2 instance with a public IP address like `3.22.99.215`
+- A load balancer with a domain name like `sample-app-tofu-656918683.us-east-2.elb.amazonaws.com`
+
 ### Public IP Addresses
+
+IP
+: Internet Protocol
+: a protocol (set of rules) for
+: - routing
+: - addressing
+: ... data across networks
+
+> [!TIP]
+> There are 2 major versions of IP: _IPv4_ & _IPv6_.
+>
+> - IPv4: First major version, around since 1980s, is the dominant protocol of the internet.
+> - IPv6: The successor version, introduced in 2006, is gradually graining adoption
+
+---
+
+IP Address (IPv4 address)
+: 👕 unique identifier used to determine who is who on the Internet
+: 👔 a numerical label such as `192.0.2.1` that is assigned to a device connected to a computer network that uses the Internet Protocol for communication
+: IP addresses serve two main functions:
+: - network interface identification 👈 Which host is it?
+: - location addressing 👈 Where is the host?
+
+An IPv4 addresses
+
+- is fixed length of four octets (32 bits)[^1] 👈 There are $2^{32}$ IPv4 addresses.
+- begins with a _network number_,
+- followed by _local address_ (called the _"rest" field_).
+
+> [!NOTE]
+> Running out of IPv4 addresses is one of the reason
+>
+> - the world is moving to IPv6, which
+>   - uses 128-bit addresses that are typically displayed as
+>     - eight groups of four hexadecimal digits[^7], such as `2001:0db8:85a3:0000:0000:8a2e:0370:7334`.
+>
+> Though, IPv6 adoption is still under 50%, because millions of old networking devices still don't support IPv6.
+
+---
+
+Represent of an IPv4 address:
+
+- |                         | IPv4                                            | Example                                   | Decimal value of the IPv4 address |
+  | ----------------------- | ----------------------------------------------- | ----------------------------------------- | --------------------------------- |
+  | In dot-octal notation   | `o.o.o.o` (4 octets)                            | $013_{8}.014_{8}.015_{8}.016_{8}$[^3]     | 👇[^5]                            |
+  | In binary notation      | `xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx` (32 bits) | $00001011 00001100 00001101 00001110_{2}$ | $185 339 150_{10}$                |
+  | In dot-decimal notation | `Y.Y.Y.Y`                                       | $11_{10}.12_{10}.13_{10}.14_{10}$         | 👆[^4]                            |
+
+> [!NOTE]
+> If your computer is connected to the internet, to communicate with another computer (on public internet), you only need that computer's IP address.
+
+---
+
+> How to having your computer "connect to the internet"?
+>
+> - Your computer needs to have a _valid_ IP address (in your network):
+>
+>   In other words, your computer need to know:
+>
+>   - where it is 👈 Which network (of type A, B, C) or subnet[^6]?
+>   - what its ID is 👈 Which host it is?
+
+---
+
+There are 2 main methods for allocating the IP addresses:
+
+- **Classful networking address**: 👈 The network prefix has fixed-length (7, 14, 21 bits)
+
+  There are 3 main classes of internet addresses:
+
+  - In class a, the high order bit is zero, the next 7 bits are the network, and the last 24 bits are the local address;
+  - In class b, the high order two bits are one-zero, the next 14 bits are the network and the last 16 bits are the local address;
+  - In class c, the high order three bits are one-one-zero, the next 21 bits are the network and the last 8 bits are the local address.
+
+- **Classless Inter-Domain Routing (CIDR)**: 👈 The network prefix has variable length
+
+  > [!TIP]
+  > CIDR grants finer control of the sizes of subnets allocated to organizations, hence slowing the exhaustion of IPv4 addresses from allocating larger subnets than needed.
+
+---
+
+Represent of an IP address:
+
+- in bit array[^2] (in binary number)
+
+  ```text
+  x: indicates a bit.
+  n: indicates a bit used for the network number (aka network ID).
+  H: indicates a bit used for the local address (aka host ID).
+  ```
+
+  ```text
+  0xxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx (Class A)
+  0nnnnnnn HHHHHHHH HHHHHHHH HHHHHHHH
+   <-----> <------------------------>
+   7 bits            24 bits
+   Network add.      Local address
+  ```
+
+  ```text
+  10xxxxxx xxxxxxxx xxxxxxxx xxxxxxxx (Class B)
+  10nnnnnn nnnnnnnn HHHHHHHH HHHHHHHH
+    <-------------> <--------------->
+       14 bits           16 bits
+    Network address   Local address
+  ```
+
+  ```text
+  110xxxxx xxxxxxxx xxxxxxxx xxxxxxxx (Class C)
+  110nnnnn nnnnnnnn nnnnnnnn HHHHHHHH
+     <---------------------> <------>
+             21 bits          8 bits
+         Network address      Local address
+  ```
+
+- in decimal notation (in decimal number)
+
+  |         | **In bit array** |                                 |                                 |     |      | **In decimal-dot notation** |                                |                               |
+  | ------- | ---------------- | ------------------------------- | ------------------------------- | --- | ---- | --------------------------- | ------------------------------ | ----------------------------- |
+  |         | Leading bits     | Network's<br/>bit field         | Leadings bits & network bits    |     |      | Address ranges of networks  | Address ranges of each network | Address ranges of whole class |
+  |         |                  |                                 |                                 |     |      |                             |                                |                               |
+  | Class A | `0`              | 7 bits<br/>($2^7$ networks)     | `0nnn nnnn`                     | 👉  | From | `0`                         | `0.0.0`                        | `0.0.0.0`                     |
+  |         |                  |                                 |                                 |     | to   | `127`                       | `255.255.255`                  | `127.255.255.255`             |
+  | Class B | `10`             | 14 bits<br/>($2^{14}$ networks) | `10nn nnnn nnnn nnnn`           | 👉  | From | `128.0`                     | `0.0`                          | `128.0.0.0`                   |
+  |         |                  |                                 |                                 |     | to   | `191.255`                   | `255.255`                      | `191.255.255.255`             |
+  | Class C | `110`            | 21 bits<br/>($2^{21}$ networks) | `110n nnnn nnnn nnnn nnnn nnnn` | 👉  | From | `192.0.0`                   | `0`                            | `192.0.0.0`                   |
+  |         |                  |                                 |                                 |     | to   | `223.255.255`               | `255`                          | `223.255.255.255`             |
+
+---
+
+> [!TIP]
+> There are a lot of names, don't be confused:
+>
+> - `Network address` is aka `network ID`, `routing prefix`
+> - `Local address` is aka `rest field`, `host identifier`
+
+For more information about IP Address, see:
+
+- [IP "Classful" Addressing Network and Host Identification and Address Ranges | The TCP/IP Guide](http://www.tcpipguide.com/free/t_IPClassfulAddressingNetworkandHostIdentificationan-2.htm)
+
+---
+
+All the public IP addressed are owned by IANA, which assigns them in hierarchical manner:
+
+- Top-level: IANA delegates blocks of IP addresses to [Internet registries](https://www.iana.org/numbers) (that cover regions of the worlds)
+
+  - These Internet registries, in turn, delegate blocks of IP addresses to _network operators_[^8], such as
+    - Internet Service Provider (ISPs)
+    - cloud providers, e.g. AWS, Azure, GCP
+    - enterprise companies...
+  - Finally, these network operators assign IP addresses to specific devices.
+
+    e.g.
+
+    - You sign up for an Internet connection at home with an ISP, that ISP assigns you an IP address (from its block of IP addresses)
+    - You deploy an EC2 instance in AWS, AWS assign that EC2 instance an IP address (from its block of IP addresses[^9] [^10])
 
 > [!IMPORTANT]
 > Key takeaway #1
 > You get public IP addresses from network operators such as cloud providers and ISPs.
 
+---
+
+For more information, see:
+
+- [What is the Internet Protocol (IP)? | CloudFlare Learning Center](https://www.cloudflare.com/learning/network-layer/internet-protocol/)
+- [What is my IP address? | CloudFlare Learning Center](https://www.cloudflare.com/learning/dns/glossary/what-is-my-ip-address/)
+
+For even more information, see:
+
+- [Internet_Protocol | Wikipedia](https://en.wikipedia.org/wiki/Internet_Protocol)
+- [IP address | Wikipedia](https://en.wikipedia.org/wiki/IP_address)
+
 ### Domain Name System (DNS)
+
+> [!NOTE]
+> Before DNS, TCP/IP has another name system - the simple _host table_ name system.
+
+> [!TIP]
+> An example host table on Linux - the file `/etc/hosts` - looks like this
+>
+> ```text
+> # Loopback entries; do not change.
+> # For historical reasons, localhost precedes localhost.localdomain:
+> 127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+> ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+>
+> # See hosts(5) for proper format and other examples:
+> # 192.168.1.10 foo.mydomain.org foo
+> # 192.168.1.13 bar.mydomain.org bar
+> ```
+
+name system
+: technology that allow computers on a network to be given both
+: - a conventional numeric address
+: - a more “user-friendly” human-readable name
+
+domain name
+: 👕 a unique, easy-to-remember address used to access websites, such as `google.com` (instead of a IP address `142.251.10.100`)
+
+Domain Name System (DNS)
+: new, current name system of the Internet Protocol Suite (TCP/IP)
+
+---
+
+#### How DNS works
+
+- DNS stores
+
+  - the mapping from names to IP addresses
+    - in a globally-distributed hierarchy of _nameservers_
+
+- When you enter `www.google.com` into your web browser,
+
+  - your computer doesn't talk directly to the nameservers
+
+    - instead it send sends a request to a local _DNS resolver_[^11].
+
+- The DNS resolver takes the domain name processes the parts in _reverse order_ by making a series of _queries_ to the hierarchy name servers
+
+  ![DNS queries](assets/dns-queries.png)
+
+  1.  The DNS resolver's first query goes to the _root nameservers_[^12] [^13]:
+
+      The root nameservers return
+
+      - the IP addresses of the _top-level domain (TLD) nameservers_ for the TLD you requested (`.com`).
+
+  1.  The DNS resolver's second query goes to the TLD nameservers[^14].
+
+      The TLD nameservers return
+
+      - the IP addresses of the _authoritative nameservers_ for the domain you requested (`google.com`).
+
+  1.  Finally, the DNS resolver's third query goes to these authoritative nameservers[^15]
+
+      The authoritative nameservers return
+
+      - the _DNS records_ that contain the information that is associated with the domain name you requested (`www.google.com`)
+
+> [!NOTE]
+> It takes 3 queries to get some DNS records of a domain name. Isn't it too many round-trips?
+>
+> ---
+>
+> - DNS is pretty fast
+> - There is a lot of caching that will reduce the number of look ups
+>   e.g. browser, OS, DNS resolvers, ...
+
+#### DNS records
+
+DNS record
+: contains the information that is associated a domain name
+
+There are many types of DNS records, each stores different kinds of information, such as:
+
+- _DNS `A` record_: stores the IPv4 address
+- _DNS `AAAA` record_: stores the IPv6 address
+- _DNS `CNAME` record_: "canonical name" record thats stores alias for domain name.
+- _DNS `TXT` record_: stores arbitrary text
+
+When your browser looks up `www.google.com`, it typically requests `A` or `AAAA` records.
 
 > [!IMPORTANT]
 > Key takeaway #2
 > DNS allows you to access web services via memorable, human-friendly, consistent names.
+
+#### DNS Registration
+
+- The domain names are also owned and managed by IANA, who delegates the management to
+
+  - accredited _registrars_,
+    - who are allowed to "sell" domain names to end users
+    - are often (but not always) the same companies that run authoritative name services.
+
+- After you lease a domain name, you have the permission to
+
+  - configure the DNS records for that domain
+    - in its authoritative name servers.
+
+- Only after that, users all over the world can access your servers via that domain name.
+
+> [!NOTE]
+> Technically, you never own a domain name, you can only pay an annual fee to _lease_ it.
 
 ### Example: Register and Configure a Domain Name in Amazon Route 53
 
@@ -318,3 +605,38 @@ Tradeoffs:
   - A **service mesh** can improve security, observability, resiliency, and traffic management in a microservices architecture, without having to update the application code of each service.
 
 - A full network architecture
+
+[^1]: <https://datatracker.ietf.org/doc/html/rfc791#section-2.3>
+[^2]: <https://en.wikipedia.org/wiki/Bit_array>
+[^3]: If the IP address has a leading 0, the `ping` tool assumes the numbers is octal.
+[^4]: For the dot-decimal notation:
+
+    - Each decimal number can be treated as a 256-base number.
+    - Or convert each decimal number to binary then combine all binary numbers together to make a single binary number, then convert to decimal.
+
+[^5]: For the dot-octal notation, to get the decimal value of the IP address:
+
+    - Convert each octal number to decimal then treat each one as a 256-base number, or
+    - Convert each octal number to binary then combine all binary numbers together to make a single binary number, then convert to decimal.
+
+[^6]: A network (of type A, B, C) can be split into multiple smaller networks (called _subnets_)
+[^7]: A hexadecimal digit can be represent by 4 bits (called _nibble_)
+[^8]: <https://github.com/seligman/cloud_sizes>
+[^9]: <https://docs.aws.amazon.com/vpc/latest/userguide/aws-ip-ranges.html>
+[^10]: <https://github.com/seligman/aws-ip-ranges>
+[^11]: The DNS resolver is
+
+    - the ISP (at your home)
+    - the cloud provider (in the cloud)
+
+[^12]: <https://www.iana.org/domains/root/servers>
+[^13]: The _root nameservers_ run at **13 IP addresses** that are
+
+    - managed by IANA
+    - hard-coded into most DNS resolver.
+
+[^14]: The TLD nameservers are also managed by IANA.
+[^15]: The authoritative nameservers are operated
+
+    - by yourself, or
+    - variety of companies (Amazon Route 53, Azure DNS, GoDaddy, Namecheap, CloudFlare DNS...)
