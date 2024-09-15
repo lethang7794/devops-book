@@ -324,21 +324,100 @@ When your browser looks up `www.google.com`, it typically requests `A` or `AAAA`
 
 ### Example: Register and Configure a Domain Name in Amazon Route 53
 
+In this example, you'll:
+
+- Deploy a web app 👈 A simple HTTP server on several EC2 instances
+- Set up a domain name (for it) 👈 Using Amazon Route 53 as the domain name registrar.
+
 #### Register a domain name
 
+Registering domain involves manual steps:
+
+- Open Route 53 dashboard > Choose `Register a domain` > Click `Get started`
+- In the next page:
+  - In the `Search for domain` section > Use the search box to find an available domain
+  - Click `Select` to add the domain to your cart.
+  - Scroll to the bottom > Click `Proceed to checkout`.
+- In the next page:
+  - Fill out other details: How long? Registration auto-renew?
+  - Click `Next`
+- In the next page:
+  - Fill out contact details[^16]
+  - [Optional] Enable privacy protection
+  - Click `Next`
+- Review the order in the summary page, then click `Submit`
+- Open your email to confirm that you own the email address.
+- Check your domain in [registered domains page](https://console.aws.amazon.com/route53/domains/home#/)
+- [For this example] Open the [hosted zones page](https://console.aws.amazon.com/route53/v2/hostedzones) and copy the hosted zone ID.
+
+> [!TIP]
+> You can monitor the your registration process on the [registration requests page][AWS Route 53 Registration Requests Page]
+
+> [!NOTE]
+> When you register a domain in Route 53, it automatically
+>
+> - configures its own servers as the authoritative nameservers for that domain.
+> - creates Route 53 _hosted zone_ for the domain
+
 > [!WARNING]
-> Watch out for snakes: registering domain names is not part of the AWS free tier!
+> Watch out for snakes: Registering domain names is not part of the AWS free tier!
+>
+> The [pricing][Route 53 pricing] varies based on the TLD:
+>
+> - Domain with `.com` TLD cost $14 per year (in September 2024)
 
 #### Deploy EC2 instances
 
+This example will
+
+- use the `ec2-instances`[^17] OpenTofu module, which is available at the [sample code repo] at `ch7/tofu/modules/ec2-instances`
+- to deploy 3 EC2 instances
+
+---
+
+- The OpenTofu root module
+
+  ```t
+  # examples/ch7/tofu/live/ec2-dns/main.tf
+
+  provider "aws" {
+    region = "us-east-2"
+  }
+
+  module "instances" {
+    source = "github.com/brikis98/devops-book//ch7/tofu/modules/ec2-instances"
+
+    name          = "ec2-dns-example"
+    num_instances = 3 #                                   (1)
+    instance_type = "t2.micro"
+    ami_id        = "ami-0900fe555666598a2" #             (2)
+    http_port     = 80 #                                  (3)
+    user_data     = file("${path.module}/user-data.sh") # (4)
+  }
+  ```
+
+  - (1): Deploy 3 EC2 instances
+  - (2): Use the Amazon Linux AMI
+  - (3): Expose the port 80 for HTTP requests
+  - (4): Run the `user-data.sh` script
+
+- Copy the user data script from chapter 2:
+
+```bash
+cd examples
+copy ch2/bash/user-data.sh ch7/tofu/live/ec2-dns/
+```
+
 > [!WARNING]
 > Watch out for snakes: a step backwards in terms of orchestration and security
+>
+> This example has all the problems in [Chapter 1 | Example Deploying An App Using AWS](./chap-01.md#example-deploying-an-app-using-aws)
 
 #### Configure DNS records
 
 ### Get your hands dirty: Managing domain names
 
-## Private Networking
+## Private Networking 
 
 > [!IMPORTANT]
 > Key takeaway #3
@@ -640,3 +719,12 @@ Tradeoffs:
 
     - by yourself, or
     - variety of companies (Amazon Route 53, Azure DNS, GoDaddy, Namecheap, CloudFlare DNS...)
+
+[Route 53 pricing]: https://aws.amazon.com/route53/pricing/
+
+[^16]: IANA requires every domain to have contact details, which anyone can look up using `whois` command.
+
+[AWS Route 53 Registration Requests Page]: https://console.aws.amazon.com/route53/domains/home#/ListRequests
+[sample code repo]: https://github.com/brikis98/devops-book
+
+[^17]: This module is similar to the OpenTofu code you wrote in Chapter 2 to deploy an EC2 instance, except the `ec2-instances` module can deploy multiple EC2 instances.
