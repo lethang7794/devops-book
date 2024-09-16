@@ -375,49 +375,147 @@ This example will
 
 ---
 
-- The OpenTofu root module
+- The OpenTofu root module `ec2-dns`
 
-  ```t
-  # examples/ch7/tofu/live/ec2-dns/main.tf
+  - `main.tf`
 
-  provider "aws" {
-    region = "us-east-2"
-  }
+    ```t
+    # examples/ch7/tofu/live/ec2-dns/main.tf
 
-  module "instances" {
-    source = "github.com/brikis98/devops-book//ch7/tofu/modules/ec2-instances"
+    provider "aws" {
+      region = "us-east-2"
+    }
 
-    name          = "ec2-dns-example"
-    num_instances = 3 #                                   (1)
-    instance_type = "t2.micro"
-    ami_id        = "ami-0900fe555666598a2" #             (2)
-    http_port     = 80 #                                  (3)
-    user_data     = file("${path.module}/user-data.sh") # (4)
-  }
+    module "instances" {
+      source = "github.com/brikis98/devops-book//ch7/tofu/modules/ec2-instances"
+
+      name          = "ec2-dns-example"
+      num_instances = 3 #                                   (1)
+      instance_type = "t2.micro"
+      ami_id        = "ami-0900fe555666598a2" #             (2)
+      http_port     = 80 #                                  (3)
+      user_data     = file("${path.module}/user-data.sh") # (4)
+    }
+    ```
+
+    - (1): Deploy 3 EC2 instances
+    - (2): Use the Amazon Linux AMI
+    - (3): Expose the port 80 for HTTP requests
+    - (4): Run the `user-data.sh` script
+
+  - Copy the user data script from chapter 2:
+
+    ```bash
+    cd examples
+    copy ch2/bash/user-data.sh ch7/tofu/live/ec2-dns/
+    ```
+
+  > [!WARNING]
+  > Watch out for snakes: a step backwards in terms of orchestration and security
+  >
+  > This example has all the problems in [Chapter 1 | Example Deploying An App Using AWS](./chap-01.md#example-deploying-an-app-using-aws)
+
+  - Output the public IP addresses of the EC2 instances
+
+    ```t
+    output "instance_ips" {
+      description = "The IPs of the EC2 instances"
+      value       = module.instances.public_ips
+    }
+    ```
+
+- Deploy the `ec2-dns` module
+
+  ```bash
+  tofu init
+  tofu apply
   ```
 
-  - (1): Deploy 3 EC2 instances
-  - (2): Use the Amazon Linux AMI
-  - (3): Expose the port 80 for HTTP requests
-  - (4): Run the `user-data.sh` script
+- Verify the the app is deployed on these EC2 instance
 
-- Copy the user data script from chapter 2:
-
-```bash
-cd examples
-copy ch2/bash/user-data.sh ch7/tofu/live/ec2-dns/
-```
-
-> [!WARNING]
-> Watch out for snakes: a step backwards in terms of orchestration and security
->
-> This example has all the problems in [Chapter 1 | Example Deploying An App Using AWS](./chap-01.md#example-deploying-an-app-using-aws)
+  ```bash
+  curl http:<EC2_INSTANCE_IP_ADDRESS>
+  ```
 
 #### Configure DNS records
 
+In this example, you'll point your domain name at the EC2 instances (deployed in previous section)
+
+- Add the configuration for a DNS A record to the `ec2-dns` module
+
+  ```t
+  #  examples/ch7/tofu/live/ec2-dns/main.tf
+
+  provider "aws" {
+  # ...
+  }
+
+  module "instances" {
+  # ...
+  }
+
+  resource "aws_route53_record" "www" {
+    # TODO: fill in your own hosted zone ID!
+    zone_id = "Z0701806REYTQ0GZ0JCF" #                   (1)
+    # TODO: fill in your own domain name!
+    type    = "A" #                                      (2)
+    name    = "www.fundamentals-of-devops-example.com" # (3)
+    records = module.instances.public_ips #              (4)
+    ttl     = 300 #                                      (5)
+  }
+  ```
+
+  The DNS record
+
+  - (1): ... created in this hosted zone
+  - (2): ... of type A
+  - (3): ... for the sub-domain `www.<YOUR_DOMAIN>`
+  - (4): ... point to the IPv4 addresses (of the EC2 instances you deployed)
+  - (5): ... with the _time to live (TTL)[^18]_ of 300 seconds.
+
+  For more information, see [`aws_route53_record` OpenTofu resource's docs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record)
+
+- Add output variable for the domain name
+
+  ```t
+  # examples/ch7/tofu/live/ec2-dns/outputs.tf
+  output "domain_name" {
+    description = "The domain name for the EC2 instances"
+    value       = aws_route53_record.www.name
+  }
+  ```
+
+---
+
+- Re-apply the `ec2-dns` module
+
+  ```bash
+  tofu apply
+  ```
+
+- Verify the domain name works
+
+  ```bash
+  curl http://www.<YOUR_DOMAIN>
+  ```
+
 ### Get your hands dirty: Managing domain names
 
-## Private Networking 
+- Instead of several individual EC2 instances,
+
+  - use one of the orchestration approaches from Part 3,
+    - such as an ASG with an ALB
+  - figure out how to configure DNS records for that approach.
+
+- Figure out how to automatically redirect requests for your root domain name (sometimes called the _apex domain_ or _bare domain_) to your `www.` sub-domain:
+
+  e.g. redirect `fundamentals-of-devops-example.com` to `www.fundametals-of-devsop.com.`
+
+  This is a good security practice because of [how browsers handle cookies for root domains](https://security.stackexchange.com/a/231737/179892).
+
+- DNSSEC (DNS Security Extensions) is a protocol you can use to protect your domain from forged or manipulated DNS data.
+  - You may have noticed that in the Details section for your domain in your Route53 hosted zone page, it said that the `DNSSSEC status` was `not configured`.
+  - Fix this issue by following the Route 53 DNSSEC documentation.
 
 > [!IMPORTANT]
 > Key takeaway #3
@@ -728,3 +826,7 @@ Tradeoffs:
 [sample code repo]: https://github.com/brikis98/devops-book
 
 [^17]: This module is similar to the OpenTofu code you wrote in Chapter 2 to deploy an EC2 instance, except the `ec2-instances` module can deploy multiple EC2 instances.
+[^18]:
+    DNS resolvers _should_ cache the DNS record for the amount specified with TTL.
+
+    - Longer TTLs will reduce latency for users & load on your DNS servers, but any updates will take longer to take effect.
