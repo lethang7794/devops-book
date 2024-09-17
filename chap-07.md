@@ -617,12 +617,16 @@ You should
 
 - How to connect computers together?
 
+  <!-- markdownlint-disable no-inline-html -->
+
   | How many computers?             | How to connect?                                                         |                                              |
   | ------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------- |
   | Two computers                   | <img alt="" src="assets/connect-two-computers.png" width="130px" />     | Use a single _cable_                         |
   | N computers<br/>(aka a network) | <img alt="" src="assets/connect-computers-switch.png" width="200px" />  | Use a _switch_<br/>(instead of $N^2$ cables) |
   | Two networks                    | <img alt="" src="assets/connect-networks-router.png" width="500px" />   | Use two _routers_                            |
   | N networks                      | <img alt="" src="assets/connect-routers-internet.png" height="300px" /> | Use the _internet_[^19]                      |
+
+  <!-- markdownlint-enable no-inline-html -->
 
 - Most of the networks of the internet is private network.
 
@@ -1156,31 +1160,248 @@ Update the VPC module to
 
 ### Castle-and-Moat Model
 
+_Castle-and-moat model_ is the traditional approach for managing a access to private networks.
+
+Castle-and-moat model is an analogy between:
+
+- a castle
+
+  - with extremely secure perimeter (moat, walls...): it's hard to get inside
+  - but soft interior: once you're inside, you can freely move around
+
+- a private network:
+
+  - doesn't allow you to access anything from outside the network
+  - but once you're "in" the network, you can access anything
+
 #### Bastion Host
 
+In a physical network, with castle-and-moat model, merely being connected to the network means you're in.
+
+e.g. With many corporate office networks,
+
+- if you're plugged into the network via a physical cable, you can access everything in that network: wiki pages, issue tracker...
+
+However, how do you connect to it if you're outside the physical network:
+
+- you're working from home
+- your're infrastructure deployed in a VPC in the cloud
+
+The common solution is to deploy a _bastion host_, a server that
+
+- is designed to be visible outside the network (e.g. in the DMZ)
+- has extra security hardening and monitoring, so it can better withstand attacks.
+
+  > [!TIP]
+  > In a fortress, a bastion is a structure that is designed to stick out of the wall, allowing for more reinforcement and extra armaments, so that it can better withstand attacks.
+
+The bastion host acts as the _sole entrypoint_ to that network:
+
+- There is only one bastion host, so you can put a lot of effort into making it as secure as possible.
+- Authenticated users can
+  - connect to the bastion host using secured protocol (SSH, RDP, VPN)
+  - and have access to everything in the network.
+
+e.g. A castle-and-moat networking model with a bastion host as the sole access point
+
+![alt text](assets/bastion-host.png)
+
+- If you are able to connect to the bastion host (`11.22.33.44`), you can access everything in the private subnets of that VPC:
+  - The private servers (`10.0.0.20`, `10.0.0.21`)
+  - The database server (`10.0.0.22`)
+
+#### Castle-and-moat model security concerns
+
+The castle-and-moat model worked well-enough in the past, but in the modern work, it leads to security concerns.
+
+In the past:
+
+- Companies owns buildings with **physical** networks of routers, switchers, cables...
+- To access that physical network, the malicious actor needs to
+  - be in a **building** owned by the company
+  - use a **computer** owned and configured by the company
+
+> [!NOTE]
+> In the past, your _location_ on the network mattered:
+>
+> - some locations could be trusted
+> - while others could not
+
+Today:
+
+- Many of the networks are **virtual**, e.g. VPC
+- More and more employees work _remotely_, and needs to be able to connect to company network from a variety of locations: homes, co-working spaces, coffee shops, airports...
+- **Lots of devices** need to connect to the company networks: laptops, workstations, tablets, phones...
+
+The ideal of secure perimeter and soft interior no longer makes sense.
+
+- There's no clear "perimeter", or "interior"
+- There's no location that can be implicitly trusted
+
 ### Zero-Trust Model
+
+With _zero-trust architecture (ZTA)_, it's now "_never trust, always verify_".
+
+- You never trust a user or device just because they have access to some location on the network.
 
 #### Core principles of zero-trust architecture (ZTA)
 
 ##### Authenticate every user
 
+Every connections requires the user to authenticate, using
+
+- single sign-on (SSO)
+- multi-factor authentication (MFA)
+
 ##### Authenticate every device
+
+Every connections requires the user's device (laptop, phone, tablet) to authenticate.
+
+You can use a lot more devices to connect, but each one still need to be
+
+- approved,
+- added to a device inventory,
+- configured with adequate security controls.
 
 ##### Encrypt every connection
 
+All network communicate must be over encrypted connection.
+
+e.g. No more `http`
+
 ##### Define policies for authentication and authorization
+
+Each piece of software (you run) can
+
+- define **flexible policies** for:
+
+  - **who** is allowed to access that software 👈 authentication
+  - what level of trust & **permissions** they will have 👈 authorization
+
+- base on a variety of data sources:
+
+  - what location is the user connecting from? Home, office or unexpected continent?
+  - time of the day they are connecting, e.g. Work hours, 3 a.m
+  - how often they are connecting? First time today or 5000 times in latst 30 seconds
 
 ##### Enforce least-privilege access controls
 
+With ZTA model, you follow the _principle of least privilege_, which means you get access
+
+- only to the resources you absolutely need to do a specific task,
+- and nothing else
+
+e.g. If you get access to the internal wiki, you can only access to the wiki, not the issue tracker...
+
 ##### Continuously monitor and validate
+
+With ZTA, you assumes that you're constantly _under attack_,
+
+- so you need to continuously log & audit all traffic to identify suspicious behaviour.
+
+---
+
+The zero-trust model has been evolving for many years. Some of the major publications on it:
+
+- [No More Chewy Centers: Introducing The Zero Trust Model Of Information Security] by John Kindervag
+
+  The term "Zero Trust Model" came from this.
+
+- [BeyondCorp: A New Approach to Enterprise Security] by Google
+
+  This paper is arguably what popularized the zero-trust model, even though the paper doesn't ever use that term explicitly, but the principles are largely the same.
+
+- [Zero Trust Architecture] by NIST
+
+---
+
+In the BeyondCorp paper, there are even more controversial principles:
+
+- Google no longer requires employees working remotely to use VPN to access internal resources
+- Those internal resources are accessible directly via the public Internet.
+
+> [!TIP]
+> By exposing internal resources to the public, Google forces itself to put more effort into securing them than merely relied on the network perimeter.
+
+A simplified version of the architecture Google described in BeyondCorp:
+![alt text](assets/zero-trust-architecture.png)
+
+- Internal resources are exposed to the public Internet via an _access proxy_, which
+
+  - use user database, device registry, access policies
+  - to authenticate, authorize, and encrypt every single connection.
+
+  > [!NOTE]
+  > This zero-trust architect might look like the moat-and-castle architecture: both reply on a single entrypoint to the network:
+  >
+  > - For moat-and-castle approach: it's the bastion host
+  > - For zero-trust approach: it's the access proxy
+
+- (In additional to the bastion host,) every single private resources is also protected:
+
+  To access any private resources, you need to go through the authorization process with the access proxy.
+
+> [!NOTE]
+> Instead of a singe, strong perimeter around all resources in your network, the zero-trust approach
+>
+> - put a separate, strong perimeter around each individual resource.
 
 #### Zero-trust should be integrated into every part of your architecture
 
 ##### User and device management
 
+One of the first steps with using ZTA is to get better control over users & devices.
+
+- For users, you want to ensure the authentication of all the software - email, version control system, bug tracker, cloud accounts... - is done through
+
+  - a single identity provider (SSO) that requires MFA
+
+  - using tools like: [JumpCloud], [Okta], [OneLogin], [Duo], [Microsoft Entra ID], and [Ping Identity].
+
+- For devices, you want to manage the devices with a device registry:
+
+  - to track, secure, authenticate these devices
+  - using _Mobile Device Management (MDM)_ tools: [JumpCloud], [Rippling], [NinjaOne], [Microsoft Intune], and [Scalefusion].
+
 ##### Infrastructure access
 
+For infrastructure, you need to
+
+- grant access to:
+
+  - servers, e.g. SSH, RDP
+  - databases, e.g. MySQL client, PostGres client
+  - containers, e.g. Docker container in Kubernetes
+  - networks, e.g. VPC in AWS
+
+- in a manner that works with zero-trust approach.
+
+This is tricky because there're lots if technologies in terms of protocols, authentication, authorization, encryption...
+
+Fortunately, there're tools like [Teleport], [Tailscale], [Boundary], and [StrongDM].
+
 ##### Service communication
+
+With ZTA, you have to rework hove your (micro)services communicate with each other.
+
+- Many microservices (e.g. the example microservices - with a frontend and a backend - you deployed in Kubernetes) are
+
+  - designed with castle-and-moat model
+    - (reply on network perimeter to protect those services)
+
+- This will no longer works in ZTA world, instead you need to figure out how to secure the communication between your services.
+
+---
+
+Implement a true ZTA is a tremendous effort, and very few companies are able to fully do it.
+
+It's a good goal for all companies to strive for, but it depends on the scale of your company:
+
+- Smaller startups: Start with castle-and-moat approach
+- Mid-sized companies: Adopt a handful of ZTA principles, e.g. SSO, securing microservices communication
+- Large enterprises: Go for all ZTA principles
+
+And remember to adapt the architecture to the needs & capabilities of your company.
 
 > [!IMPORTANT]
 > Key takeaway #5
@@ -1374,6 +1595,23 @@ Tradeoffs:
 [GKE ingress]: https://cloud.google.com/kubernetes-engine/docs/concepts/ingress
 [Azure CNI plugin]: https://github.com/Azure/azure-container-networking
 [Nginx ingress controller]: https://learn.microsoft.com/en-us/azure/aks/app-routing?tabs=default%2Cdeploy-app-default
+[No More Chewy Centers: Introducing The Zero Trust Model Of Information Security]: https://media.paloaltonetworks.com/documents/Forrester-No-More-Chewy-Centers.pdf
+[BeyondCorp: A New Approach to Enterprise Security]: https://storage.googleapis.com/pub-tools-public-publication-data/pdf/43231.pdf
+[Zero Trust Architecture]: https://www.nist.gov/publications/zero-trust-architecture
+[JumpCloud]: https://jumpcloud.com/
+[Okta]: https://www.okta.com/
+[OneLogin]: https://www.onelogin.com/
+[Duo]: https://duo.com/
+[Microsoft Entra ID]: https://www.microsoft.com/en-ie/security/business/identity-access/microsoft-entra-id
+[Ping Identity]: https://www.pingidentity.com/en.html
+[Rippling]: https://www.rippling.com/
+[NinjaOne]: https://www.ninjaone.com/
+[Microsoft Intune]: https://learn.microsoft.com/en-us/mem/intune/fundamentals/what-is-intune
+[Scalefusion]: https://scalefusion.com/
+[Teleport]: https://goteleport.com/
+[Tailscale]: https://tailscale.com
+[Boundary]: https://www.boundaryproject.io/
+[StrongDM]: https://www.strongdm.com/
 
 [^1]: <https://datatracker.ietf.org/doc/html/rfc791#section-2.3>
 [^2]: <https://en.wikipedia.org/wiki/Bit_array>
