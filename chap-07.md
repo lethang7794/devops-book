@@ -801,15 +801,356 @@ On your home network, the IPS router is typically configured as a NAT gateway.
   - also use PAT to get you response
   - while keeping those devices hidden
 
-### Virtual Private Networks
+### Virtual Private Networks (VPNs)
+
+If you deploy into the cloud,
+
+- all the physical networking: servers, cables, switches, routers...
+  - are already taken care of by the cloud provider
+    - largely in a way you can't see or control
+- what you can control is a _virtual private network (VPN)_ - a network you configure entirely in software, which makes it a _software-defined networking_.
 
 #### Virtual networks in the cloud
 
+Each cloud provider offers slightly different networking features, but they typically have the following basic characteristics in common:
+
+##### You can create a VPN
+
+Most cloud providers allow you to create a VPN, although they may call it different:
+
+- For AWS, GCP: VPN is call _virtual private cloud (VPC)_
+- For Azure: VPN is call virtual network (_VNet_)
+
+> [!NOTE]
+> Most of the examples in this book use AWS, so VPN will be called VPC in the rest of book.
+
+##### The VPC consists of subnets
+
+Each VPC contains one or more subnets.
+
+- Each subnet has an IP address range of the private internet as in [previous section](#the-private-network-uses-private-ip-address-ranges)
+  e.g. `10.0.0.0/24`
+
+##### The subnets assign IP addresses
+
+The resources deploy in a subnet will get an IP address from that subnet's IP address range.
+
+e.g. Three servers
+
+- deployed in a subnet with the IP address range `10.0.0.0/24`
+- might have 3 IPs:
+  - `10.0.0.1`
+  - `10.0.0.2`
+  - `10.0.0.3`
+
+##### You enable connectivity with route tables
+
+Each subnet has a _route table_ that control how traffic is routed within that subnet.
+
+- Each _route_ (in a route table) - corresponding to a row - typically defines
+
+  - a _destination_
+  - a _target_: where to route traffic (sent to that destination)
+
+  ***
+
+  | Route                         | _Destination_             | _Target_                           |
+  | ----------------------------- | ------------------------- | ---------------------------------- |
+  | What does it looks like?      | `10.0.0.0/16`             | VPC Foo                            |
+  | What does it exactly mean?    | Final target              | Immediate target                   |
+  | Compare with a transit flight | Paris (Final destination) | Taiwan's Airport (Transit airport) |
+
+Each time the VPC needs to route a packet, it will go through the route table, and
+
+- use the most specific route that matches that packet’s destination
+  (then route traffic to that route's target)
+
+---
+
+e.g.
+
+- A route table with 3 routes
+
+  | Destination   | Target      |
+  | ------------- | ----------- |
+  | `10.0.0.0/16` | VPC Foo     |
+  | `10.1.0.0/16` | VPC Bar     |
+  | `0.0.0.0/0`   | NAT gateway |
+
+  - Traffic with a destination matches with `10.0.0.0/16` will be routed to VPC Foo.
+  - Traffic with a destination matches with `10.1.0.0/16` will be routed to VPC Bar.
+  - All other traffic (destination matches with `0.0.0.0/10`) will be routed to the NAT Gateway (and go to the public Internet)
+
+##### You block connectivity with firewalls
+
+Each cloud provider provides different types of firewalls to block traffic:
+
+- Some firewalls apply to **individual resources**, and typically _block all_ traffic by default.
+
+  e.g. Each EC2 instance has a security group:
+
+  - You need to explicitly open IP/ports in the security group.
+
+- Other firewalls apply to **_entire_ subnets/VPCs**, and typically _allow all_ traffic by default.
+
+  e.g. AWS network firewall that filter inbound, outbound traffic across an entire VPC.
+
+##### You access the public Internet through gateways
+
+e.g. Load balancers, NAT Gateways
+
+---
+
+> [!NOTE]
+> To make it easier to get started, most cloud providers allow you to deploy resources without creating a VPC.
+>
+> e.g.
+>
+> - AWS gives you a Default VPC out-of-the-box, which is suitable launching public instances such as a blog or simple website[^22]
+
+> [!WARNING]
+> To have better security and full control of the network, you should design your own networking and create your own VPC.
+
 #### Virtual networks in orchestration tools
+
+Some orchestration tools
+
+- include their _own_ virtual network
+
+  e.g.
+
+  - Kubernetes Networking
+  - OpenShift Networking
+  - Marathon Networking
+
+- which is responsible for:
+
+  - **IP address management**
+
+    Assigning IP addresses to apps (running in the orchestration tool).
+
+  - **Service communication**
+
+    Allowing multiple apps (running in the orchestration tool) to communicate with each other.
+
+  - **Ingress**
+
+    Allowing apps (running in the orchestration tool) to receive requests from the outside world.
+
+---
+
+These orchestration tools need their own virtual network because:
+
+- these orchestration tools are design to work in any data center or cloud
+
+- to solve the core [orchestration problems](./chap-03.md#what-is-an-orchestration)
+  - that involve networking, e.g. load balancing, service communication
+  - in a portable way
+
+---
+
+> [!NOTE]
+> When using an orchestration tool (which has its own virtual network), you have to integrate 2 sets of networking technologies:
+>
+> - From the orchestration tool
+> - From the data center, cloud provider
+
+To help you integrate with different cloud providers, these orchestration tools offer plugins to handle the integration.
+
+e.g.
+
+- Kubernetes supports:
+  - Container Network Interface (CNI) plugins: to manage cluster networking
+  - ingress controllers: to manage ingress
+
+---
+
+Comparing the behavior of networking plugins for Kubernetes in various clouds:
+
+| Cloud |     | Typical CNI plugin      | IP address management      | Service communication |     | Typical ingress controller     | Ingress                           |
+| ----- | --- | ----------------------- | -------------------------- | --------------------- | --- | ------------------------------ | --------------------------------- |
+| AWS   |     | [Amazon VPC CNI plugin] | IPs from AWS VPC           | Use AWS VPC routing   |     | [AWS Load Balancer Controller] | Deploy AWS Elastic Load Balancers |
+| GCP   |     | [Cilium GKE plugin]     | IPs from Cloud VPC subnets | Use Cloud VPC routing |     | [GKE ingress]                  | Deploy Cloud Load Balancers       |
+| Azure |     | [Azure CNI plugin]      | IPs from VNet subnets      | Use VNet routing      |     | [Nginx ingress controller]     | Deploy Nginx                      |
 
 #### Example: Create a VPC in AWS
 
+In this example, you will:
+
+- Create a custom VPC in AWS
+- Deploy some EC2 instances into it
+
+---
+
+The `vpc` OpenTofu module
+
+- from the [sample code repo] at `ch7/tofu/modules/vpc` folder
+
+- can create a VPC as follow:
+
+  ![alt text](assets/vpc.png)
+
+  with the configuration for:
+
+  - IP address range, e.g. `10.0.0.0/16` with $2^{16} (65,536)$ IP addresses.
+  - Public subnet (a DMZ)[^23]
+  - Private subnet[^25]
+
+---
+
+Configure the root module to use the `vpc` and `ec2-instances` OpenTofu modules:
+
+- The `vpc-ec2` root module will be in `samples/ch7/tofu/live/vpc-ec2`
+
+  ```bash
+  cd examples
+  mkdir -p ch7/tofu/live/vpc-ec2
+  cd ch7/tofu/live/vpc-ec2
+  ```
+
+- Configure `main.tf` to deploy a VPC and an EC2 instance in the public subnet (aka public instance)
+
+  ```t
+  # examples/ch7/tofu/live/vpc-ec2/main.tf
+  provider "aws" {
+    region = "us-east-2"
+  }
+
+  module "vpc" {
+    source = "github.com/brikis98/devops-book//ch7/tofu/modules/vpc"
+
+    name       = "example-vpc" # (1)
+    cidr_block = "10.0.0.0/16" # (2)
+  }
+  ```
+
+  ```t
+  module "public_instance" {
+    source = "github.com/brikis98/devops-book//ch7/tofu/modules/ec2-instances"
+
+    name          = "public-instance" #                   (1)
+    num_instances = 1 #                                   (2)
+    instance_type = "t2.micro"
+    ami_id        = "ami-0900fe555666598a2"
+    http_port     = 80
+    user_data     = file("${path.module}/user-data.sh") # (3)
+    vpc_id        = module.vpc.vpc.id #                   (4)
+    subnet_id     = module.vpc.public_subnet.id #         (5)
+  }
+  ```
+
+  Configure the instance to run:
+
+  - (4): ... in the VPC created by `vpc` module.
+  - (5): ... in the public subnet of the created VPC.
+
+- The user data script (at `examples/ch7/tofu/live/vpc-ec2/user-data.sh`)
+
+  ```bash
+  #!/usr/bin/env bash
+  set -e
+
+  curl -fsSL https://rpm.nodesource.com/setup_21.x | bash - yum install -y nodejs
+
+  export MY_IP=$(hostname -I) #                           (1)
+
+  tee app.js > /dev/null << "EOF"
+  const http = require('http');
+
+  const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end(`Hello from ${process.env.MY_IP}!\n`); //     (2)
+  });
+
+  const port = 80;
+  server.listen(port,() => {
+    console.log(`Listening on port ${port}`);
+  });
+  EOF
+
+  nohup node app.js &
+  ```
+
+  - (1): Look up the private IP address of the server
+  - (2): Include (the private IP address of the server) in the HTTP response
+
+- Configure `main.tf` to deploy an EC2 instance in the private subnet (aka private instance)
+
+  ```t
+  # examples/ch7/tofu/live/vpc-ec2/main.tf
+
+  module "private_instance" {
+    source = "github.com/brikis98/devops-book//ch7/tofu/modules/ec2-instances"
+
+    name          = "private-instance" #                   (1)
+    num_instances = 1
+    instance_type = "t2.micro"
+    ami_id        = "ami-0900fe555666598a2"
+    http_port     = 80
+    user_data     = file("${path.module}/user-data.sh")
+    vpc_id        = module.vpc.vpc.id
+    subnet_id     = module.vpc.private_subnet.id #         (2)
+  }
+  ```
+
+- Output the public & private IP addresses of the EC2 instances
+
+  ```t
+  # examples/ch7/tofu/live/vpc-ec2/outputs.tf
+
+  output "public_instance_public_ip" {
+    description = "The public IP of the public instance"
+    value       = module.public_instance.public_ips[0]
+  }
+
+  output "public_instance_private_ip" {
+    description = "The private IP of the public instance"
+    value       = module.public_instance.private_ips[0]
+  }
+
+  output "private_instance_public_ip" {
+    description = "The public IP of the private instance"
+    value       = module.private_instance.public_ips[0]
+  }
+
+  output "private_instance_private_ip" {
+    description = "The private IP of the private instance"
+    value       = module.private_instance.private_ips[0]
+  }
+  ```
+
+---
+
+- Deploy `vpc-ec2` module
+
+  ```bash
+  tofu init
+  tofu apply
+  ```
+
+- Verify that the instance work:
+
+  ```bash
+  curl http://<public_instance_public_ip>
+  ```
+
+> [!NOTE]
+> To be able to test the instance in the private, subnet, you're need to know how access private network.
+
 #### Get your hands dirty: Working with VPCs
+
+Update the VPC module to
+
+- deploy a NAT gateway
+
+  ... so that resources running in the private subnet can access the public Internet.
+
+- deploy each type of subnet (public and private) across multiple availability zones
+
+  ... so that your architecture is resilient to the failure of a single AZ.
+
+> [!NOTE]
+> Note: AWS offers a managed NAT gateway, which works very well and is easy to use, but is not part of the AWS free tier.
 
 ## Accessing Private Networks
 
@@ -1025,6 +1366,15 @@ Tradeoffs:
 
 - A full network architecture
 
+---
+
+[Amazon VPC CNI plugin]: https://docs.aws.amazon.com/eks/latest/userguide/managing-vpc-cni.html
+[AWS Load Balancer Controller]: https://kubernetes-sigs.github.io/aws-load-balancer-controller/
+[Cilium GKE plugin]: https://docs.cilium.io/en/latest/network/concepts/ipam/gke/
+[GKE ingress]: https://cloud.google.com/kubernetes-engine/docs/concepts/ingress
+[Azure CNI plugin]: https://github.com/Azure/azure-container-networking
+[Nginx ingress controller]: https://learn.microsoft.com/en-us/azure/aks/app-routing?tabs=default%2Cdeploy-app-default
+
 [^1]: <https://datatracker.ietf.org/doc/html/rfc791#section-2.3>
 [^2]: <https://en.wikipedia.org/wiki/Bit_array>
 [^3]: If the IP address has a leading 0, the `ping` tool assumes the numbers is octal.
@@ -1076,3 +1426,32 @@ Tradeoffs:
 [^19]: The term "Internet" is derive from interconnected networks - a networks of networks
 [^20]: The ranges of IPs is defined by all the other bits that can change.
 [^21]: A gateway ... allows data to flow from one discrete network to another (<https://en.wikipedia.org/wiki/Gateway_(telecommunications)>).
+[^22]: <https://docs.aws.amazon.com/vpc/latest/userguide/default-vpc.html>
+[^23]: In AWS, to make a subnet public, you have to do 3 things:
+
+    1. Create an _Internet Gateway_[^24]
+    1. In the's subnet's route table, create a route to send traffic to the Internet Gateway
+
+       - This is typically done via a catch-all route (`0.0.0.0/0`): any traffic that doesn't match a more specific destination will be routed (via the Internet Gateway) to the public Internet .
+
+    1. Configure the VPC to assign public IP addresses to any EC2 instances deployed in it.
+
+       (The public subnet will also assign a private IP address to each EC2 instance)
+
+    The `vpc` module handles all of this for you.
+
+[^24]: Internet Gateway is an AWS-specific component that allows communication between the public Internet and your VPC.
+[^25]: In AWS, subnets are _private by default_, which means
+
+    - servers in those subnets will be able to talk to other resources within the VPC,
+    - but
+      - nothing outside the VPC will be able to talk to those servers, and,
+      - those servers also won’t be able to talk to anything outside the VPC (such as the public Internet) unless you add a NAT gateway (which this vpc module does not do)
+
+    This will
+
+    - makes it harder both for malicious actors
+      - to get in to your servers in private subnets, and,
+      - to get any data out (if they somehow do get in)
+    - ensure you can’t accidentally (or maliciously) install software from the public Internet
+      (if you’re using server templating and immutable infrastructure practices, this is a good thing, as it makes your servers more secure and easier to debug.)
