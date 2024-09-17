@@ -517,17 +517,93 @@ In this example, you'll point your domain name at the EC2 instances (deployed in
   - You may have noticed that in the Details section for your domain in your Route53 hosted zone page, it said that the `DNSSSEC status` was `not configured`.
   - Fix this issue by following the Route 53 DNSSEC documentation.
 
+## Private Networking
+
+private network
+: a network set up by an organization solely for that organization’s use
+: e.g.
+: - a home network
+: - an office network
+: - an university network
+: - a data center network
+: is _locked down_ so only authorized individuals (from within that organization) can access it
+
+### Private Network's Advantages
+
+#### Defense in depth
+
+defense-in-depth strategy
+: establish **multiple layers** of security
+: - providing _redundancy_ in case there is a vulnerability in one of the layers
+
+---
+
+You should _build your software_ in a similar manner with building a castle - using _defense-in-depth strategy_ - establish multiple defense layers, if one of them fails, the others are there to keep you safe.
+
+e.g. The servers (EC2 instances) deploy so far:
+
+- has one layer of security - the firewall (security group) that block access to all ports by default
+- one mistakes and these servers might become vulnerable,
+  e.g. Someone will misconfigure the firewall and leave a port open, which be scanned all the time by malicious actors.
+
+> [!NOTE]
+> Many incidents are not the result of a brilliant algorithmic code cracking, but of opportunists jumping on easy vulnerabilities due to someone making a mistake.
+
+> [!WARNING]
+> If one person making a mistake is all it takes to cause a security incident, then
+>
+> - the fault isn't with that person
+> - but with the way you've set up your security posture.
+
+---
+
+By putting your servers in a private networks, you have at least 2 layers of protections:
+
+- First, a malicious actor have to get into your private network.
+- Second, the actor have to find a vulnerability in your server.
+
+> [!TIP]
+> A good private network can create many more layers of security.
+
 > [!IMPORTANT]
 > Key takeaway #3
 > Use a defense-in-depth strategy to ensure you’re never one mistake away from a disaster.
 
-Private networks' advantages:
+#### Isolate workloads
 
-- **Defense in depth**
+Separate private networks is one of the way to setup _isolated_ environment.
 
-- **Isolate workloads**
+e.g.
 
-- **Better control and monitoring**
+- Deploy different products, teams in separate private networks.
+- Deploy data store servers and application servers in separate private networks.
+
+If the workloads in separate private networks needs to communicate, you only allow traffic between specific IPs and ports.
+
+> [!TIP]
+> The other ways to setup isolated environments: different servers, different accounts, different data centers...
+
+#### Better control and monitoring
+
+Private networks give you **fine-grained control** over routing of:
+
+- _north-south traffic_: traffic between your servers and the outside worlds
+- _east-west traffic_: traffic between servers within your network.
+
+This allows you to:
+
+- add better security control
+- setup monitoring
+
+You should
+
+- almost always have all servers in a private network
+- only expose some highly-locked down servers, e.g. load balancers
+  e.g. Capture _flow logs_ that show all traffic going through your private network
+
+- manage traffic patterns
+
+  e.g. Shift traffic around as part of deployment or experiment
 
 > [!IMPORTANT]
 > Key takeaway #4
@@ -539,25 +615,191 @@ Private networks' advantages:
 > Lossy compression
 > Networking is a huge topic, what you’re seeing here is a highly simplified picture.
 
+- How to connect computers together?
+
+  | How many computers?             | How to connect?                                                         |                                              |
+  | ------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------- |
+  | Two computers                   | <img alt="" src="assets/connect-two-computers.png" width="130px" />     | Use a single _cable_                         |
+  | N computers<br/>(aka a network) | <img alt="" src="assets/connect-computers-switch.png" width="200px" />  | Use a _switch_<br/>(instead of $N^2$ cables) |
+  | Two networks                    | <img alt="" src="assets/connect-networks-router.png" width="500px" />   | Use two _routers_                            |
+  | N networks                      | <img alt="" src="assets/connect-routers-internet.png" height="300px" /> | Use the _internet_[^19]                      |
+
+- Most of the networks of the internet is private network.
+
+- There are 2 common type of private networks:
+
+  - Private network in your house (aka home network)
+
+    The ISP gives use a device that's both a router & a switch, which
+
+    - allows devices in your home to talk to each other.
+
+  - Private network in a data center:
+
+    The technicians set up various switches & routers,
+
+    - allows the servers in that the data center talk to each other.
+
 #### Private networks's key characteristics
 
 ##### Only authorized devices may connect to the private network
 
+e.g.
+
+- For private network in your home:
+
+  Connect to the ISP router with
+
+  - an ethernet cable
+  - or Wi-Fi (with in the range of the antenna & a password)
+
+- For private network in a data center:
+
+  Get into the data center; plug in a cable into the routers and switches.
+
 ##### The private network uses private IP address ranges
+
+The IANA reserves 3 blocks of the IP address space for private internets:
+
+| From          | To                | In CIDR notation | Note                                              |
+| ------------- | ----------------- | ---------------- | ------------------------------------------------- |
+| `10.0.0.0`    | `10.255.255.255`  | `10.0.0.0/8`     | Class A                                           |
+| `172.16.0.0`  | `172.31.255.255`  | `172.16.0.0/12`  | Class B                                           |
+| `192.168.0.0` | `192.168.255.255` | `192.168.0.0/16` | Class C<br/>Used in most private networks at home |
+
+> [!TIP]
+> With CIDR notation, the format of IPv4 address is `a.b.c.d/e`:
+>
+> - `a.b.c.d`: an IP address
+> - `e`: a decimal number that represents how many bits of the IP address, when expressed in binary, stay the same[^20].
+
+> [!NOTE]
+> Every public IP address must be unique.
+>
+> These 3 blocks of private IP addresses
+>
+> - can be used over and over again
+> - as they can only used for private networks.
 
 ##### The private network defines connectivity rules
 
+- For a home network, you can define some _basic control_ over connectivity.
+
+  e.g. Depending on your router, you can:
+
+  - Block outbound access to specific websites
+  - Block inbound requests from specific IP addresses
+  - Block specific port number from being used.
+
+- For a data center network,
+
+  - you have _full control_ over connectivity:
+
+    - e.g. For every device (in the network), you can specify:
+
+      - What IP address it gets assigned
+      - What ports it's allowed to use
+      - Which other devices it can talk to
+      - How traffic get routed to and from that device
+
+    - using:
+      - hardware
+      - software: based on the configuration in switches, routers
+
+---
+
+- It's common to
+
+  - partition the private network (in a data center) into _subnets_
+  - assign specific rules to all devices in a subnet.
+
+  e.g.
+
+  - A subnet called a _DMZ_ (demilitarized zone):
+    - allows access (to these servers) from the public Internet
+    - run a small handful of servers (such as load balancers)
+  - A private subnet:
+    - is not accessible from the public Internet
+    - run the rest of your servers
+
 ##### Most devices in a private network access the public Internet through a gateway
+
+> [!NOTE]
+> A device in a private network (with a private IP address) can also have a public IP address.
+>
+> e.g. You assign a public IP address to a server in your DMZ, that server have both
+>
+> - a private IP address: it uses to communicate with the devices in the DMZ
+> - a public IP address: it used to communicate with the Internet
+
+- Assigning a public IP to every device in a private network defeats the purpose of having a private network:
+
+  - keeping those devices secure
+  - avoiding running of of IPv4 addresses
+
+- Therefore, most of the devices in a private network access the public Internet through a _gateway_[^21].
 
 #### Common types of gateways
 
 ##### Load balancers
 
+A load balancer allows requests that
+
+- originate from the public Internet
+- to be routed to servers in your private network
+  - based on rules you define (in that load balancer)
+
+---
+
+e.g. If a user makes a request to the load balancer
+
+- on port 80 for domain `foo.com`, forward it to a specific app on port 8080.
+
 ##### NAT gateway
+
+A _Network Address Translation (NAT) gateway_ allows requests that
+
+- originate in a private network
+- to be routed out to the public Internet.
+
+A common approach with NAT gateway is to do _port address translation (PAT)_.
+
+---
+
+e.g. A server wants to make an API call to `some-service.com`
+
+- The server sends that request to the NAT Gateway, which:
+
+  - "translating" (modifying) the request to make it look like it
+    - originated from (the public IP of) the NAT gateway at a specific port number
+  - then send the modified request to `some-service.com`
+
+- When the response comes back from `some-service.com`,
+
+  The NAT Gateway:
+
+  - (knows which server to forward the response to)
+  - translate the request to make it look like it
+    - cam directly from `some-service.com`.
 
 ##### Outbound proxy
 
+An _outbound proxy_ is like a specialized NAT gateway that only allows an apps to make outbound requests to an explicitly-defined list of trusted endpoints.
+
+> [!NOTE]
+> Networking is all about layers of defense
+>
+> - Most of those layers are about keeping attackers out
+> - An outbound proxy is the opposite - it keeps the attackers in:
+>   - The attackers won't be able to escape with your data.
+
 ##### ISP router
+
+On your home network, the IPS router is typically configured as a NAT gateway.
+
+- All devices send all requests to the public Internet via the ISP router, which
+  - also use PAT to get you response
+  - while keeping those devices hidden
 
 ### Virtual Private Networks
 
@@ -830,3 +1072,7 @@ Tradeoffs:
     DNS resolvers _should_ cache the DNS record for the amount specified with TTL.
 
     - Longer TTLs will reduce latency for users & load on your DNS servers, but any updates will take longer to take effect.
+
+[^19]: The term "Internet" is derive from interconnected networks - a networks of networks
+[^20]: The ranges of IPs is defined by all the other bits that can change.
+[^21]: A gateway ... allows data to flow from one discrete network to another (<https://en.wikipedia.org/wiki/Gateway_(telecommunications)>).
