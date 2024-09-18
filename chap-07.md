@@ -1409,12 +1409,146 @@ And remember to adapt the architecture to the needs & capabilities of your compa
 
 ### SSH
 
+#### What is SSH
+
+SSH (Secure Shell)
+: a **protocol** that allows you to connect to a computer over the network to _execute commands_
+: uses a _client-server_ architecture
+
+e.g. Using SSH to connect to a bastion host
+
+- The architecture
+
+  ![alt text](assets/bastion-host-ssh.png)
+
+- The client: computer of a developer in your team (Alice)
+- The server: the bastion host
+- When Alice connects to the bastion host over SSH,
+  - she gets a remote terminal, where she can:
+    - run commands
+    - access the private network
+  - as she was using the bastion host directly
+
 #### How to use SSH
+
+- **Configure a client**, e.g. Alice's computer
+
+  - Create a _key-pair_, which consists of a _public key_ and a _private key_[^26].
+  - Store the private key on Alice's computer (in a secure manner and ensuring unauthorized users can never access it[^27]).
+
+- **Configure server(s)**, e.g. The bastion host
+
+  - Run SSH as a _daemon_[^28]
+
+    This is typically done by running the `sshd` command, which is enabled by default on many servers.
+
+  - Update the server's firewall to allow SSH connections, typically on port $22$.
+  - Add public keys (of Alice) to the _authorized keys file_ of an OS user on the server.[^29]
+
+    e.g.
+
+    - For AWS EC2 instance - default OS user is `ec2-user` - you'll need to add Alice's public key to `/home/ec2-user/.ssh/authorized_keys`
+
+- **Use SSH client to connect to the server**
+
+  e.g. On Alice computer
+
+  ```bash
+  ssh -i <PRIVATE_KEY> <OS_USER>@<SERVER_PUBLIC_IP>
+  ```
+
+  ***
+
+  After you connect to the server (e.g. the bastion host), you'll:
+
+  - get a terminal where you can run commands as if you were sitting directly at that server.
+  - get access to that server's network
+
+    e.g. Now Alice can
+
+    - run `curl` (in the terminal)
+    - to access the server in the private subnet at `10.0.0.20`.
+
+  ***
+
+> [!TIP]
+> With SSH, you can do many more cool things:
+>
+> ---
+>
+> - Transmit arbitrary data (aka _tunneling_)
+>
+> ---
+>
+> - Forward port (aka _port forwarding_)
+>
+>   e.g.
+>
+>   - Alice use SSH to forward
+>
+>     - (from) port 8080 on her local computer
+>     - (via the bastion host)
+>     - to port 8080 of the server at `10.0.0.20` (in the private subnet)
+>
+>   - Any request she made from her own computer to `localhost:8080` will be sent to `10.0.0.20:8080`.
+>
+> ---
+>
+> - Run a _SOCKS proxy_
+>
+>   e.g.
+>
+>   - Alice
+>
+>     - use SSH to run a SOCKS proxy
+>
+>       - on port `8080` on her local computer
+>       - (via the bastion host)
+>       - to the public Internet
+>
+>     - then, configure an app that supports SOCKS proxies (e.g. a web browser )
+>
+>       - send all traffic via `localhost:8080` (the SOCKS proxy)
+>
+>   - When Alice uses her web browser (e.g. Chrome),
+>
+>     - The traffic will be routed through the bastion host, as if she was browsing the web directly from the bastion host.
+>
+>   With a SOCKS proxy, you can
+>
+>   - hide your IP from online services
+>   - change to virtual location (aka _location spoofing_)
 
 #### Example: SSH bastion host in AWS
 
+In [previous example](#example-create-a-vpc-in-aws), you deployed:
+
+- a VPC
+- 2 EC2 instances:
+  - one in a public subnet 👈 you could access
+  - one in a private subnet 👈 for now, you couldn't access
+
+In this example, you will update that example, so both instances can be access (over SSH)
+
+- by using an _EC2 key pair_[^30]
+
 > [!WARNING]
 > Watch out for snakes: EC2 key pairs are not recommended in production
+>
+> - In this example, you'll use the EC2 key-pair to experience with SSH.
+> - However, AWS only supports associating a single EC2 key-pair with each C2 instance
+>
+>   👉 For a team, every members need to share a permanent, manually-managed private key, which is not a good security practice.
+>
+> - For production, the recommended way to connect to EC2 instance is:
+>
+>   - [EC2 Instance Connect]
+>   - or [Session Manager]
+>
+>   Both uses automatically-managed, ephemeral key:
+>
+>   - generated for individual members on-demand
+>   - expire after a short period of time
 
 #### Get your hands dirty: SSH
 
@@ -1693,3 +1827,19 @@ Tradeoffs:
       - to get any data out (if they somehow do get in)
     - ensure you can’t accidentally (or maliciously) install software from the public Internet
       (if you’re using server templating and immutable infrastructure practices, this is a good thing, as it makes your servers more secure and easier to debug.)
+
+[^26]: SSH uses public-key cryptography for authentication and encryption. You'll more about authentication an encryption in Chapter 8.
+[^27]: Storing the private key in a secure manner is not an easy task.
+[^28]: A daemon is a background process.
+[^29]: The _authorized keys file_
+
+    - Typically at `~/.ssh/authorized_keys`
+    - Lists the public keys (DSA, ECDSA, Ed25519, RSA) that can be used for logging in as this user. (Source: `man ssh`)
+    - Each line of the file contains one key (empty lines and lines starting with a ‘#’ are ignored as comments) (Source: `man sshd`)
+      - Public keys consist of the following space-separated fields: `options, keytype, base64-encoded key, comment`.
+      - The options field is optional.
+
+[^30]: EC2 key-pair is an SSH key-pair that AWS can create for you and use with its EC2 instances
+
+[EC2 Instance Connect]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect-linux-inst-eic.html
+[Session Manager]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect-with-systems-manager-session-manager.html
