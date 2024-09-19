@@ -1804,7 +1804,45 @@ Now let's access the private instance:
 
 ### RDP
 
+#### What is RDP
+
+RDP (Remote Desktop Protocol)
+: a **protocol** that allows you to connect to a Windows computer over the network to _manage it_ with a user interface
+: ~ SSH + UI (but only Windows)
+
 #### How to use RDP
+
+RDP also use client-server architecture (just like SSH):
+
+- Configure the RDP server:
+
+  - Enable RDP in Windows server settings.
+  - In front of the servers, deploy:
+
+    - a VPN
+    - or a _Remote Desktop Gateway (RD Gateway)_
+
+  - Update the server's firewall to allow RDP connects (port 3389) from previous devices.
+
+  - Prepare the username & password of the Windows OS user account on the server:
+
+    e.g.
+
+    - For AWS: EC2 instance - using the default Windows AMI - has an Administrator user built in with a randomly-generated password that can be retrieved from the EC2 console.
+
+    - For Azure: you specify the username& password when launching the Windows server
+
+    - If you're using a identity provider (such as Active Directory, Microsoft 365), use that's identity provider's login.
+
+- Configure the RDP client:
+
+  - For Windows, the RDP client is pre-installed.
+  - For Mac, Linux, you needs to install the RDP client.
+
+- Use the RPD client to connect to the RPD server:
+
+  - Specify the IP address of the RDP Gateway/VPN
+  - Enter the username & password
 
 #### Advantages of RDP
 
@@ -1818,23 +1856,166 @@ Now let's access the private instance:
 
 - Not secure without extra infrastructure
 
+  RDP has many security vulnerabilities:
+
+  - Exposing RDP port (`3389`) to public Internet is _not_ recommended.
+  - You should run extra infrastructure (VPN or RD Gateway) in front of the RDP server .
+
 - Not your own computer
 
+  RDP gives you access to another computer, and whatever private network it can access.
+  But sometimes you access the private network directly from your computer (which has your apps, data).
+
 ### VPN
+
+#### What is VPN
+
+VPN (Virtual Private Network)
+: a way to _extend_ a private network across multiple other networks/devices
+
+By using VPN:
+
+- software (on any device) can communicate with the private network as if the device is "in" the network
+- all traffic to the private network is encrypted (even if the traffic is over an untrusted medium, such as the public Internet)
 
 #### Use cases for VPNs
 
 ##### Connect remote employees to an office or data center network
 
+The VPC acts as **bastion host** that allow you:
+
+- Connect to your company office network as if you were in the office
+- Connect to a data center (on-prem or VPC in cloud account) as you were in the data center
+
+VPN vendors of this use case: [Cisco], [Palo Alto Networks], [Juniper Networks], [Barracuda], [SonicWall], [Fortinet], [OpenVPN], [WireGuard], [Tailscale], [AWS Client VPN], and [Google Cloud VPN].
+
 ##### Connect two data centers together
+
+A _site-to-site VPN_ can connect 2 data centers together.
+
+e.g.
+
+- 2 on-prem data centers connects together
+- An on-prem data center connect to a VPC in the cloud
+
+The VPC acts as a **proxy** between the data centers:
+
+- Securely forwarding
+  - certain traffic in one private network
+  - to certain endpoints in another private network
+
+This use case needs 2 type of VPN vendors:
+
+- On the on-prem side: the same as office network, e.g. Cisco, Palo Alto, Juniper
+- On the cloud side: site-to-site VPN services from cloud provider, e.g. [AWS Virtual Private Gateways], [Google Cloud VPN].
 
 ##### Hide Internet browsing behavior
 
+You can use a VPN as a way to
+
+- bypass geographical restrictions, or censorship
+- keep your browsing history anonymous
+
+The office network VPNs are overkill for this use case, it's more common to use consumer VPN services, e.g. NordVPN, ProtonVPN, ExpressVPN.
+
 #### How to use VPN
+
+##### To connect remote employees to an office
+
+The VPN for this use case is typically use a client-server architecture
+
+- **Configure the VPN server**
+
+  - Deploy a VPN server (as the bastion host) and configure VPN software on it
+
+  - Update the server's firewall to alow VPN connections:
+
+    e.g.
+
+    - VPNs based on IPSec will use ports `500`, `4500`, `50`, `51`...
+    - VPNs based on TLS will use port `443`
+
+  - Configure the VPN server with the ability to authenticate users
+
+    e.g.
+
+    - Traditional approach, used by old tool (e.g. OpenVPN):
+
+      - use _certificates_ (based on public-key cryptography)
+      - but allow _mutual authentication_[^32]
+
+      This approach is hard to securely sign, distribute, revoke/manage certificates.
+
+    - Modern approach, used by new tool (e.g. Tailscale), allow users to authenticate
+
+      - using existing identity provider (e.g. Active Directory, Google, Okta)
+      - including MFA
+
+      under the hood, the certificate logic is handle transparently.
+
+- **Configure the VPC client**
+
+  - Install the VPN client:
+
+    It's usually a desktop/mobile app (with UI).
+    Some OSes even have VPN clients built-in.
+
+  - Following the VPN client's instruction (in the UI) to authenticate.
+
+  - Once configured/authenticated, the VPN will:
+
+    - establish an encrypted tunnel to the VPN server
+    - update the device's networking settings to
+
+      - route _all_ network traffic through this tunnel (aka _full tunnel_ mode)
+
+        > [!WARNING]
+        > In _split tunnel_ mode, all traffic (whether it from your working software or Youtube/Netflix) will be routed through the VPN, which may
+        >
+        > - put a lot of load on VPN server
+        > - cost a lot of bandwidth (and money)
+
+        > [!NOTE]
+        > Some VPN client supports _split tunnel_ mode, where only _certain_ traffic is routed to the VPN server
+        > e.g.
+        >
+        > - Only some traffic for specific domain names and CIDR block that corresponding to your company internal software go though the VPN tunnel
+        > - Everything else goes through public Internet.
+
+##### To connect two data centers
+
+The high level steps looks like this:
+
+- Setup a site-to-site VPN device
+
+  In an on-prem data center, it might be a physical appliance from Cisco, Palo Alto, Juniper...
+
+  In the cloud, it's be a virtual configuration, e.g. Virtual Private Gateway in AWS.
+
+- Configure routing
+
+  Route certain CIDR blocks from one data center (through the VPN connection) to the other data center.
+
+  e.g.
+
+  - On-prem data center network uses CIDR block `172.16.0.0/12`.
+  - Configure the route table in AWS VPC to route all traffic with destiantion match that CIDR block `172.16.0.0/12` to your Virtual Private Gateway.
+
+- Configure connectivity and authentication
+
+  For each data center, you'll need configure
+
+  - IP address
+  - Identifying information: Border Gateway Protocol (BGP) Autonomous System Number (ASNs)
+  - a way to authenticate & encrypt the connection
+
+- Create the VPN tunnel
 
 #### Advantages of VPN
 
-- You get transparent network access from your own computer
+- You get _network transparent_[^33] access from your own computer
+
+  With VPN, you can access a private network, from your own computer, as if you were directly a part of that network.
 
 - Works for all employees
 
@@ -1842,13 +2023,22 @@ Now let's access the private instance:
 
 - Secure
 
+  Most VPN tools are build around IPSec or TLS, both are mature and secure.
+
 #### Disadvantages of VPN
 
 - Extra infrastructure to run
 
+  You have to deploy a VPN server, possibly multiple servers for high availability.
+
 - Certificate management can be difficult
 
+  Most VPN tools are build around certificates, which is difficult to manage.
+
 - Performance overhead
+
+  - Traffic a route through another server, which increase latency.
+  - Too much traffic may degrade your network throughput.
 
 ## Service Communication in Private Networks
 
@@ -1982,6 +2172,19 @@ Tradeoffs:
 [StrongDM]: https://www.strongdm.com/
 [EC2 Instance Connect]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect-linux-inst-eic.html
 [Session Manager]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect-with-systems-manager-session-manager.html
+[EC2 console]: https://console.aws.amazon.com/ec2/home
+[metadata-managed SSH connections]: https://cloud.google.com/compute/docs/instances/ssh
+[Cisco]: https://www.cisco.com/c/en/us/products/security/vpn-endpoint-security-clients
+[Palo Alto Networks]: https://www.paloaltonetworks.com/sase/globalprotect
+[Juniper Networks]: https://www.juniper.net/
+[Barracuda]: https://www.barracuda.com/products/network-protection/cloudgen-firewall/use-cases/remote-vpn-access
+[SonicWall]: https://www.sonicwall.com/
+[Fortinet]: https://www.fortinet.com/
+[OpenVPN]: https://openvpn.net/
+[WireGuard]: https://www.wireguard.com/
+[AWS Client VPN]: https://aws.amazon.com/vpn/client-vpn/
+[Google Cloud VPN]: https://cloud.google.com/network-connectivity/docs/vpn/concepts/overview
+[AWS Virtual Private Gateways]: https://docs.aws.amazon.com/vpn/latest/s2svpn/how_it_works.html
 
 [^1]: <https://datatracker.ietf.org/doc/html/rfc791#section-2.3>
 [^2]: <https://en.wikipedia.org/wiki/Bit_array>
@@ -2082,5 +2285,9 @@ Tradeoffs:
     - really the server you want to login to
     - but not a fake server from a malicious actor
 
-[EC2 console]: https://console.aws.amazon.com/ec2/home
-[metadata-managed SSH connections]: https://cloud.google.com/compute/docs/instances/ssh
+[^32]: With mutual authentication:
+
+    - the client can verify the VPN server (is really who it says it is) using the server’s certificate,
+    - the server can verify the user (is really who they say they are) using the client’s certificate.
+
+[^33]: Network transparency, in its most general sense, refers to the ability of a protocol to transmit data over the network in a manner which is not observable (“transparent” as in invisible) to those using the applications that are using the protocol. <https://en.wikipedia.org/wiki/Network_transparency>
