@@ -1550,23 +1550,257 @@ In this example, you will update that example, so both instances can be access (
 >   - generated for individual members on-demand
 >   - expire after a short period of time
 
+---
+
+Let's get started:
+
+- Create a key-pair:
+
+  - Open the [EC2 key-pairs page](https://console.aws.amazon.com/ec2/home#KeyPairs:)
+
+    - Make sure you select the same region as the one that you deploy the VPC
+    - Click `Create key pair`
+
+      - Enter the name for the key-pair
+      - Leave all settings as defaults
+      - Click `Create key pair`
+
+    - Download the private key (of the key-pair)
+
+      > [!NOTE]
+      > AWS will store the created key-pair in its own database, but not the private key.
+      >
+      > - It will prompt you once to download the private key.
+
+    - Save it in a secure location, e.g. `~/.aws/.ssh`
+
+  - Add a passphrase to the private key, so only you can access it
+
+    ```bash
+    ssh-keygen -p -f <KEY_PAIR>.pem
+    ```
+
+  - Set the permission so the private key can be only by your OS user
+
+    ```bash
+    chmod 400 <KEY_PAIR>.pem
+    ```
+
+- Now, the only thing left is to add your public key to the authorized keys file of the root user on each of those EC2 instances.
+
+  > [!TIP]
+  > If you specify a key-pair when launching an EC2 instance, AWS will add the public key to the root users of its AMIs.
+
+  - Update the `main.tf` in `vpc-ec2` root module to specify your key pair
+
+    ```t
+    module "public_instance" {
+      source = "github.com/brikis98/devops-book//ch7/tofu/modules/ec2-instances"
+
+      # ...
+
+      key_name = "<YOUR_KEY_PAIR_NAME>"
+    }
+
+    module "private_instance" {
+      source = "github.com/brikis98/devops-book//ch7/tofu/modules/ec2-instances"
+
+      # ...
+
+      key_name = "<YOUR_KEY_PAIR_NAME>"
+    }
+    ```
+
+  > [!NOTE]
+  > When you specify a `key_name`, the `ec2-instances` module will opens up port 22 (in the security group), so you can access that instance via SSH.
+
+  - Apply the changes
+
+    ```bash
+    tofu apply
+    ```
+
+---
+
+Now let's access the private instance:
+
+- SSH into the public instance
+
+  ```bash
+  ssh -i <KEY_PAIR>.pem ec2-user@<PUBLIC_IP>
+  ```
+
+  - Confirm you know the key-pair's passphrase
+  - Confirm you want to connect to the host `'<PUBLIC_IP>'`[^31]
+    `ssh` will show use the key finder
+
+    > [!TIP]
+    > If you are diligent, you can manually verify that the host `<PUBLIC_IP>` is really the EC2 instance deployed by you:
+    >
+    > - Go to the [EC2 console]
+    > - View the system log of the instance (you're connecting to)
+    >   - Select the instance
+    >   - In the nav op top, click `Actions` > `Monitor and troubleshoot` > `Get system log`
+    > - Verify the `SSH Host Key Fingerprint` match with the `key fingerprint` show by `ssh` command (on your local computer).
+
+    > [!TIP]
+    > The fingerprint is generated from the public key.
+    >
+    > - You can show the fingerprint of a public key with `ssh-keygen -l`
+    >
+    >   ```bash
+    >   ssh-keygen -l -f <PUBLIC_KEY>
+    >   ```
+
+- Now, you're in the public instance, with a prompt like this:
+
+  ```bash
+  Amazon Linux 2023
+  https://aws.amazon.com/linux/amazon-linux-2023
+  [ec2-user@ip-10-0-1-26 ~]$
+  ```
+
+  - Check the simple web app:
+
+    ```bash
+    curl localhost
+    # Hello from 10.0.1.26
+    ```
+
+  - Access the private instance:
+
+    ```bash
+    curl <PRIVATE_IP>
+    # Hello from <PRIVATE_IP>
+    ```
+
+> [!NOTE]
+> In this example, the public instance acts as a bastion host.
+>
+> - You SSH into the bastion host, then access the private instance (from the point of view of the bastion).
+>
+> You can even go a step farther, and SSH into the private instance (via the bastion host), which can be done by:
+>
+> - Forwarding the SSH authentication to remote hosts (aka _agent forwarding_)
+> - Connect to a target host by first making an ssh connection to the _jump host_
+
+---
+
+> [!TIP]
+> To disconnect from the SSH session:
+>
+> - Send an `EOL` by press `Ctrl + D`, or
+> - Use the shell build-in command `exit`
+
+> [!TIP]
+> You can use _SSH agent_ - a key manager for SSH - to store private key in memory, so you can authenticate without specifying a key or passphrase.
+
+- Use `ssh-add` to add a key to SSH agent
+
+  ```bash
+  ssh-add <KEY_PAIR>.pem
+  # Confirm the passphrase
+  ```
+
+- Verify that you can run SSH commands without specifying the key or passphrase
+
+  ```bash
+  ssh -A ec2-user@<PUBLIC_IP>
+  ```
+
+  - By using `-A` flag, you're forwarding the authentication from the SSH Agent to remote machines
+
+    (Local computer -> bastion host (public instance) -> private instance)
+
+---
+
+- Since you've forwarded the SSH authentication from your local computer, you can SSH into the private instance (from the public instance)
+
+  ```bash
+  ssh ec2-user@<PRIVATE_IP>
+  ```
+
+- Verify that's you're in the private instance
+
+  ```bash
+  curl localhost
+  # Hello from <PRIVATE_IP>
+  ```
+
+> [!TIP]
+> To disconnect from the private instance, you need to hit Ctrl+D _twice_
+>
+> - The first time to disconnect from the private instance
+> - The second time to disconnect from the public instance
+
 #### Get your hands dirty: SSH
+
+- Instead of EC2 key pairs, try using [EC2 instance connect] or [Session Manager]
+
+  How do these options compare when connecting to the public instance? And the private instance?
+
+- Try using the `-L` flag to set up port forwarding from your local computer to the private server at `<PRIVATE_IP>`:
+
+  e.g.
+
+  - run `ssh -L 8080:<PRIVATE_IP>:8080 ec2-user@<PULIC_IP>` and
+  - then open <http://localhost:8080> in your browser.
+
+- Try using the `-D` flag to set up a SOCKS proxy:
+
+  e.g.
+
+  - run `ssh -D 8080 ec2-user@<PUBLIC_IP>`,
+  - configure your browser to use `localhost:8080` as a SOCKS proxy
+  - then open `http://<PRIVATE_IP>:8080` in your browser.
+
+> [!NOTE]
+> When you've done testing, don't forget to run `tofu destroy` to clean everything up in your AWS account.
 
 #### Advantages of SSH
 
-- Widely available
+- **Widely available**
 
-- Secure
+  - Linux, MacOS support SSH natively
+  - Windows: there are also many clients
 
-- No extra infrastructure
+- **Secure**
 
-- Powerful dev tools
+  - SSH is a mature & secure protocol
+  - It has a massive community: vulnerabilities are rare and fixed quickly.
+
+- **No extra infrastructure**
+
+  Just run `sshd` (which you don't even need to install) on your server.
+
+- **Powerful dev tools**
+
+  In additional to providing a way to access servers in private networks, SSH is also a daily dev tools with many features: terminal, tunneling, proxying...
 
 #### Disadvantages of SSH
 
-- Managing keys can be difficult, especially at scale
+- **Managing keys can be difficult, especially at scale**
 
-- It’s primarily a dev tool
+  For SSH, it's difficult to:
+
+  - Supports hundreds of servers/developers/keys
+  - Key rotation and revocation
+  - Have different levels of permissions & access
+
+  > [!TIP]
+  > There are many tools that solve this problem:
+  >
+  > - From cloud providers:
+  >   - AWS: [EC2 instance connect], [Session Manager]
+  >   - Google Cloud: [metadata-managed SSH connections]
+  > - From cloud-agnostic 3rd-parties: [Teleport], [Boundary], [StrongDM]
+
+- **It’s primarily a dev tool, not for everyone**
+
+  SSH is not suitable for
+
+  - everyone: Product Manager, Designer...
+  - quickly access private network without the CLIs.
 
 ### RDP
 
@@ -1746,6 +1980,8 @@ Tradeoffs:
 [Tailscale]: https://tailscale.com
 [Boundary]: https://www.boundaryproject.io/
 [StrongDM]: https://www.strongdm.com/
+[EC2 Instance Connect]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect-linux-inst-eic.html
+[Session Manager]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect-with-systems-manager-session-manager.html
 
 [^1]: <https://datatracker.ietf.org/doc/html/rfc791#section-2.3>
 [^2]: <https://en.wikipedia.org/wiki/Bit_array>
@@ -1840,6 +2076,11 @@ Tradeoffs:
       - The options field is optional.
 
 [^30]: EC2 key-pair is an SSH key-pair that AWS can create for you and use with its EC2 instances
+[^31]:
+    The first time you SSH to any new server, your SSH client can't be sure that this is
 
-[EC2 Instance Connect]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect-linux-inst-eic.html
-[Session Manager]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect-with-systems-manager-session-manager.html
+    - really the server you want to login to
+    - but not a fake server from a malicious actor
+
+[EC2 console]: https://console.aws.amazon.com/ec2/home
+[metadata-managed SSH connections]: https://cloud.google.com/compute/docs/instances/ssh
