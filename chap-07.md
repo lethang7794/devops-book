@@ -2331,24 +2331,136 @@ e.g. [gRPC], [Connect RPC], [drpc], [Twirp]
 
 ### Service Mesh
 
+#### What is a service mesh
+
+service mesh
+: a networking layer that help manage communication betweens micro(services)
+
 #### Why use a service mesh
 
-- Security
-- Observability
-- Resiliency
-- Traffic management
+A service mesh provides a single, unified solution for many problems:
+
+- **Security**
+
+  In [Chapter 6 - Example: Deploy Microservices In Kubernetes](./chap-06.md#example-deploy-microservices-in-kubernetes),
+
+  - as long as someone has network access (to your cluster)
+  - they could talk to any service (in your cluster)
+    (the services respond blindly to any request came in)
+
+  You can have some level of protection by:
+
+  - putting these microservices in a private network 👈 castle-and-moat model
+  - hardening the security by enforcing **encryption, authentication, authorization** 👈 zero-trust model
+
+- **Observability**
+
+  With (micro)services architecture,
+
+  - Debugging a failure/bug is [hard](chap-06.md#debugging-overhead):
+
+    - A single request may result in dozens of API calls to dozens of services.
+    - There are many new failure modes because of the network.
+
+  - Observability tools: **tracing, metrics, logging**... become essensial.
+
+- **Resiliency**
+
+  The more services you have; the more bugs, issues, errors happens.
+
+  - If you have to manually deal with every bugs, issues, errors, you'd never be able to sleep.
+
+  To have a maintainable, resilient (micro)services, you need tools/techniques to:
+
+  - avoid
+  - recover
+
+  errors automtatically.
+
+  e.g. **retries, timoutes, circuit breakers, rate limiting**
+
+- **Traffic management**
+
+  (Micro)services is a distributed system.
+
+  To manage a large distributed system, you need a lot of fine-grained control over network traffic.
+
+  e.g.
+
+  - **Load balancing between services**
+
+    e.g. ⬇️ latency, ⬆️ throughput
+
+  - **Canary deployment**
+
+    e.g. Send traffic to a new replica (of an app as in [Chap 5 - Canary Deployment](./chap-05.md#canary-deployment))
+
+  - **Traffic mirroring**
+
+    e.g. Duplicate traffic to an extra endpoint for analysis/testing
+
+---
+
+Almost all of these are problems of scale:
+
+- If you are a small team, with only some services and not much of load
+
+  1️⃣ in other words, when you don't have the scaling problems, a service mesh
+
+  - don't help you
+  - but it may be an unnecessary overhead.
+
+- If there are hundreds of services owned by dozens of teams, processing thousands of requets per seconds,
+
+  - in other words, when you have scaling problems:
+
+    2️⃣ you may try to solve these problems individually, one at a time, but it will
+
+    - be a huge amount of work 👈 each problems needs its own tool, solution...
+    - that have many frictions 👈 each change is a global changes to every single service...
+    - take a very long time 👈 ... rolling global change across services is a [big challenge](./chap-06.md#challenges-with-global-changes)
+
+    3️⃣ or you can use a service mesh - all-in-one solutions to the these scaling problems
+
+    - in a transparent way
+    - does not require making changes to application code
 
 > [!IMPORTANT]
 > Key takeaway #7
-> A service mesh can improve security, observability, resiliency, and traffic management in a microservices architecture, without having to update the application code of each service.
+> A service mesh can improve a microservices architecture's
+>
+> - security, observability, resiliency, and traffic management
+>
+> without having to update the application code of each service.
+
+#### When not to use a service mesh
+
+A service mesh can feel like a magical way to dramatically upgrade the security and debuggability of your (micro)service architecture.
+
+- But when things doesn't work, the service mesh itself can be difficult to debug.
+- It introduces a lot of moving parts (encryption, authentication, authorization, routing, firewalls, tracing...)
+  - that can be the source of new problems.
+- The overhead of a service mesh can be huge: understanding, installing, configuring, managing...
 
 #### Three types of service meshes
 
 ##### Use with Kubernetes
 
-##### From cloud providers
+- [Linkerd]: This is the project that coined the term "service mesh"
+- [Istio]: Most popular
+- [Cilium] : Use the eBPF features of the Linux kernel
+- [Traefik Mesh]: Base on API Gateway Traefik
+
+##### Managed services from cloud providers
+
+- [AWS App Mesh]
+- [Google Cloud Service Mesh]
 
 ##### Use with any orchestration approach in any deployment environment
+
+- [Consul service mesh]
+- [Kuma]
+- [Kong Mesh]
 
 #### Example: Istio Service Mesh with Kubernetes Microservices
 
@@ -2436,6 +2548,15 @@ e.g. [gRPC], [Connect RPC], [drpc], [Twirp]
 [drpc]: https://github.com/storj/drpc
 [Twirp]: https://twitchtv.github.io/twirp/
 [OpenAPI]: https://www.openapis.org/
+[Linkerd]: https://linkerd.io/
+[Istio]: https://istio.io/
+[Cilium]: https://cilium.io/
+[Traefik Mesh]: https://traefik.io/traefik-mesh/
+[AWS App Mesh]: https://aws.amazon.com/app-mesh/
+[Google Cloud Service Mesh]: https://cloud.google.com/products/service-mesh
+[Consul service mesh]: https://developer.hashicorp.com/consul/docs/connect
+[Kuma]: https://kuma.io/
+[Kong Mesh]: https://konghq.com/products/kong-mesh
 
 [^1]: <https://datatracker.ietf.org/doc/html/rfc791#section-2.3>
 [^2]: <https://en.wikipedia.org/wiki/Bit_array>
