@@ -2042,7 +2042,39 @@ The high level steps looks like this:
 
 ## Service Communication in Private Networks
 
+In [chapter 6](./chap-06.md#breaking-a-codebase-into-multiple-services), you saw that a common way to deal with problems of scale (more traffic, more employees), is to
+
+- break codebase into multiple (micro)services that are
+  - deployed independently, typically on separates servers.
+
+These services communicate (with each other) by sending messages over the network.
+
+In order to allow services communicate over the network, you have to make following technical decisions:
+
+| The technical decision         | What does it mean?                                                               |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| Service discovery              | How (one service know what **endpoint**) to _reach_ another service?             |
+| Service communication protocol | What is the **format** of the messages (that a service send to another service)? |
+| Service mesh                   | How to handle **security**, resiliency, **observability**, traffic management?   |
+
 ### Service Discovery
+
+Althought service discovery may looks easy
+
+- to talk with service B, service A only needs service B's IP address
+
+but when you have:
+
+- multiple services
+  - each with multiple replicas that
+    - runs on multiple servers
+- the number of replicas, servers change frequently as:
+  - you deploy new versions
+  - replicas crashed and replaced
+  - you scale up/down
+- ...
+
+service discovery can be a challenging problem.
 
 > [!IMPORTANT]
 > Key takeaway #6
@@ -2054,51 +2086,248 @@ The high level steps looks like this:
 
 ###### Configuration files
 
+The simplest soluction is to hard-coded server IP address in configuration files.
+
+e.g.
+
+- Service A have a config file with hard-coded IP address of the servers where B is deployed.
+
+> [!NOTE]
+> This workds as long as the IP address used by B don't change too ofter, such as
+>
+> - an on-prem data center
+> - in the cloud but you're using private _static_ IP address for B's virtual servers
+
 ###### (Internal) load balancers
+
+You can:
+
+- deploy an internal load balancers in front of all services.
+- hard-code the endpoints of the load balancer (for each environment).
+
+Then service discovery can be done by using:
+
+- a **convention** for the path
+
+  e.g.
+
+  - Service A reaches service B at `/B` path of the load balancer.
 
 ###### DNS
 
+> [!TIP]
+> Service discovery is about translating a name (of the service) to a set of IP addresses.
+>
+> Isn't it the DNS?
+
+You can
+
+- use a _private DNS server_ (from the cloud provider)
+- create a DNS record that points to the IP address for each service
+
+Then service discovery can be done by using:
+
+- a **convention** for the domain
+
+  e.g.
+
+  - Service A reach service B at the domain `B.internal`
+
 ##### Dedicated service discovery tools
 
-###### Library: Consul, Curator and ZooKeeper, Eureka
+###### Service discovery tools with service discovery library
 
-###### Local proxy: Consul, Synapse, Envoy; built-in mechanism of orchestration tools
+Tool sucs as [Consul], [Curator] and [ZooKeeper], [Eureka] comes with 2 components:
+
+- a _service registry_: a data store that
+
+  - stores the endpoint data for services
+  - performs health checks (to detech when endpoints are up & down)
+  - allows services to subscribe to updates (and notify immediately when endpoints are updates)
+
+- the _service discovery library_: a library you incorporate into your application code to:
+
+  - add endpoints (to the service registry) when your services ares booting
+  - fetch endpoint data (from the service registry)
+  - subscribe to updates 👉 you can make service calls by looking up the latest service endpoint data in memory
+
+###### Service discovery tools with local proxy
+
+Tools such as
+
+- [Consul], [etcd discovery], [Synapse], [Envoy]
+
+- built-in mechanism of orchestration tools
+
+  e.g.
+
+  - Kubernetes and the platforms built on top of it (EKS, GKE, AKS...)
+  - Nomad, Mesos
+
+come with 2 components:
+
+- a service registry (same as service discovery library)
+- a local proxy: a proxy that run on the same servers as your apps, by:
+  - deploying it as a _sidebar container_[^34] (~ in another container)
+  - or running it as a _daemon_ (in the same container)
+
+---
+
+These local proxy:
+
+- does the exactly same thing as the server discovery library: add endpoints, fetch endpoints, subscribe to updates.
+- but
+  - is completely transparent (to the application)
+  - does not requires any changes to your application code.
+
+---
+
+To use a local proxy,
+
+- you:
+
+  - override network settings in each container/server to send all traffic throug this proxy
+  - or use the proxy as a local DNS server
+
+- the local proxy
+  - uses its local service registry data
+  - to route your app's requests to the proper endpoints
+  - without the app be aware of the service discovery tool - local proxy
 
 #### Service discovery tool comparison
 
-Tradeoffs:
+The key trade-offs to consider when picking a service discovery tool:
 
-- Manual error
-- Update speed
-- Scalability
-- Transparency
-- Latency
-- CPU and memory usage
-- Extra infrastructure
+| Trade-off            | What to consider?                                                                      | Notes                                                               |
+| -------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Manual error         | Any solution that involves hard-coding data is error-prone.                            |                                                                     |
+| Update speed         | - Hard-code IPs: slow                                                                  |                                                                     |
+|                      | - DNS: low TTL -> faster with the cost of latency                                      |                                                                     |
+|                      | - Dedicated service discovery tools: subscribe -> quickly                              |                                                                     |
+| Scalability          | - Hard-code IPs: always hit scaling bottlenecks                                        |                                                                     |
+|                      | - Load balancers: difficult to scale if you have lots of traffic                       |                                                                     |
+| Transparency         | - Some tools require you to update your code app                                       | To incorporate service discovery logic                              |
+|                      | - Other tools don't require you to update your code (called _transparent_)             | The code app still need to use some mechanis to make a service call |
+| Latency              | - DNS: add an extra network hop (the DNS server)                                       | You can cache the DNS response, but that reduces update speed       |
+|                      | - Service-side tools (load balancers): requires extra network hops -> increase latency |                                                                     |
+|                      | - Client-side tools (library): endpoints are cache locally -> no extra network hops    |                                                                     |
+|                      | - Local proxy: also has an extra hop, but it's locally                                 |                                                                     |
+| CPU, memory usage    | - Local proxy: extra code run with every container/servers                             |                                                                     |
+| Extra infrastructure | - Load balancer, service registry: requires deploying/managing extra infrastructure    |                                                                     |
+
+---
+
+|                                | [Configuration files] | [Load balancers] | [DNS]  | [Registry + Library] | [Registry + Local proxy] |
+| ------------------------------ | --------------------- | ---------------- | ------ | -------------------- | ------------------------ |
+| ⬇️ Manual error                | ❌                    | ⭐               | ⭐⭐⭐ | ⭐⭐⭐               | ⭐⭐⭐                   |
+| Update speed                   | ❌                    | ⭐⭐⭐           | ⭐     | ⭐⭐⭐               | ⭐⭐⭐                   |
+| Scalability                    | ❌                    | ⭐⭐             | ⭐⭐   | ⭐⭐⭐               | ⭐⭐⭐                   |
+| Transparency to app            | ⭐                    | ⭐⭐             | ⭐⭐⭐ | ❌                   | ⭐⭐⭐                   |
+| ⬇️ **Latency** overhead        | ⭐⭐⭐                | ❌               | ⭐     | ⭐⭐⭐               | ⭐⭐                     |
+| ⬇️ **CPU, memory** overhead    | ⭐⭐⭐                | ⭐⭐⭐           | ⭐⭐⭐ | ⭐⭐⭐               | ❌                       |
+| ⬇️ **Infrastructure** overhead | ⭐⭐⭐                | ⭐               | ⭐⭐   | ❌                   | ❌                       |
+
+| Sign   | Meaning     |
+| ------ | ----------- |
+| ❌     | Poor        |
+| ⭐     | Moderate    |
+| ⭐⭐   | Strong      |
+| ⭐⭐⭐ | Very Strong |
 
 ### Service Communication Protocol
 
 #### Message encoding vs Network encoding
 
-#### REST APIs: HTTP + JSON
+Breaking codebase into services 👈 Define/maintain APIs 👈 Protocol decisions for APIs
 
-#### Serialization libraries
+message encoding
+: How will you serialize[^35] data?
+: e.g. JSON, Protocol Buffers; HTML, XML
 
-#### RPC libraries
+network encoding
+: How will you send that data over the network?
+: e.g. HTTP, HTTP/2
 
-#### Key factor of service communication protocol
+#### Common protocols for Service Communication
 
-##### Programming language support
+##### REST APIs: HTTP + JSON
 
-##### Client support
+REST
+: **Re**presentation **S**tate **T**ransfer
+: de factor standard for building web APIs
 
-##### Schema and code generation
+For REST:
 
-##### Ease of debugging
+- network encoding: HTTP
+- message encoding: JSON (or HTML)
 
-##### Performance
+##### Serialization libraries
 
-##### Ecosystem
+Serialization libraries supports:
+
+- defining a schema
+- compling stubs for various programming languages
+
+e.g. [Protocol Buffers], [Cap’n Proto] [^36], [FlatBuffers] [^37], [Thrift], [Avro]
+
+Serialization libraries:
+
+- can use HTTP
+- but for better performance: they will use HTTP/2
+
+##### RPC libraries
+
+RPCs libraries
+: one level up from serialization libraries
+: designed for _remote procedure call (RPC)_, where
+: - a calling to a remote procedure, is
+: - the same as a calling to a local procedure
+: generate both client & server stubs
+: HTTP/2 + Protocol Buffers
+
+e.g. [gRPC], [Connect RPC], [drpc], [Twirp]
+
+---
+
+|                         | Examples          | Network encoding | Message encoding                              |
+| ----------------------- | ----------------- | ---------------- | --------------------------------------------- |
+| REST                    |                   | HTTP             | JSON                                          |
+| Serialization libraries |                   | HTTP/2           | Protocol Buffers, Cap'n Proto, FlatBuffers... |
+| RPC libraries           | gRPC, Connect RPC | HTTP/2           | Protocol Buffers                              |
+
+#### Key factors of Service Communication Protocol
+
+| Key factor                   | What to consider?                                                                          | Notes                                                                                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Programming language support | - Which programming languages are used at your company?                                    |                                                                                                                                           |
+|                              | - Does they support the message encoding you need?                                         | - `JSON`: is supported by almost any programming languages<br/>- `Serizization protocols`: are supported in popular ones                  |
+| Client support               | - Which clients do your APIs need to support?                                              | - Web browsers, mobiles, IoT...                                                                                                           |
+|                              | - Which protocols do these clients support?                                                | - `HTTP + JSON`: every clients, native to web browsers<br/>- `Serizization protocols`: hit or miss, especially with web browsers          |
+|                              |                                                                                            |                                                                                                                                           |
+| Schema and code generation   | Does the message encoding supports:                                                        |                                                                                                                                           |
+|                              | - defining a schema?                                                                       | - `HTTP + JSON`: doesn't support (but can use other tools, e.g. [OpenAPI])<br/>- `Serialization/RPC libraries`: strong                    |
+|                              | - generate client stubs?                                                                   |                                                                                                                                           |
+|                              | - generate documentation?                                                                  |                                                                                                                                           |
+| Ease of debugging            | How hard is it to test an API (built with this tool) or to debug problems?                 | - `HTTP + JSON`: easy, any HTTP client can be used: <br/>   - web browser<br/>   - UI tools, e.g. Postman<br/>   - CLI tools, e.g. `curl` |
+|                              |                                                                                            | - `Serialization/RPC libraries`: require special tooling                                                                                  |
+| Performance                  | How efficient are the message/network encoding<br/>in terms of bandwidth/memory/CPU usage? | `HTTP + JSON` < `Serialization/RPC libraries`                                                                                             |
+|                              |                                                                                            |                                                                                                                                           |
+| Ecosystem                    | - Documentation? Updates?                                                                  | - `HTTP + JSON`: largest ecosystem                                                                                                        |
+|                              | - Tools, plugin, related projects                                                          | - `Serialization/RPC libraries`: small                                                                                                    |
+|                              | - Hire new developers                                                                      |                                                                                                                                           |
+|                              | - Find answers on the Internet (StackOverflow)                                             |                                                                                                                                           |
+|                              |                                                                                            |                                                                                                                                           |
+
+> [!TIP]
+> The generate rule is:
+>
+> - Use HTTP + JSON for most APIs
+> - Only consider alternatives in special cases
+>
+>   e.g. At very large scales:
+>
+>   - hundreds of servies
+>   - thousands of queries per second
 
 ### Service Mesh
 
@@ -2185,6 +2414,28 @@ Tradeoffs:
 [AWS Client VPN]: https://aws.amazon.com/vpn/client-vpn/
 [Google Cloud VPN]: https://cloud.google.com/network-connectivity/docs/vpn/concepts/overview
 [AWS Virtual Private Gateways]: https://docs.aws.amazon.com/vpn/latest/s2svpn/how_it_works.html
+[Consul]: https://www.consul.io/
+[etcd discovery]: https://etcd.io/docs/v3.2/dev-guide/grpc_naming/
+[Curator]: https://curator.apache.org/docs/about/
+[ZooKeeper]: https://zookeeper.apache.org/
+[Eureka]: https://github.com/Netflix/eureka
+[Synapse]: https://airbnb.io/projects/synapse/
+[Envoy]: https://www.envoyproxy.io/
+[Configuration files]: #configuration-files
+[Load balancers]: #load-balancers
+[DNS]: #dns
+[Registry + Library]: #service-discovery-tools-with-service-discovery-library
+[Registry + Local proxy]: #service-discovery-tools-with-local-proxy
+[Protocol Buffers]: https://protobuf.dev/
+[Cap’n Proto]: https://capnproto.org/
+[FlatBuffers]: https://flatbuffers.dev/
+[Thrift]: https://thrift.apache.org/
+[Avro]: https://avro.apache.org/
+[gRPC]: https://grpc.io/
+[Connect RPC]: https://connectrpc.com/
+[drpc]: https://github.com/storj/drpc
+[Twirp]: https://twitchtv.github.io/twirp/
+[OpenAPI]: https://www.openapis.org/
 
 [^1]: <https://datatracker.ietf.org/doc/html/rfc791#section-2.3>
 [^2]: <https://en.wikipedia.org/wiki/Bit_array>
@@ -2291,3 +2542,17 @@ Tradeoffs:
     - the server can verify the user (is really who they say they are) using the client’s certificate.
 
 [^33]: Network transparency, in its most general sense, refers to the ability of a protocol to transmit data over the network in a manner which is not observable (“transparent” as in invisible) to those using the applications that are using the protocol. <https://en.wikipedia.org/wiki/Network_transparency>
+[^34]: A _sidecar container_ is a container that is always deployed in tandem with every one of your application containers.
+[^35]: Serialization is the process of
+
+    - translating a data structure or object state into a format that can be
+      - stored (e.g. files in secondary storage devices, data buffers in primary storage devices) or
+      - transmitted (e.g. data streams over computer networks) and
+      - reconstructed later (possibly in a different computer environment).
+
+[^36]: For Cap'n Proto, there is no encoding/decoding step.
+
+    - The Cap’n Proto encoding is appropriate both as a data interchange format and an in-memory representation
+    - Once your structure is built, you can simply write the bytes straight out to disk!
+
+[^37]: FlatBuffers is an efficient cross platform serialization library. It was originally created at Google for game development and other performance-critical applications.
