@@ -1743,7 +1743,7 @@ Now let's access the private instance:
 
   e.g.
 
-  - run `ssh -L 8080:<PRIVATE_IP>:8080 ec2-user@<PULIC_IP>` and
+  - run `ssh -L 8080:<PRIVATE_IP>:8080 ec2-user@<PUBLIC_IP>` and
   - then open <http://localhost:8080> in your browser.
 
 - Try using the `-D` flag to set up a SOCKS proxy:

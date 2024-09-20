@@ -508,17 +508,17 @@ To treat the initial AWS account as the management account, you need to undeploy
 
   # (2)
   output "dev_role_arn" {
-    description = "The ARN of the IAM role you can use to manage dev from mgmt"
+    description = "The ARN of the IAM role you can use to manage dev from management account"
     value       = module.child_accounts.dev_role_arn
   }
 
   output "stage_role_arn" {
-    description = "The ARN of the IAM role you can use to manage stage from mgmt"
+    description = "The ARN of the IAM role you can use to manage stage from management account"
     value       = module.child_accounts.stage_role_arn
   }
 
   output "prod_role_arn" {
-    description = "The ARN of the IAM role you can use to manage prod from mgmt"
+    description = "The ARN of the IAM role you can use to manage prod from management account"
     value       = module.child_accounts.prod_role_arn
   }
   ```
