@@ -2464,7 +2464,410 @@ A service mesh can feel like a magical way to dramatically upgrade the security 
 
 #### Example: Istio Service Mesh with Kubernetes Microservices
 
+> [!TIP]
+>  [Istio] is one of the most popular service mesh for Kubernetes:
+>
+> - created by Google, IBM, Lyft
+> - open sourced in 2017
+
+In this example, you will use Istio to manage the 2 microservices in [Chapter 6 - Example: Deploy Microservices In Kubernetes](./chap-06.md#example-deploy-microservices-in-kubernetes).
+
+- Copy the previous example
+
+  ```bash
+  cd examples
+  cp -r ch6/sample-app-frontend ch7/
+  cp -r ch6/sample-app-backend ch7/
+  ```
+
+- Update Kubernetes config to use the same cluster as previous example
+
+  ```bash
+  kubectl config use-context docker-desktop
+  ```
+
+- Fowllow the [official guide](https://istio.io/latest/docs/setup/getting-started/#download) to install `Istioctl` - a CLI tool that help use install Istio into your Kubernetes cluster
+- Use `istioctl` to install Istio with a minimal profile[^38]
+
+  ```bash
+  istioctl install --set profile=minimal -y
+  ```
+
+- Configure Istio to inject its sidecar into all Pod you deploy into the default namespace
+
+  ```bash
+  kubectl label namespace default istio-injection=enabled
+  ```
+
+  > [!NOTE]
+  > That sidecar is what provides all service discovery features: security, observability, resiliency, traffic management
+  >
+  > - without you having to change your application code.
+
+- Use the sample add-ons that come with the Istio installer, which include:
+
+  - a dashboard ([Kiali])
+  - a database for monitoring data ([Prometheus])
+  - a UI for visualizing monitoring data ([Grafana])
+  - a distributed tracing tool ([Jaeger])
+
+  ```bash
+  kubectl apply -f samples/addons
+  kubectl rollout status deployment/kiali -n istio-system
+  ```
+
+  > [!NOTE]
+  > Istio also supports other [integration](https://istio.io/latest/docs/ops/integrations/kiali/)
+
+- Very everthing is installed correctly
+
+  ```bash
+  istioctl verify-install
+  ```
+
+---
+
+- Deploy the frontend & backend as before
+
+  ```bash
+  cd ../sample-app-backend
+  kubectl apply -f sample-app-deployment.yml
+  kubectl apply -f sample-app-service.yml
+
+  cd ../sample-app-frontend
+  kubectl apply -f sample-app-deployment.yml
+  kubectl apply -f sample-app-service.yml
+  ```
+
+- Make a request to the frontend
+
+  ```bash
+  curl localhost
+  ```
+
+---
+
+- Check if Istio is doing anything by opening up the Kiali dashboard
+
+  ```bash
+  istioctl dashboard kiali
+  ```
+
+- Open `Traffic Graph` to see a visualization of the path your request take through your microservices
+- Open `Workloads` / `Logs` to see
+  - logs from your backend
+  - as well as access logs from Istio components, e.g. Envoy Proxy
+
+---
+
+By default, to make it possible to install Istio without breaking everything, Istio intially allows unencrypted, unauthenticated, unauthorized requests to go through.
+
+- Let's add authentication & authorization policy for Istio
+
+  ```yaml
+  # examples/ch7/istio/istio-auth.yml
+
+  apiVersion: security.istio.io/v1beta1
+  kind: PeerAuthentication #               (1)
+  metadata:
+    name: require-mtls
+    namespace: default
+  spec:
+    mtls:
+      mode: STRICT
+
+  --- #                                    (2)
+  apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy #              (3)
+  metadata:
+    name: allow-nothing
+    namespace: default
+  spec: {}
+  ```
+
+  - (1): Create an _authentication policy_ that requires all service calls to use _mTLS_ (mutual TLS)
+
+    - This will enforce that every connection is encrypted & authenticated
+    - Istio will handle mTLS for you, completely transparently.
+
+  - (2): Use `---` divider to put multiple Kubernetes configurations in a single YAML file.
+
+  - (3): Create an _authorization policy_ that will block all service calls by default.
+    - You will need to add addtional authorization to allow just the service communication that you know is valid.
+
+- Hit `Ctrl+C` to shutdown Grafana ???
+
+- Deploy these policies
+
+  ```bash
+  cd ../istio
+  kubectl apply -f istio-auth.yml
+  ```
+
+- Let's try to access the frontend app again
+
+  ```bash
+  curl localhost
+  # curl: (52) Empty reply from server
+  ```
+
+  - Since your request (to the the frontend) wasn't using mTLS, Istio rejected the connection immediately.
+
+---
+
+- Add an authentication policy to disable the mTLS requirement for the frontend
+
+  ```yaml
+  # examples/ch7/sample-app-frontend/kubernetes-config.yml
+
+  apiVersion: apps/v1
+  kind: Deployment
+  # ...
+
+  ---
+  apiVersion: v1
+  kind: Service
+  # ...
+
+  ---
+  apiVersion: security.istio.io/v1beta1
+  kind: PeerAuthentication
+  metadata:
+    name: allow-without-mtls
+    namespace: default
+  spec:
+    selector:
+      matchLabels:
+        app: sample-app-frontend-pods # (1)
+    mtls:
+      mode: DISABLE #                   (2)
+  ```
+
+  - (1): Target the frontend Pods
+  - (2): Disable the mTLS requirement
+
+- Deploy the new policy
+
+  ```bash
+  cd ../sample-app-frontend
+  kubectl apply -f kubernetes-configuration.yml
+  ```
+
+- Access the frontend again
+
+  ```bash
+  curl --write-out '\n%{http_code}\n' localhost
+  # RBAC: access denied
+  # 403
+  ```
+
+  - Use `--write-out` flag so `curl` prints the HTTP response after the response body.
+
+  This time it's a `403 Forbidden` status with `access denied` in the response body.
+
+  - The `allow-nothing` authorization policy is still blocking all requests.
+
+  > [!TIP]
+  > To fix this, you need to add authorization policies to the backend & frontend.
+  >
+  > - This requires that Istio has some way to identify the frontend & backend (authentiacation).
+
+  > [!NOTE]
+  > Istio uses Kubernetes _service accounts_ as identities:
+  >
+  > - It provides a TLS certificate to each application based on its service identity
+  > - Then it uses mTLS to provide mutual authentication.
+  >
+  >   - Istio will have the frontend verify it is really taling to the backend.
+  >   - Istio will have the backend verify the request is from the frontend.
+  >
+  >   All the TLS details will be handled by Istio, all you need to do is:
+  >
+  >   - assiciating the frontend & backend with their own K8s service accounts
+  >   - adding an authorization to each one
+
+---
+
+- Configure the frontend with a service account and authorization policy
+
+  ```yaml
+  # examples/ch7/sample-app-frontend/kubernetes-config.yml
+
+  apiVersion: apps/v1
+  kind: Deployment
+  spec:
+    replicas: 3
+    template:
+      metadata:
+        labels:
+          app: sample-app-frontend-pods
+      spec:
+        serviceAccountName: sample-app-frontend-service-account # (1)
+        containers:
+          - name: sample-app-frontend
+  # ... (other params omitted) ...
+
+  ---
+  apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: sample-app-frontend-service-account #                   (2)
+
+  ---
+  apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy #                                     (3)
+  metadata:
+    name: sample-app-frontend-allow-http
+  spec:
+    selector:
+      matchLabels:
+        app: sample-app-frontend-pods #                           (4)
+    action: ALLOW #                                               (5)
+    rules: #                                                      (6)
+      - to:
+          - operation:
+              methods: ["GET"]
+  ```
+
+  - (1): Configure the frontend's Deployment with a service account (will be created in (2))
+  - (2): Create a service account
+  - (3): Add an authorization policy
+  - (4): Target the frontend's Pods
+  - (5): Allow requests that match the rules in (6)
+  - (6): Allow the frontend to receive requests from all source, but only for HTTP GET requests.
+
+- Apply the configuration
+
+  ```bash
+  kubectl apply -f kubernetes-config.yml
+  ```
+
+---
+
+- Combine the backend's configuration then configure the backend with a service account & authorization policy
+
+  ```yaml
+  # examples/ch7/sample-app-backend/kubernetes-config.yml
+
+  apiVersion: apps/v1
+  kind: Deployment
+  spec:
+    replicas: 3
+    template:
+      metadata:
+        labels:
+          app: sample-app-backend-pods
+      spec:
+        serviceAccountName: sample-app-backend-service-account # (1)
+        containers:
+          - name: sample-app-backend
+  # ... (other params omitted) ...
+
+  ---
+  apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: sample-app-backend-service-account #                   (2)
+
+  ---
+  apiVersion: security.istio.io/v1 #                             (3)
+  kind: AuthorizationPolicy
+  metadata:
+    name: sample-app-backend-allow-frontend
+  spec:
+    selector:
+      matchLabels:
+        app: sample-app-backend-pods #                           (4)
+    action: ALLOW
+    rules: #                                                     (5)
+      - from:
+          - source:
+            principals:
+              - "cluster.local/ns/default/sa/sample-app-frontend-service-account"
+        to:
+          - operation:
+              methods: ["GET"]
+  ```
+
+  - (1): Configure the backend’s Deployment with a service account. The service account itself is created in (2).
+  - (2): Create a service account (for the backend).
+  - (3): Add an authorization policy (for the backend).
+  - (4): Apply the authorization policy to the backend’s Pods.
+  - (5): Define rules that allow HTTP GET requests to the backend from the service account of the frontend.
+
+- Apply the configuration:
+
+  ```bash
+  cd ../sample-app-backend
+  kubectl apply -f kubernetes-config.yml
+  ```
+
+---
+
+- Test the frontend one more time
+
+  ```bash
+  curl --write-out '\n%{http_code}\n' localhost
+  # <p>Hello from <b>backend microservice</b>!</p>
+  # 200
+  ```
+
+  It's now a `200 OK` reponse, with the expected HTML reponse body.
+
+  Your microservices are
+
+  - running in a Kubernetes cluster
+  - using service discovery
+  - communicating securely via a service mesh
+
 #### Get your hands dirty: Service meshes and Istio
+
+- Try out some of Istio’s other [observability](https://istio.io/latest/docs/tasks/observability/) functionality.
+
+  e.g. Using Grafana to view your metrics: `istioctl dashboard grafana`.
+
+- Try out some of Istio’s [traffic management](https://istio.io/latest/docs/tasks/traffic-management/) functionality.
+
+  e.g. request timeouts, circuit breaking, and traffic shifting.
+
+- Consider if Istio’s [ambient mode](https://istio.io/latest/docs/ambient/overview/) is a better fit for your workloads than the default sidecar mode.
+
+---
+
+After you've finished testing, cleanup your Kubernetes cluster:
+
+- Clean up the apps
+
+  ```bash
+  cd ../sample-app-frontend
+  kubeclt delete -f kubernetes-config.yml
+  cd ../sample-app-backend
+  kubeclt delete -f kubernetes-config.yml
+  ```
+
+- Uninstall Istio:
+
+  - Remove policies
+
+    ```bash
+    cd ../istio
+    kubectl delete -f istio-auth.yml
+    ```
+
+  - Uninstall addons
+
+    ```bash
+    cd ../istio-<VERSION>
+    kubectl delete -f samples/addons
+    ```
+
+  - Uninstall Istio itself
+
+    ```bash
+    istioctl uninstall -y --purge
+    kubectl delete namespace istio-system
+    kubectl label namespace default istio-injection-
+    ```
 
 ## Conclusion
 
@@ -2549,7 +2952,7 @@ A service mesh can feel like a magical way to dramatically upgrade the security 
 [Twirp]: https://twitchtv.github.io/twirp/
 [OpenAPI]: https://www.openapis.org/
 [Linkerd]: https://linkerd.io/
-[Istio]: https://istio.io/
+[Istio]: https://istio.io/latest/about/service-mesh/
 [Cilium]: https://cilium.io/
 [Traefik Mesh]: https://traefik.io/traefik-mesh/
 [AWS App Mesh]: https://aws.amazon.com/app-mesh/
@@ -2557,6 +2960,10 @@ A service mesh can feel like a magical way to dramatically upgrade the security 
 [Consul service mesh]: https://developer.hashicorp.com/consul/docs/connect
 [Kuma]: https://kuma.io/
 [Kong Mesh]: https://konghq.com/products/kong-mesh
+[Kiali]: https://istio.io/latest/docs/ops/integrations/kiali/
+[Prometheus]: https://prometheus.io/
+[Grafana]: https://grafana.com/
+[Jaeger]: https://www.jaegertracing.io/
 
 [^1]: <https://datatracker.ietf.org/doc/html/rfc791#section-2.3>
 [^2]: <https://en.wikipedia.org/wiki/Bit_array>
@@ -2677,3 +3084,4 @@ A service mesh can feel like a magical way to dramatically upgrade the security 
     - Once your structure is built, you can simply write the bytes straight out to disk!
 
 [^37]: FlatBuffers is an efficient cross platform serialization library. It was originally created at Google for game development and other performance-critical applications.
+[^38]: For production usage, see [Istio install instructions](https://istio.io/latest/about/faq/#install-method-selection)
