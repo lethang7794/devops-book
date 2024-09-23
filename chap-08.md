@@ -31,6 +31,12 @@ This chapter will walk you through a several hand-on examples about secure data:
 
 ## Cryptography Primer
 
+
+> [!IMPORTANT] 
+> Key takeaway #1
+>
+> Don’t roll your own cryptography: always use mature, battle-tested, proven algorithms and implementations.
+
 ### Encryption
 
 ### Hashing
@@ -39,15 +45,55 @@ This chapter will walk you through a several hand-on examples about secure data:
 
 ### Secrets Management
 
+> [!IMPORTANT] 
+> Key takeaway #2
+>
+> Do not store secrets as plaintext.
+
+> [!IMPORTANT] 
+> Key takeaway #3
+>
+> Avoid storing secrets whenever possible by using SSO, 3rd party services, or just not storing the data at all.
+
+> [!IMPORTANT] 
+> Key takeaway #4
+>
+> Protect personal secrets, such as passwords and credit card numbers, by storing them in a password manager.
+
+> [!IMPORTANT] 
+> Key takeaway #5
+>
+> Protect infrastructure secrets, such as database passwords and TLS certificates, by using a KMS and/or a general-purpose secret store.
+
+> [!IMPORTANT] 
+> Key takeaway #6
+>
+> Never store user passwords (encrypted or otherwise). Instead, use a password hash function to compute a hash of each password with a salt and pepper, and store those hash values.
+
 ### Encryption at Rest
+
+> [!IMPORTANT] 
+> Key takeaway #7
+>
+> You can encrypt data at rest using full-disk encryption, data store encryption, and application-level encryption.
 
 ## Secure Communication
 
 ### Transport Layer Security (TLS)
 
+> [!IMPORTANT] 
+> Key takeaway #8
+>
+> You can encrypt data in transit using TLS. You get a TLS certificate from a certificate authority.
+
 ### Example: HTTPS with LetsEncrypt and AWS Secrets Manager
 
 ### End-to-End Encryption
+
+> [!IMPORTANT] 
+> Key takeaway #9
+>
+> Use end-to-end encryption to protect data so that no one other than the intended recipients can see it—not even the software provider.
 
 ## Conclusion
 
