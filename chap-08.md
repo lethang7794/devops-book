@@ -363,7 +363,7 @@ e.g. Alice wants to send a message to Bob
 >   - the [Go crypto library](https://pkg.go.dev/crypto)
 >   - [Java Cryptography Architecture](https://docs.oracle.com/javase/8/docs/technotes/guides/security/crypto/CryptoSpec.html)
 >
-> - or CLI tools such as [GPG](https://gnupg.org/) or age.
+> - or CLI tools such as [GPG](https://gnupg.org/) or [age](https://github.com/FiloSottile/age).
 
 ---
 
@@ -443,35 +443,319 @@ e.g. Alice wants to send a message to Bob
 
 #### What is hashing
 
-#### Cryptography hashing functions
+hashing
+: the process of _map_ data (of arbitrary size) to **fixed-size values**
 
-- Pre-image resistance
-- Second pre-image resistance
-- Collision resistance
+hash function
+: a function that can
+: - take data (e.g. string, file) as input, and
+: - convert it to a fixed-size value (aka a _hash value_, a _digest_, a _hash_), in a deterministic manner, so that
+: given the **same input**, you always get the **same output**.
+
+e.g. The `SHA-256` hash function
+
+- always produces a 256-bit output, whether you feed into it a file that is 1 bit long or 5 million bits long, and
+- given the same file, you always get the same 256-bit output.
+
+Hash functions are _one-way transformations_:
+
+- it’s easy to feed in an input, and get an output,
+- but given just the output,
+  - there is no way to get back the original input.
+
+> [!NOTE]
+> This is a difference from encryption functions, which are _two-way transformations_, where
+>
+> - given an output (and an encryption key),
+>   - you can always get back the original input.
+
+#### Two types of hash functions
+
+##### Non-cryptographic hash functions
+
+Used in application that don't have rigorous security requirements.
+
+e.g.
+
+- Hash tables (in programming languages)
+- Error-detecting codes
+- Cyclic redundancy checks
+- Bloom filters
+
+##### Cryptographic hash functions
+
+Have special properties that are desirable for cryptography, including:
+
+- **Pre-image resistance**
+
+  Given a hash value (the output), there’s no way to
+
+  - figure out the **original string** (the input) that
+    - was fed into the hash function to produce that output
+
+- **Second pre-image resistance**
+
+  Given a hash value (the output), there’s no way to
+
+  - find **any inputs** (the original string or any other input) that
+    - could be fed into the hash function to produce this output.
+
+- **Collision resistance**
+
+  There’s no way to
+
+  - find any two strings (any two inputs) that
+    - produce the **same hash value** (the same output).
 
 #### Cryptographic hashing algorithms
 
-- SHA-2 and SHA-3
-- SHAKE and cSHAKE
+The common cryptographic hashing algorithms out there are
+
+- MD5
+- SHA[^11] families: SHA-0, SHA-1, **SHA-2**, **SHA-3**
+- **SHAKE**, and **cSHAKE**
+
+---
+
+Many of them are no longer considered secure, except:
+
+- **SHA-2** and **SHA-3**
+
+  SHA-2 family: including `SHA-256`, `SHA-512`
+  SHA-3 family: including `SHA3-256`, `SHA3-512`
+
+- **SHAKE**[^12] and **cSHAKE**[^13]
+
+  Based on SHA-3, added the ability to produce an output of any length you specified (aka _extendable output functions_)
 
 #### Use cases of cryptographic hash functions
 
 ##### Verifying the integrity of messages and files
 
+When making a file available for download, it's common to share the hash of the file contents, too.
+
+e.g.
+
+- The binary release of Golang 1.23.1 for Linux x86-64 is available
+  - as a file at [go1.23.1.linux-amd64.tar.gz](https://go.dev/dl/go1.23.1.linux-amd64.tar.gz)
+  - with a SHA256 Checksum of `49bbb517cfa9eee677e1e7897f7cf9cfdbcf49e05f61984a2789136de359f9bd` ([Source](https://go.dev/dl/))
+
+> [!TIP]
+> When using to verify the integrity of a file, the hash value is aka _checksum_.
+
+> [!TIP]
+> There are projects that provides even more transparent for how your private key is used to sign a file.
+>
+> e.g. [Sigsum](https://www.sigsum.org/)
+
 ##### Message authentication codes (MAC)
+
+A message authentication code (MAC)
+: combines a hash with a secret key
+: to create an _authentication tag_ for some data that
+: allows you to verify
+: - not only the integrity of the data (that no one modified it),
+: - but also the authenticity (that the data truly came from an intended party)
+
+e.g. For a cookie with username on your website
+
+- If you store _just_ the username, a malicious actor could create a cookie pretending to any user.
+- So you store:
+  - the username
+  - an authentication tag, which is computed from
+    - the username
+    - a secret key
+- Every time you get a cookie, you
+  - compute the authentication tag from
+    - the username 👈 may be changed by malicious actor
+    - your secret key 👈 only you have this
+  - compare with the authentication in the cookie
+  - if these 2 authentication tags match, you can be confident that the cookie is written you.
+
+---
 
 Common MAC algorithms:
 
-- HMAC
-- KMAC
+- **HMAC (Hash-based MAC)**
+
+  A standard based on various hash function, e.g. HMAC-SHA256
+
+- **KMAC**
+
+  Based on cSHAKE.
 
 ##### Authenticated encryption
 
+> [!NOTE]
+> If you only use symmetric-key encryption, unauthorized parties:
+>
+> - can't _see_ the data
+> - but they might _modified_ that data
+
+Instead of using symmetric-key encryption by itself, you almost always use it with a MAC, which are called _authenticated encryption_:
+
+- The symmetric-encryption encryption:
+
+  - The message is impossible to understand without the secret key 👈 confidentiality
+
+- The MAC:
+
+  - For every encrypted message, you:
+
+    - calculate an authenticated tag, then include it (as plaintext) with the messages, aka _associated data (AD)_
+
+  - When you receive a message, you:
+
+    - calculate another authenticated tag from:
+
+      - the message + the AD
+      - your secret key (that only you have) 👈 authenticity
+
+    - if the two authenticated tag match, you can be sure both:
+
+      - the message
+      - the AD
+
+      could not have been tampered with 👈 integrity
+
+> [!TIP]
+> The two recommended symmetric-key encryption algorithms in [previous chapter](#symmetric-key-encryption-algorithms) - AES-GCM and ChaCha20-Poly1305 - are actually _authenticated encryption with associated data (AEAD)_[^14].
+
 ##### Digital signatures
+
+digital signature
+: combine a hash function with asymmetric-key encryption
+: allow validating the integrity and authenticity
+
+You
+
+- take any message
+- pass it along with your private key
+- get an output called a signature
+- then send that signature with the original message
+
+Anyone can validate the signature using your public key and the message.
+
+---
+
+e.g. Bob signs a message with his private key, and sends the message and signature to Alice, who can validate the signature using Bob’s public key
+![alt text](assets/asymmetric-key-signature.png)
 
 ##### Password storage
 
+There a a set of cryptographic hashing algorithms used specifically for storing user passwords.
+
+> [!WARNING]
+> For user passwords, do not use encryption, instead using hashing (with the specialized password hashing functions).
+
+---
+
+| First ingredient - Hashing    | Second ingredient - Encryption | Third ingredient | Result                                                                                      | CIA   |
+| ----------------------------- | ------------------------------ | ---------------- | ------------------------------------------------------------------------------------------- | ----- |
+| Cryptographic hashing         |                                |                  | [Verifying the integrity of messages/files](#verifying-the-integrity-of-messages-and-files) | \_I\_ |
+| Cryptographic hashing         |                                | Secret key       | [Message authentication codes (MAC)](#message-authentication-codes-mac)                     | \_IA  |
+| (MAC)                         | Symmetric-key encryption       | (MAC)            | [Authenticated encryption](#authenticated-encryption)                                       | CIA   |
+| Cryptographic hashing         | Asymmetric-key encryption      |                  | [Digital signatures](#digital-signatures)                                                   | \_IA  |
+| Special cryptographic hashing |                                |                  | [Storing user passwords](#password-storage)                                                 | C\_\_ |
+
 #### Example: File integrity, HMAC, and signatures with OpenSSL
+
+- Using hash functions to check integrity of a file
+
+  - Create a file
+
+    ```bash
+    echo "Hello, World" > file.txt
+    ```
+
+  - Calculate the hash using SHA-256
+
+    ```bash
+    openssl sha256 file.txt
+    # SHA2-256(file.txt)= 8663bab6d124806b9727f89bb4ab9db4cbcc3862f6bbf22024dfa7212aa4ab7d
+    ```
+
+  - Make a change to the file
+
+    ```bash
+    sed -i 's/W/w/g' file.txt
+    ```
+
+  - Re-calculate the hash using SHA-256
+
+    ```bash
+    openssl sha256 file.txt
+    # SHA2-256(file.txt)= 37980c33951de6b0e450c3701b219bfeee930544705f637cd1158b63827bb390
+    ```
+
+    👉 Changing a single character, but the hash is completely different.
+
+---
+
+- Using MAC to check integrity & authenticity of a file
+
+  - Use the `password` string as the secret key for HMAC
+
+    ```bash
+    openssl sha256 -hmac password file.txt
+    # HMAC-SHA2-256(file.txt)= 3b86a735fa627cb6b1164eadee576ef99c5d393d2d61b7b812a71a74b3c79423
+    ```
+
+  - Change the letter `H` to `h`
+
+    ```bash
+    sed -i 's/H/h/g' file.txt
+    ```
+
+  - Re-calculate the HMAC using the same secret key
+
+    ```bash
+    openssl sha256 -hmac password file.txt
+    # HMAC-SHA2-256(file.txt)= 1b0f9f561e783df65afec385df2284d6f8419e600fb5e4a1e110db8c2b50e73d
+    ```
+
+  - Re-calculate the HMAC using a different secret key
+
+    ```bash
+    openssl sha256 -hmac password1 file.txt
+    # HMAC-SHA2-256(file.txt)= 7624161764169c4e947f098c41454986d934f7b07782b8b1903b0d10b90e0d8a
+    ```
+
+    - If malicious actors don't have the your secret key, they can't get back the same HMAC as your.
+
+---
+
+- Digital signature
+
+  - Reuse the key pair from previous example
+  - Compute the signature for `file.txt` using your private key
+
+    ```bash
+    openssl sha256 -sign private-key.pem -out file.txt.sig file.txt
+    ```
+
+  - Validate the signature using your public key
+
+    ```bash
+    openssl sha256 -verify public-key.pem -signature file.txt.sig file.txt
+    # Verified OK
+    ```
+
+  ***
+
+  - Modify anything: the signature in `file.txt.sig`, the contents of `file.txt`, the private key, the public key and the signature verification will fail.
+
+    ```bash
+    sed -i 's/, / /g' file.txt
+    ```
+
+  - Re-validate the signature
+
+    ```bash
+    openssl sha256 -verify public-key.pem -signature file.txt.sig file.txt
+    # Verification failure
+    # ...bad signature...
+    ```
 
 ## Secure Storage
 
@@ -733,3 +1017,7 @@ Common MAC algorithms:
 [^8]: ECIES is actually a hybrid approach that combines asymmetric-key and symmetric-key encryption, as discussed next.
 [^9]: Each user shares their public keys, and all other users can use those to encrypt data.
 [^10]: <https://blog.cloudflare.com/a-relatively-easy-to-understand-primer-on-elliptic-curve-cryptography/>
+[^11]: The Secure Hash Algorithm (SHA) family is a set of cryptographic hash functions created by the NSA
+[^12]: SHAKE (Secure Hash Algorithm and KECCAK)
+[^13]: cSHAKE (customizable SHAKE)
+[^14]: <https://en.wikipedia.org/wiki/Authenticated_encryption#Authenticated_encryption_with_associated_data>
