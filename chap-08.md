@@ -650,13 +650,13 @@ There a a set of cryptographic hashing algorithms used specifically for storing 
 
 ---
 
-| First ingredient - Hashing   | Second ingredient - Encryption | Third ingredient | Result                                                                                      | CIA   |
-| ---------------------------- | ------------------------------ | ---------------- | ------------------------------------------------------------------------------------------- | ----- |
-| Hashing                      |                                |                  | [Verifying the integrity of messages/files](#verifying-the-integrity-of-messages-and-files) | \_I\_ |
-| Hashing                      |                                | Secret key       | [Message authentication codes (MAC)](#message-authentication-codes-mac)                     | \_IA  |
-| Hashing (MAC)                | Symmetric-key encryption       | Secret key (MAC) | [Authenticated encryption](#authenticated-encryption)                                       | CIA   |
-| Hashing                      | Asymmetric-key encryption      |                  | [Digital signatures](#digital-signatures)                                                   | \_IA  |
-| Hashing (Special algorithms) |                                |                  | [Storing user passwords](#password-storage)                                                 | C\_\_ |
+| Encryption                | Hashing                      | Other            | Result                                                                                      | CIA   |
+| ------------------------- | ---------------------------- | ---------------- | ------------------------------------------------------------------------------------------- | ----- |
+|                           | Hashing                      |                  | [Verifying the integrity of messages/files](#verifying-the-integrity-of-messages-and-files) | \_I\_ |
+|                           | Hashing                      | Secret key       | [Message authentication codes (MAC)](#message-authentication-codes-mac)                     | \_IA  |
+| Symmetric-key encryption  | Hashing (MAC)                | Secret key (MAC) | [Authenticated encryption](#authenticated-encryption)                                       | CIA   |
+| Asymmetric-key encryption | Hashing                      |                  | [Digital signatures](#digital-signatures)                                                   | \_IA  |
+|                           | Hashing (Special algorithms) |                  | [Storing user passwords](#password-storage)                                                 | C\_\_ |
 
 #### Example: File integrity, HMAC, and signatures with OpenSSL
 
