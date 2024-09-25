@@ -1,5 +1,7 @@
 ---
 markmap:
+  initialExpandLevel: 6
+  colorFreezeLevel: 5
   htmlParser:
     selector: h1,h2,h3,h4,h5,h6
 ---
@@ -759,27 +761,138 @@ There a a set of cryptographic hashing algorithms used specifically for storing 
 
 ## Secure Storage
 
+By using encryption, you can:
+
+- store your data in a secure way 👈 aka _encryption at rest_ (This is one of the topic of this section)
+- communicate over the network in a secure way 👈 aka _encryption in transit_ (This is the topic of later section)
+
+But to store your data in a secure way (by using encryption)
+
+- you need to store the secret key (a prerequisite of encryption) in a secure way
+
+Isn't it a chicken-and-egg dilemma?
+
 ### Secrets Management
 
+Your software will need to handles a lot of secrets (not just the one use for encryption), it's your responsibility to keep all those secrets secure.
+
+To keep the secrets secures you need to know about _secrets management_.
+
 #### Two rules when working with secrets
+
+1. The first rule of secrets management is:
+   | "Do not store secrets as plaintext"
+
+2. The second rule of secrets management is:
+   | "DO NOT STORE SECRETS AS PLAINTEXT"
+
+---
+
+Do _not_
+
+- store secrets _as plaintext_
+
+  - in your code, in your version control
+  - in a `.txt` file
+  - in Google Docs
+
+- or send secrets _as plaintext_
+
+  - via email
+  - via chat
+
+> [!WARNING]
+> If you store your secrets as plaintext, it may be accessed by:
+>
+> - **Everyone** with access to the plaintext
+>
+>   - e.g.
+>
+>     - Someone that can access to your PC
+>     - Someone that can access to your VCS
+>     - Someone that can access to your Google Docs, email, chat accounts
+>
+> - Every software runs on your computer
+> - Every vulnerability in any software on your computer
+
+> [!TIP] What happens if a secret (as plaintext) is committed to VSC?
+>
+> - The secrets may end up in thousands of computers:
+>
+>   | Computers used ...         | Example                                                       |
+>   | -------------------------- | ------------------------------------------------------------- |
+>   | by developers on your team | Alice's PC, Bob's PC                                          |
+>   | by the VCS itself          | GitHub, GitLab, BitBucket                                     |
+>   | for CI                     | GitHub Actions, Jenkins, CircleCI                             |
+>   | for deployment             | HashiCorp Cloud Platform, AWS CloudFormation, Env0, Spacelift |
+>   | to host your software      | AWS, Azure, GCP                                               |
+>   | to backup your data        | iCloud, CrashPlan, S3, BackHub                                |
+>   | ...                        |                                                               |
+>
+> - If the repo is public, it might even be indexed by the search engines, e.g. Google, Bing
 
 > [!IMPORTANT] Key takeaway #2
 >
 > Do not store secrets as plaintext.
+>
+> - (Instead, use a proper _secret management tool_)
 
 ---
 
 #### Three types of secrets
 
-- Personal secrets
-- Infrastructure secrets
-- Customer secrets
+| Type of secret                  | What is it?                                                       | Example                                                                                                           |
+| ------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 1. 🤓 **Personal secrets**      | - Belong to a single person<br/>- Or shared by multiple people    | - Username/password of websites<br/>- SSH keys<br/>- Credit card numbers                                          |
+| 2. 🖧 **Infrastructure secrets** | Need to exposed to the **servers** that<br/>- _run your software_ | - Database passwords<br/>- API keys<br/>- TLS certificates                                                        |
+| 3. 🧑‍🤝‍🧑 **Customer secrets**      | Belong to the **customers** that<br/>- _use your software_        | - Username/password of customers<br/>- Personally Identifiable Info - PII<br/>- Personal Health Information - PHI |
+
+```mermaid
+mindmap
+id(Secret)
+  id)🤓 Personal secrets(
+    ::icon(fa fa-user)
+    Username/password of websites
+    SSH keys
+    Credit card numbers
+  id)🖧 Infrastructure secrets(
+    ::icon(fa fa-server)
+    Database passwords
+    API keys
+    TLS certificates
+  id)🧑‍🤝‍🧑 Customer secrets(
+    ::icon(fa fa-users)
+    Username/password of customers
+    Personally Identifiable Info - PII
+    Personal Health Information - PHI
+```
 
 #### How to avoid storing secrets
 
-- Single-sign on (SSO)
-- Third-party services
-- Don't store the data at all
+##### Single-sign on (SSO)
+
+With _single-sign on (SSO)_, you
+
+- allow users to login to your app
+  - via an existing _identity provider (IdP)_
+- by using a standard such as SAML, OAuth, OpenID, LDBAP, Kerberos
+
+e.g. To login to your app, users can use:
+
+- Their works accounts 👈 IdP is Google Workspace, or Active Directory
+- Their social media accounts 👈 IdP is Facebook, Twitter, or GitHub
+- Their email accounts[^15] 👈 IdP are any email providers
+
+##### Third-party services
+
+Instead of store the secrets yourself, you could offload this work to reputable third-party services:
+
+- For credit card numbers: use [Stripe], [PayPal], [Square], [Chargebee], [Recurly]
+- For passwords: use an authentication services such as: [Auth0], [Okta], [Amazon Cognito], [Google Firebase Authentication], [Supabase Authentication], [Stytch], or [Supertokens]
+
+##### Don't store the secrets at all
+
+If it isn't absolutely necessary for your business to store some data - e.g. PII, PHI - then don't.
 
 > [!IMPORTANT] Key takeaway #3
 >
@@ -787,34 +900,175 @@ There a a set of cryptographic hashing algorithms used specifically for storing 
 
 #### Working with secrets
 
+If you can't avoid storing the secrets, make sure to use the right tools for the job.
+
 ##### Working work personal secrets
 
-- _Password manager_:
+###### Password manager
 
-  - Standalone: 1Password, Bitwarden
-  - OS built-in
-  - Web-browser built-in
+To store [personal secrets](#three-types-of-secrets), you should use a _password manager_[^16]:
 
-- What make a password strong?
+- Standalone: [1Password], [Bitwarden], [NordPass], [Dashlane], [Enpass], [KeePassXC]
+- OS built-in: [macOS Keychain], [macOS Password], [Windows Credential Manager]
+- Web-browser built-in: [Google]/Edge[^17]/[Firefox] Password Manager.
 
-  - Unique
-  - Long
-  - Hard-to-guess
+> [!NOTE]
+> These "password manager" are primarily desiged to help you manage passwords,
+>
+> - but many of them also support other types of personal secrets: API tokens, credit card numbers...
 
-- How to come-up with a _strong password_? What is Diceware?
+###### How a passwork manager works
+
+- A password manager requires you to memorizes a single password - aka _master password_ - to login.
+- After you login, you can
+  - store new secrets
+  - access secrets that you stored previously
+
+> [!TIP]
+> Under the hood, a password manager use
+>
+> - symmetric-key encryption
+> - with your master password acts as the encryption key
+
+> [!WARNING]
+> The master password is the only layer of defense for all of your personal secrets, you should pick a _strong password_.
+
+###### What make a password strong?
+
+- **Unique**
+
+  If you use the same password for multiple websites,
+
+  - then if one of those websites is compromised and your password leaks - aka _data breach_ - which happens [all the time](https://haveibeenpwned.com/),
+    - a malicious actor can use that password to access all other accounts as well.
+
+  > [!TIP]
+  >
+  > A unique password can't help to prevent the compromise of a website,
+  >
+  > - but it can minimize the blast radius of a data breach.
+
+- **Long**
+
+  The longer the password, the harder it is to break.
+
+  > [!NOTE]
+  > Using special characters (number, symbols, lowercase, uppercase) helps too, but the length is the most important factor
+
+  > [!TIP]
+  > A 8-character password needs a few hours to break.
+  >
+  > - But a 15-character password would take several centuries to break.
+
+- **Hard-to-guess**
+
+  A hacker won't try to brute force your password, which takes too much effort but not much returns.
+
+  In most case, the malicious actor
+
+  - get access to the the hashed password - from a hacked system[^19] or a data breach
+  - then use a _rainbow table_[^18] - precomputed table for caching the outputs of a cryptographic hash function - to recover the plain text password.
+
+  By using a hard-to-guess password[^20], you minimize the chance that your hashed password appear in those rain table.
+
+> [!TIP]
+> How to know if your password is strong?
+>
+> - <https://nordpass.com/secure-password/>
+> - <https://www.uic.edu/apps/strong-password/>
+
+###### How to come up with a strong password?
+
+One of the best strategy to come up with a strong password (a unique, long, hard-to-guess password) is to use [Diceware], where you:
+
+- Take a list of thousands of easy-to-remember English words that are each 4-6 characters.
+- Roll the dice a bunch of times to pick 4-6 such words at random.
+- Glue them together to create a password that is unique, long, and hard-to-guess but easy to memorize.
+
+  ![alt text](assets/xkcd_password_strength.png)
+  [Password Strength](https://xkcd.com/936/) by Randall Munroe of XKCD
+
+> [!TIP]
+> The passwords generated with Diceware is a type of [passphrase](https://en.wikipedia.org/wiki/Passphrase)
+
+> [!TIP]
+> To generate Diceware passphrase, you can:
+>
+> - Follow the instruction on [Diceware]
+> - Use a web-based generator, e.g. [Diceware Password Generator](https://diceware.dmuth.org/), [Bitware Password Generator](https://bitwarden.com/password-generator/)
+> - Use a CLI: <https://github.com/ulif/diceware>
+> - Use the built-in password generator of most password managers.
+
+---
 
 > [!IMPORTANT] Key takeaway #4
 >
 > Protect personal secrets, such as passwords and credit card numbers, by storing them in a password manager.
 
-- What make a good password manager?
+###### What make a good password manager?
 
-  - Security practices
-  - Reputation
-  - Unique, randomly-generated passwords
-  - Secure account access
-  - Secure sharing with families and teams
-  - Platform support
+- **Security practices**
+
+  - It's security practices need to be 100% transparent
+
+    e.g.
+
+    - [1Password security practices](https://support.1password.com/1password-security/)
+    - [Bitwarden security FAQ](https://bitwarden.com/help/security-faqs/)
+
+    > [!TIP]
+    > Review these practice against what you're learning in this book.
+
+  - It should use end-to-end encryption.
+
+    Your password should be encrypted _before_ it leaves your device.
+
+    > [!WARNING]
+    > With end-to-end encryption, if you forget the master password of your password manager, you will lose all stored passwords.
+
+- **Reputation**
+
+  Do your best to vet the reputation of a vendor password manager before you use it:
+
+  - Online reviews
+  - Online communities, e.g. reddit
+  - Security audits, certification
+
+    e.g.
+
+    - [Security Audits of 1Password](https://support.1password.com/security-assessments/)
+    - [Bitwarden Compliance, Audits, and Certifications](https://bitwarden.com/help/is-bitwarden-audited/)
+
+  - Previous incidents
+
+    e.g. [LastPass indcidents](https://www.theverge.com/2024/5/1/24146205/lastpass-independent-company-security-breaches)
+
+- **Unique, randomly-generated passwords**
+
+  The password manager should have a _password generator_ built-in which can generate a different, random, strong password for every website you use.
+
+- **Secure account access**
+
+  The password manager should supports other MFA, and convenient login methods, e.g. TouchID, FaceID, PassKeys...
+
+- **Secure sharing with families and teams**
+
+  Although these are "personal" secrets, in some case you will need to share them to your families, colleagues.
+
+  The password manager should support family or team plans, with:
+
+  - Have tools for inviting new users, removing users, recovering user accounts, sharing.
+  - Have flows for onboarding, offboarding, revoking access, rotate secrets.
+
+- **Platform support**
+
+  The password manager should supports all platforms you use:
+  e.g.
+
+  - Desktop: Mac, Windows, Linux
+  - Mobile: iOS, Addroid
+  - Web
+  - CLI
 
 ##### Working work infrastructure secrets
 
@@ -992,6 +1246,28 @@ There a a set of cryptographic hashing algorithms used specifically for storing 
 [SHA-3]: https://en.wikipedia.org/wiki/SHA-3
 [HMAC]: https://en.wikipedia.org/wiki/HMAC
 [KMAC]: https://www.nist.gov/publications/sha-3-derived-functions-cshake-kmac-tuplehash-and-parallelhash
+[Stripe]: https://stripe.com/
+[PayPal]: https://www.paypal.com/
+[Square]: https://squareup.com/
+[Chargebee]: https://www.chargebee.com/
+[Recurly]: https://recurly.com/
+[Auth0]: https://auth0.com/
+[Okta]: https://www.okta.com/
+[Amazon Cognito]: https://aws.amazon.com/cognito/
+[Google Firebase Authentication]: https://firebase.google.com/docs/auth
+[Supabase Authentication]: https://supabase.com/auth
+[Stytch]: https://stytch.com/
+[Supertokens]: https://supertokens.com/
+[NordPass]: https://nordpass.com/
+[Dashlane]: https://www.dashlane.com/
+[Enpass]: https://www.enpass.io/
+[KeePassXC]: https://keepassxc.org/
+[macOS Keychain]: https://en.wikipedia.org/wiki/Keychain_(software)
+[macOS Password]: https://en.wikipedia.org/wiki/Passwords_(Apple)
+[Windows Credential Manager]: https://support.microsoft.com/en-us/windows/accessing-credential-manager-1b5c916a-6a16-889f-8581-fc16e8165ac0
+[Google]: https://passwords.google.com/
+[Firefox]: https://support.mozilla.org/en-US/kb/password-manager-remember-delete-edit-logins
+[Diceware]: https://theworld.com/~reinhold/diceware.html
 
 [^1]:
     The vast majority of ciphers aim for computational security, where the resources and time it would take to break the cipher are so high, that it isn’t _feasible_ in the real world.
@@ -1021,3 +1297,13 @@ There a a set of cryptographic hashing algorithms used specifically for storing 
 [^12]: SHAKE (Secure Hash Algorithm and KECCAK)
 [^13]: cSHAKE (customizable SHAKE)
 [^14]: <https://en.wikipedia.org/wiki/Authenticated_encryption#Authenticated_encryption_with_associated_data>
+[^15]:
+    Each time a user wants to login, you email the them a temporary, one-time sign-in link (called _magic link_)
+
+    - they can open that magic link and login to your account.
+
+[^16]: Password manager is a piece of software specifically designed to provide secure storage and access for personal secrets.
+[^17]: Password Manager is part of Wallet feature <https://answers.microsoft.com/en-us/microsoftedge/forum/all/how-to-manage-saved-passwords-in-microsoft-edge/e80f5472-5e37-4053-a857-5ec1e5f4fa94>
+[^18]: <https://en.wikipedia.org/wiki/Rainbow_table>
+[^19]: <https://en.wikipedia.org/wiki/Passwd#Shadow_file>
+[^20]: <https://en.wikipedia.org/wiki/Wikipedia:10,000_most_common_passwords>
