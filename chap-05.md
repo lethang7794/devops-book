@@ -702,7 +702,7 @@ The sample code repo includes 2 OpenTofu modules
   - runs on `push`,
   - contains 2 jobs: `terrascan`, `opentofu_test`
 
-  ---
+  ***
 
   - ```yaml
     # .github/workflows/infra-tests.yml
@@ -733,7 +733,7 @@ The sample code repo includes 2 OpenTofu modules
     - checkout code
     - install then run `terrascan` using `tenable/terrascan-action` action
 
-  ---
+  ***
 
   - ```yaml
     opentofu_test:
@@ -1650,9 +1650,9 @@ To protect your deployment server, you should:
   Whenever possible,
 
   - use an automatically-managed, short-lived credentials, e.g. OIDC
-  - instead of manuanlly-managed, long-lived credentials, e.g. machine-user, human-user's credentials.
+  - instead of manually-managed, long-lived credentials, e.g. machine-user, human-user's credentials.
 
-- **Limit the permissions granted to each pipeline (What does a pipeline can do?**
+- **Limit the permissions granted to each pipeline (What does a pipeline can do?)**
 
   Instead of a single pipeline that do everything and therefore needs arbitrary permissions:
 

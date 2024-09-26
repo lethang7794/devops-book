@@ -1070,38 +1070,270 @@ One of the best strategy to come up with a strong password (a unique, long, hard
   - Web
   - CLI
 
+> [!NOTE]
+> The password managers are designed to store personal secrets that
+>
+> - aren't change much often 👈 aka _long-term credential_
+> - are accessed by a human being
+
 ##### Working work infrastructure secrets
 
-- Two kinds of secret store for infrastructure secrets:
+For [infrastructure secrets](#three-types-of-secrets) that are accessed by
 
-  - Key management systems (KMS)
-  - General-purpose secret store
+- by your software, by automated software 👈 aka _machine users_
+- and also by sys-admins, DevOps Engineer... 👈 _human users_
 
-- How to use a secret store for infrastructure secrets?
+The secret store solution for infrastructure code needs to support authentication for:
+
+- machine-users, which can use:
+  - manually-managed [machine-user credentials](/chap-05.md#machine-user-credentials)
+  - [automatically-provisionsed credentials](/chap-05.md#automatically-provisioned-credentials)
+- human-users, which can use:
+  - password
+  - single-sign on
+
+###### Two kinds of secret store for infrastructure secrets
+
+- **Key management systems (KMS)**
+
+  In cryptography, a _key management systems (KMS)_ is a secret store designed
+
+  - specifically for _encryption keys_.
+  - to work as a "service"[^21] to ensure the underlying encryption key never leaves the secret store.
+
+  You can have a KMS by using
+
+  - a _hardware security module (HSM)_[^22], e.g. [Thales], [Utimaco], [Entrust], [Yubico]
+  - a managed-service (which uses HSM under the hood), e.g. [AWS KMS], [Azure Key Vault], [Google Cloud Key Management], and [Akeyless]
+
+  A KMS use optimized for _security_, not speed.
+
+  > [!TIP]
+  > The common approach to encrypt large amount of data is using _envelope encryption_
+  >
+  > - You generate an encryption key (call _data key_) that is used to encrypt/decrypt the data.
+  >
+  >   This data key will be encrypted and stored with the data. 👈 The data and the data key is store together (hence the name _envelope encryption_).
+  >
+  > - You use the KMS to manage a _root key_ that is to encrypt/decrypt the data key.
+
+  > [!WARNING]
+  > KMS may also stand for [Key Management Service](https://en.wikipedia.org/wiki/Key_Management_Service), a Microsoft technology
+
+- **General-purpose secret store**
+
+  A _genereal-purpose secret store_ is a data store designed to
+
+  - securely store different kinds of secrets, such as:
+
+    - encryption keys 👈 can act as a KMS
+    - database password, TLS certificate...
+
+  - perform various cryptographic tasks, such as:
+
+    - encryption
+    - hashin
+    - signin...
+
+  There are 3 kind of vendors for general-purpose secret store:
+
+  - **standalone** secret stores
+
+    e.g. [HashiCorp Vault], [OpenBao], [Doppler], [Infisical], [Keywhiz]
+
+  - secret stores **from cloud providers**
+
+    e.g. [AWS Secrets Manager], [AWS Systems Manager Parameter Store], [Google Cloud Secret Manager]
+
+  - secret stores **built into orchestration tools**
+
+    e.g. [Kuberentes Secrets]
+
+---
+
+```mermaid
+mindmap
+Secret store for infrastructure secrets
+  id)KMS(
+    HSM
+    Managed-service from 3rd-parties
+  id)General-purpose secret store(
+    Standalone
+    From cloud providers
+    Built into orchestration tools
+```
+
+###### How to use a secret store for infrastructure secrets?
+
+For example, an app in a Kubernetes cluster that needs access to a secret such as a database password.
+
+---
+
+A typical workflow of using a KMS to manage the database password:
+
+1. When you are writing the code, you do the following:
+
+   1. Authenticate to AWS on the command-line as an IAM user.
+   1. Use the AWS CLI to make an API call to AWS KMS to have it encrypt the database password and get back ciphertext.
+   1. Put the ciphertext directly into your application code and commit it to Git.
+
+1. When the app is booting up, it does the following:
+
+   1. Authenticate to AWS using an IAM role.
+   1. Use the AWS SDK to make an API call to AWS KMS to have it decrypt the ciphertext and get back the database password.
+
+> [!WARNING]
+> When using a KMS to manage infrastructure secrets, you will have of ciphertext all over your codebase and infrastructure.
+
+---
+
+A typical workflow of using a generic-purpose secret store to manage the database password:
+
+1. When you are writing the code, you do the following:
+
+   1. Authenticate to AWS in a web browser as an IAM user.
+
+   1. Use the AWS CLI to store the database password in AWS Secrets Manager.
+
+1. When the app is booting up, it does the following:
+
+   1. Authenticate to AWS using an IAM role.
+
+   1. Use the AWS SDK to make an API call to AWS Secrets Manager to get the database password.
+
+> [!NOTE]
+> When using a general-purpose secret store, the secrets are centralized, in a single place (the secret store).
+
+---
 
 > [!IMPORTANT] Key takeaway #5
 >
 > Protect infrastructure secrets, such as database passwords and TLS certificates, by using a KMS and/or a general-purpose secret store.
 
-- Why general-purpose secret store is becoming more popular?
+###### Why centralized secret store is becoming more popular?
 
-  The benefits of centralization secret store?
+- **Audit logging**
 
-  - Audit logging
-  - Revoking & rotating secrets
-  - On-demand & ephemeral secrets
+  Every time a secret is accessed, a centralized secret store can record that in a log, along with who is accessing that secret.
+
+- **Revoking & rotating secrets**
+
+  With a centrilized secret store, you can
+
+  - easily _revoke_ a secret 👈 when you know it was compromised
+  - _rotate_ a secret on a regular basic
+    - revoke the current one 👈 you can't know whether the current secret was compromised, but you do this regularly to reduce the window of time of the secret
+    - start using a new one
+
+- **On-demand & ephemeral secrets**
+
+  You can go a step father by not having long-term secrets at all.
+
+  A secret is
+
+  - generated when someone needs to use it 👈 aka _on-demand_
+  - automatically expired after a short period of time 👈 aka _ephemeral secret_
 
 ##### Working work customer secrets
 
-- How to store customer secrets (password)?
+###### Two type of customer secrets
 
-  - Store the hash of the password
-  - Use specialized password hash functions
-  - Use salt and pepper
+- Customer password 👈 Requires special techniques
+
+  > [!Tip]
+  > Customer passwords need to be handle specially because:
+  >
+  > 1. They are the most common attack vector.
+  > 2. You don't need to store the original customer password at all.
+
+- Everthing else: financial data, health data...
+
+###### How to store customer password
+
+- **Store the hash of the password**
+
+  You
+
+  - dont't need to store the original password
+  - only need to store the hash of the password (after passing it through a cryptographic hash function).
+
+  ***
+
+  If you use a _standard_ hash function (e.g. SHA-2), the malicious attacker can:
+
+  - try all the possible strings 👈 aka _brute force attack_
+  - reduce the possiblilities by only trying from:
+    - commonly-used words
+    - previously-leaked passwords 👈 aka _dictionary attack_
+  - precompute all the hashes 👈 aka _rainbow table attack_
+
+- **Use _specialized_ password hash functions**
+
+  - Instead of a standard hash functions, you mush use specialized _password hash functions_, such as:
+
+    - [**Argon2**](https://en.wikipedia.org/wiki/Argon2) (2015 - Recommend):
+
+      - Winner of the Password Hashing Competition in 2015
+      - Prefer Argon2id variant
+
+    - [**scrypt**](https://en.wikipedia.org/wiki/Scrypt) (2009): Password-based key derivation function
+    - [**bcrypt**](https://en.wikipedia.org/wiki/Bcrypt) (1999): Blowfish-based password-hashing function
+    - [**PBKDF2**](https://en.wikipedia.org/wiki/PBKDF2) (2017): Password-Based Key Derivation Function 2
+
+      - Recommended by NIST and has FIPS-140 validated implementations
+
+  - These password hash functions are designed for security, so they takes a lot of compute resources (CPU, RAM)
+
+    e.g.
+
+    - Agron2 is ~ 1000 slower compare to SHA-256
+
+  For more information, see
+
+  - [Password Hashing Algorithms | OWASP's Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#password-hashing-algorithms)
+
+- **Use salt & pepper**
+
+  salt
+  : a unique, random string that you generate for each user
+  : (is not a secret) that stored in plaintext next to the user’s other data in your user database.
+
+  pepper
+  : a shared string that is the same for all your users
+  : a secret that stored in an encrypted form separately from your user database
+  : e.g.
+  : - Stored in a secret store with your other infrastructure secrets
+
+  ***
+
+  When using salt & pepper,
+
+  - the hash you store in your user database
+
+    - is actually a hash of the combination of:
+      - user's password
+      - unique salt (of that password)
+      - shared pepper (for all passwords)
+
+  - you defeat the dictionary & rainbow table attack.
+
+  > [!TIP]
+  > When using salts, evens users with identical passwords end up with different hashes.
 
 > [!IMPORTANT] Key takeaway #6
 >
-> Never store user passwords (encrypted or otherwise). Instead, use a password hash function to compute a hash of each password with a salt and pepper, and store those hash values.
+> Never store user passwords (encrypted or otherwise).
+>
+> Instead,
+>
+> - use a password hash function to
+>
+>   - compute a hash of each password with a salt and pepper,
+>
+> - and store those hash values.
+
+When working with passwords, try to stay up to date with the latest best practice, by checking guides such as [OWASP's Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)
+See:
 
 ### Encryption at Rest
 
@@ -1268,6 +1500,20 @@ One of the best strategy to come up with a strong password (a unique, long, hard
 [Google]: https://passwords.google.com/
 [Firefox]: https://support.mozilla.org/en-US/kb/password-manager-remember-delete-edit-logins
 [Diceware]: https://theworld.com/~reinhold/diceware.html
+[Thales]: https://cpl.thalesgroup.com/encryption/hardware-security-modules
+[Utimaco]: https://utimaco.com/products/categories/hsms-general-purpose-use-cases
+[Entrust]: https://www.entrust.com/products/hsm
+[Yubico]: https://www.yubico.com/products/hardware-security-module/
+[Azure Key Vault]: https://azure.microsoft.com/en-us/products/key-vault
+[Google Cloud Key Management]: https://cloud.google.com/security/products/security-key-management?hl=en
+[Akeyless]: https://www.akeyless.io/encryption-kms/
+[Doppler]: https://www.doppler.com/
+[Infisical]: https://infisical.com/
+[Keywhiz]: https://infisical.com/
+[HashiCorp Vault]: https://www.vaultproject.io/
+[AWS Systems Manager Parameter Store]: https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html
+[Google Cloud Secret Manager]: https://cloud.google.com/security/products/secret-manager?hl=en
+[Kuberentes Secrets]: https://cloud.google.com/security/products/secret-manager?hl=en
 
 [^1]:
     The vast majority of ciphers aim for computational security, where the resources and time it would take to break the cipher are so high, that it isn’t _feasible_ in the real world.
@@ -1307,3 +1553,11 @@ One of the best strategy to come up with a strong password (a unique, long, hard
 [^18]: <https://en.wikipedia.org/wiki/Rainbow_table>
 [^19]: <https://en.wikipedia.org/wiki/Passwd#Shadow_file>
 [^20]: <https://en.wikipedia.org/wiki/Wikipedia:10,000_most_common_passwords>
+[^21]: For a KSM:
+
+    - You send them data
+    - They
+      - perform the encyption and hashing on the KMS server
+      - send you back the result
+
+[^22]: A HSM is a physical devices that include a number of hardware and software faetures to safeguard your secrets and prevent tampering.
