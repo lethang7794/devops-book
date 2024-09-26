@@ -47,15 +47,15 @@ cryptography
 
 - Cryptography aims to provide 3 key benefits - aka _CIA_:
 
-  - **C**onfidentiality
+  - Confidentiality
 
     Data can be _seen_ only by **intended** parties.
 
-  - **I**ntegrity
+  - Integrity
 
     Data can't be **unauthorized** _modified_.
 
-  - **A**uthenticity
+  - Authenticity
 
     Data are _communicated_ only between **intended** parties.
 
@@ -875,7 +875,7 @@ With _single-sign on (SSO)_, you
 
 - allow users to login to your app
   - via an existing _identity provider (IdP)_
-- by using a standard such as SAML, OAuth, OpenID, LDBAP, Kerberos
+- by using a standard such as SAML, OAuth, OpenID, LDAP, Kerberos
 
 e.g. To login to your app, users can use:
 
@@ -913,11 +913,11 @@ To store [personal secrets](#three-types-of-secrets), you should use a _password
 - Web-browser built-in: [Google]/Edge[^17]/[Firefox] Password Manager.
 
 > [!NOTE]
-> These "password manager" are primarily desiged to help you manage passwords,
+> These "password manager" are primarily designed to help you manage passwords,
 >
 > - but many of them also support other types of personal secrets: API tokens, credit card numbers...
 
-###### How a passwork manager works
+###### How a password manager works
 
 - A password manager requires you to memorizes a single password - aka _master password_ - to login.
 - After you login, you can
@@ -995,7 +995,7 @@ One of the best strategy to come up with a strong password (a unique, long, hard
 > To generate Diceware passphrase, you can:
 >
 > - Follow the instruction on [Diceware]
-> - Use a web-based generator, e.g. [Diceware Password Generator](https://diceware.dmuth.org/), [Bitware Password Generator](https://bitwarden.com/password-generator/)
+> - Use a web-based generator, e.g. [Diceware Password Generator](https://diceware.dmuth.org/), [Bitwarden Password Generator](https://bitwarden.com/password-generator/)
 > - Use a CLI: <https://github.com/ulif/diceware>
 > - Use the built-in password generator of most password managers.
 
@@ -1041,7 +1041,7 @@ One of the best strategy to come up with a strong password (a unique, long, hard
 
   - Previous incidents
 
-    e.g. [LastPass indcidents](https://www.theverge.com/2024/5/1/24146205/lastpass-independent-company-security-breaches)
+    e.g. [LastPass incidents](https://www.theverge.com/2024/5/1/24146205/lastpass-independent-company-security-breaches)
 
 - **Unique, randomly-generated passwords**
 
@@ -1058,7 +1058,7 @@ One of the best strategy to come up with a strong password (a unique, long, hard
   The password manager should support family or team plans, with:
 
   - Have tools for inviting new users, removing users, recovering user accounts, sharing.
-  - Have flows for onboarding, offboarding, revoking access, rotate secrets.
+  - Have flows for onboarding, off-boarding, revoking access, rotate secrets.
 
 - **Platform support**
 
@@ -1066,7 +1066,7 @@ One of the best strategy to come up with a strong password (a unique, long, hard
   e.g.
 
   - Desktop: Mac, Windows, Linux
-  - Mobile: iOS, Addroid
+  - Mobile: iOS, Android
   - Web
   - CLI
 
@@ -1087,7 +1087,7 @@ The secret store solution for infrastructure code needs to support authenticatio
 
 - machine-users, which can use:
   - manually-managed [machine-user credentials](/chap-05.md#machine-user-credentials)
-  - [automatically-provisionsed credentials](/chap-05.md#automatically-provisioned-credentials)
+  - [automatically-provisioned credentials](/chap-05.md#automatically-provisioned-credentials)
 - human-users, which can use:
   - password
   - single-sign on
@@ -1122,7 +1122,7 @@ The secret store solution for infrastructure code needs to support authenticatio
 
 - **General-purpose secret store**
 
-  A _genereal-purpose secret store_ is a data store designed to
+  A _general-purpose secret store_ is a data store designed to
 
   - securely store different kinds of secrets, such as:
 
@@ -1132,8 +1132,8 @@ The secret store solution for infrastructure code needs to support authenticatio
   - perform various cryptographic tasks, such as:
 
     - encryption
-    - hashin
-    - signin...
+    - hashing
+    - signing...
 
   There are 3 kind of vendors for general-purpose secret store:
 
@@ -1147,7 +1147,7 @@ The secret store solution for infrastructure code needs to support authenticatio
 
   - secret stores **built into orchestration tools**
 
-    e.g. [Kuberentes Secrets]
+    e.g. [Kubernetes Secrets]
 
 ---
 
@@ -1218,7 +1218,7 @@ A typical workflow of using a generic-purpose secret store to manage the databas
 
 - **Revoking & rotating secrets**
 
-  With a centrilized secret store, you can
+  With a centralized secret store, you can
 
   - easily _revoke_ a secret 👈 when you know it was compromised
   - _rotate_ a secret on a regular basic
@@ -1246,7 +1246,7 @@ A typical workflow of using a generic-purpose secret store to manage the databas
   > 1. They are the most common attack vector.
   > 2. You don't need to store the original customer password at all.
 
-- Everthing else: financial data, health data...
+- Everything else: financial data, health data...
 
 ###### How to store customer password
 
@@ -1254,7 +1254,7 @@ A typical workflow of using a generic-purpose secret store to manage the databas
 
   You
 
-  - dont't need to store the original password
+  - don't need to store the original password
   - only need to store the hash of the password (after passing it through a cryptographic hash function).
 
   ***
@@ -1262,10 +1262,10 @@ A typical workflow of using a generic-purpose secret store to manage the databas
   If you use a _standard_ hash function (e.g. SHA-2), the malicious attacker can:
 
   - try all the possible strings 👈 aka _brute force attack_
-  - reduce the possiblilities by only trying from:
+  - reduce the possibilities by only trying from:
     - commonly-used words
     - previously-leaked passwords 👈 aka _dictionary attack_
-  - precompute all the hashes 👈 aka _rainbow table attack_
+  - pre-compute all the hashes 👈 aka _rainbow table attack_
 
 - **Use _specialized_ password hash functions**
 

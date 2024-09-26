@@ -285,7 +285,7 @@ In this example, you will use GitHub Actions to run the automated tests (that ad
   > - or [YAML Syntax | Ansible Docs](https://docs.ansible.com/ansible/latest/reference_appendices/YAMLSyntax.html)
   > - or [YAML basics in Kubernetes | IBM Developer - Tutorials](https://developer.ibm.com/tutorials/yaml-basics-and-usage-in-kubernetes/)
   > - or [YAML for beginners | Red Hat](https://www.redhat.com/sysadmin/yaml-beginners)
-  > - https://yaml.org/spec/1.2.2/#nodes
+  > - <https://yaml.org/spec/1.2.2/#nodes>
 
   - (1) `on` block: The trigger that will cause the workflow to run.
 
@@ -1617,7 +1617,7 @@ Typically, a deployment server
 - has "admin permissions" (fancy words for arbitrary permissions):
   - it can access to sensitive permissions
   - it is designed to execute arbitrary code
-- is a tempting target for malacious actors
+- is a tempting target for malicious actors
 
 ---
 
@@ -1669,8 +1669,8 @@ To protect your deployment server, you should:
   - you might limit the scope to which the developer can use "admin permission" and run arbitrary code:
     - only for a specific commands, e.g. `tofu apply`
     - only on code from specific repos, e.g. repos with OpenTofu modules
-    - only on speficic branches, e.g. `main`
-    - only in speficic folders
+    - only on specific branches, e.g. `main`
+    - only in specific folders
 
   You should also lock down the workflow definitions, so
 
