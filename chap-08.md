@@ -1337,22 +1337,168 @@ See:
 
 ### Encryption at Rest
 
-- Why stored data is a tempting target for attackers?
+#### Why stored data is a tempting target for attackers?
 
-  - Many copies of the data
-  - Long time frames, little monitoring
+- **Many copies of the data**
 
-- Three level of encryption-at-rest
+  In additional to the original database, the data is also in:
 
-  - Full-disk encryption
+  - database replicas, caches, app server's hard drives
+  - backups, snapshots, archives
+  - distributed file systems, event logs, queues
+  - data warehouses, machine learning pipelines
+  - in some cases, developers even copy customer data onto their own computers
 
-  - Data store encryption
+  A single vulnerability in any of those copy can lead so serious data breach.
 
-  - Application-level encryption
+- **Long time frames, little monitoring**
+
+  Those copies of the data can sit around for years (or forever[^23]), often to the extent where no one at the company even knows the data is there.
+
+  With those forgotten data, attackers can do whatever they want, for how long they want, with little risk of being noticed[^24].
+
+#### Three levels of encryption-at-rest
+
+Encryption-at-rest is the final layer of protection data when the attackers gets access to a copy of your data.
+
+##### Full-disk encryption
+
+_full-disk encryption (FDE)_
+: all the data is encrypted before written to disk
+: - with an encryption key that is derived from your login password.
+
+---
+
+The disk encryption can be handled by:
+
+- software
+
+  - built into OS
+
+    e.g.
+
+    - [macOS FileVault]
+    - [Windows BitLocker]
+    - [Ubuntu Full Disk Encryption]
+
+  - from 3rd-party, e.g. BestCrypt, TrueCrypt
+
+- hardware 👈 aka _Hardware-FDE_
+- cloud-provider (using the encryption keys from that cloud's provider KMS)
+
+  e.g.
+
+  - [AWS EBS volumes can be encrypted with keys stored in AWS KMS]
+  - [Google Cloud Compute Volumes can be encrypted with keys stored in Cloud KMS]
+
+---
+
+Full-disk encryption is a type of _transparent data encryption (TDE)_: data is automatically encrypted or decrypted as it is loaded or saved.
+
+- It protects against attackers who manage to steal a physical hard drive.
+
+> [!WARNING]
+> Full-disk encryption doesn't protect against attackers who gets access to a live (authenticated) OS.
+
+##### Data store encryption
+
+- Some data store also supports TDE, which encrypt
+
+  - the entire data store
+
+    or parts of the data store, e.g. one column in a database table
+
+  - using an encryption key you provide when the data store is booting up
+
+  e.g.
+
+  - [MySQL Enterprise Transparent Data Encryption (TDE)]
+  - PostgreSQL via [pg_tde plugin]
+
+- Cloud providers also support encryption for their managed data stores, using the encryption key from that cloud provider's KMS.
+
+  e.g.
+
+  - [AWS RDS encryption uses encryption keys from AWS KMS] 👈 SQL data store
+  - [Azure SQL Database encryption uses encryption keys from Azure Key Vault] 👈 SQL data store
+  - [DynamoDB encryption with encryption keys from AWS KMS] 👈 NoSQL data store
+  - [AWS S3 encryption with encryption keys from AWS KMS] 👈 distributed file system
+
+---
+
+Data store encryption provides a higher level of protection than full-disk encryption:
+
+- It's the data store (not the OS) that is doing the encryption
+- You get protection against attackers
+  - who manage to steal a physical hard drive.
+  - who gets access to a live (authenticated) OS.
+
+> [!WARNING]
+> Data store encryption doesn't protect against attackers who is able to authenticate to the data store software.
+>
+> e.g. If the attackers can access the data store, they can run SQL queries.
+
+##### Application-level encryption
+
+You could implement encryption in your application code, so your app encrypt the data, in-memory, before storing in in a data store or on disk.
+
+e.g. When a user adds some new data, you
+
+- fetch an encryption key for a secret store
+- use AES-GCM with the encryption key to encrypt the data in memory
+- store the ciphertext in a database or on disk
+
+---
+
+###### Advantages of application-level encryption
+
+- **Highest level of protection**
+
+  Even if the attackers can:
+
+  - Get access the live OS on your server
+  - Compromise your data store and run SQL queries
+
+  without the encryption key (from your secret store), they still couldn't the data.
+
+- **Granular control over the encryption**
+
+  You can you different encryption keys for different type of data
+
+  e.g. For different users, customers, tables...
+
+- **Allow you to securely store data even in untrusted systems**
+
+  e.g. System doesn't support FDE.
+
+###### Dis-advantages of application-level encryption
+
+- **Application code needs to be changed**
+
+  (TDE options are completely transparent)
+
+- **Difficult to query the data**
+
+  (The data you store is now opaque to your data stores)
+
+  e.g. Queries that look up data in specific columns or full-text search are very difficult to do if the data is stored as unreadable ciphertext.
+
+---
 
 > [!IMPORTANT] Key takeaway #7
 >
 > You can encrypt data at rest using full-disk encryption, data store encryption, and application-level encryption.
+
+> [!TIP]
+> Start with:
+>
+> - full-disk encryption 👈 for all your company servers & computers
+> - data-store encryption 👈 for all your data store
+>
+> Only use application level-encryption when:
+>
+> - You need the highest level of security
+> - No other types of encryption are supported
 
 ## Secure Communication
 
@@ -1513,7 +1659,18 @@ See:
 [HashiCorp Vault]: https://www.vaultproject.io/
 [AWS Systems Manager Parameter Store]: https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html
 [Google Cloud Secret Manager]: https://cloud.google.com/security/products/secret-manager?hl=en
-[Kuberentes Secrets]: https://cloud.google.com/security/products/secret-manager?hl=en
+[Kubernetes Secrets]: https://cloud.google.com/security/products/secret-manager?hl=en
+[macOS FileVault]: https://support.apple.com/en-ie/guide/mac-help/mh11785/mac
+[Windows BitLocker]: https://learn.microsoft.com/en-us/windows/security/operating-system-security/data-protection/bitlocker/
+[Ubuntu Full Disk Encryption]: https://ubuntu.com/core/docs/full-disk-encryption
+[AWS EBS volumes can be encrypted with keys stored in AWS KMS]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html
+[Google Cloud Compute Volumes can be encrypted with keys stored in Cloud KMS]: https://cloud.google.com/compute/docs/disks/disk-encryption
+[MySQL Enterprise Transparent Data Encryption (TDE)]: https://www.mysql.com/products/enterprise/tde.html
+[pg_tde plugin]: https://github.com/Percona-Lab/pg_tde
+[AWS RDS encryption uses encryption keys from AWS KMS]: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.Encryption.html
+[Azure SQL Database encryption uses encryption keys from Azure Key Vault]: https://learn.microsoft.com/en-us/azure/azure-sql/database/transparent-data-encryption-tde-overview?view=azuresql&tabs=azure-portal
+[DynamoDB encryption with encryption keys from AWS KMS]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/EncryptionAtRest.html
+[AWS S3 encryption with encryption keys from AWS KMS]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingEncryption.html
 
 [^1]:
     The vast majority of ciphers aim for computational security, where the resources and time it would take to break the cipher are so high, that it isn’t _feasible_ in the real world.
@@ -1557,7 +1714,9 @@ See:
 
     - You send them data
     - They
-      - perform the encyption and hashing on the KMS server
+      - perform the encryption and hashing on the KMS server
       - send you back the result
 
-[^22]: A HSM is a physical devices that include a number of hardware and software faetures to safeguard your secrets and prevent tampering.
+[^22]: A HSM is a physical devices that include a number of hardware and software features to safeguard your secrets and prevent tampering.
+[^23]: Data is rarely, if ever, deleted.
+[^24]: Especially as compared to live, active systems, which are usually more closely monitored.
