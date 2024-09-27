@@ -45,17 +45,19 @@ cryptography
 > [!WARNING]
 > Don't confuse _cryptography_ with _crypto_, which these days typically refers to _cryptocurrency_.
 
+---
+
 - Cryptography aims to provide 3 key benefits - aka _CIA_:
 
-  - Confidentiality
+  - _Confidentiality_ (**C**)
 
     Data can be _seen_ only by **intended** parties.
 
-  - Integrity
+  - _Integrity_ (**I**)
 
-    Data can't be **unauthorized** _modified_.
+    Data can't be _modified_ by **unauthorized** parties.
 
-  - Authenticity
+  - _Authenticity_ (**A**)
 
     Data are _communicated_ only between **intended** parties.
 
@@ -306,7 +308,7 @@ The two most common asymmetric-key algorithms you should use are:
 
 ###### What is hybrid encryption
 
-Hybrid encryption
+hybrid encryption
 : combines both asymmetric and symmetric encryption:
 : - using asymmetric-key encryption initially to exchange an encryption key
 : - then symmetric-key encryption for all messages after that.
@@ -650,7 +652,7 @@ There a a set of cryptographic hashing algorithms used specifically for storing 
 > [!WARNING]
 > For user passwords, do not use encryption, instead using hashing (with the specialized password hashing functions).
 
----
+#### Summary the use cases of cryptographic hash functions
 
 | Encryption                | Hashing                      | Other            | Result                                                                                      | CIA   |
 | ------------------------- | ---------------------------- | ---------------- | ------------------------------------------------------------------------------------------- | ----- |
@@ -1502,43 +1504,342 @@ e.g. When a user adds some new data, you
 
 ## Secure Communication
 
-### Encryption-in-transit
+### Secure Communication and Encryption-in-transit
 
-### Common protocols for encryption-in-transit
+> How to secure communication? How to send data over the network in a way that provides confidentiality, integrity, and authenticity?
+>
+> - The answer is use encryption, which is often referred to as _encryption in transit_.
 
-- TLS
-- SSH
-- IPSec
+Encryption in transit usually relies on hybrid encryption:
+
+- Using asymmetric-key encryption to
+  - protect the initial communication
+  - do a key exchange
+- Using symmetric-key encryption to
+  - encrypt the following messages
+
+#### Common protocols for encryption-in-transit
+
+- **TLS**
+
+  Secure
+
+  - web browsing (HTTPs)
+  - server-to-server communications
+  - instant messaging, email, some types of VPNs...
+
+- **SSH**
+
+  Secure
+
+  - connections to remote terminals as in [Chap 7](./chap-07.md#ssh)
+
+- **IPSec**
+
+  Secure
+
+  - some types of VPNs as in [Chap 7](./chap-07.md#vpn)
+
+```mermaid
+mindmap
+Encryption-in-transit
+  id)TLS(
+    web browsing (HTTPS)
+    server-to-server communications
+    instant messaging, email, some types of VPNs...
+
+  id)SSH(
+    remote terminals
+
+  id)IPSec(
+    some types of VPNs
+
+```
 
 ### Transport Layer Security (TLS)
 
-#### How TLS work
+#### What is TLS
 
-- Handshake
-  - Negotiation
-  - Authentication
-  - Key exchange
-- Exchange messages
+TLS - Transport Layer Security
+: a cryptographic protocol designed to provide communications security over a computer network
+: widely used in applications: email, instant messaging... and especially in securing HTTPS
+: builds on the now-deprecated SSL (Secure Sockets Layer) specifications
+
+> [!TIP]
+> You should use TLS 1.3 or 1.2.
+>
+> - All other versions of TLS (1.1, 1.0) are deprecated
+> - All versions of SSL also deprecated.
+>
+> See [TLS History | Wikipedia]
+
+#### Why use TLS
+
+TLS is responsible for ensuring confidentiality, integrity, and authenticity, especially against _man-in-the-middle (MITM) attacks_[^25].
+
+- To ensure confidentiality, TLS
+
+  - encrypts all messages with **hybrid encryption**, preventing malicious actors from ~~reading~~ those messages.
+
+- To ensure integrity, TLS
+
+  - uses **authenticated encryption**, so every message
+    - includes a **MAC**, preventing malicious actors from ~~modifying~~ those messages;
+    - includes a **nonce**[^26], preventing malicious actors from ~~reordering~~ or replaying messages
+
+- To ensure authenticity, TLS
+  - uses **asymmetric-key encryption**
+
+#### How TLS works
+
+TLS is a **client-server** protocol.
+
+e.g.
+
+- The client might be your web browser, and the server might be one of the servers running `google.com`, or
+- Both client and server could be applications in your microservices architecture.
 
 ---
 
-- Chain of trust
+TLS protocol contains 2 phases:
 
-  - Root certificate authorities (CAs)
+1. Handshake
 
-- How to get a TLS certificate (for a website) from a CA?
+   1. Negotiation
+   1. Authentication
+   1. Key exchange
 
-- How the TLS certificate (for your website) is used?
+1. Messages Exchange
+
+---
+
+The detail of each phases are as following:
+
+1. **Handshake**
+
+   1. **Negotiation**
+
+      The client and server negotiate
+
+      - which TLS version, e.g. 1.2, 1.3
+      - which cryptographic algorithms, e.g. RSA, AES256
+
+      > [!TIP]
+      > You’ll need to find a balance between
+      >
+      > - allowing only the most modern TLS versions and cryptographic algorithms to maximize security
+      > - allowing older TLS versions and cryptographic algorithms to support a wider range of clients.
+
+      This typically works by
+
+      - the client sending over the TLS versions and algorithms it supports
+      - the server picking which ones to use from that list, so when configuring TLS on your servers
+
+   1. **Authentication** 👈 Tricky part
+
+      To protect against MITM attacks, TLS supports authentication.
+
+      - For web browsing, you typically only do **one-sided authentication**, with the web browser validating the server (but not the other way around)
+      - For applications in a microservices architecture, ideally, you use **mutual authentication**, where each side authenticates the other, as you saw in the [service mesh example in Chap 7](./chap-07.md#example-istio-service-mesh-with-kubernetes-microservices).
+
+        You’ll see how authentication works shortly.
+
+   1. **Key exchange**
+
+      The client and server
+
+      - agree to a randomly-generated encryption key to use for the second phase of the protocol,
+      - securely exchanging this secret using asymmetric-key encryption.
+
+1. **Messages Exchange**
+
+   The client and server
+
+   - start exchanging messages
+   - encrypting all the communication
+     - using the encryption key & symmetric-key encryption algorithm from the handshake phase.
+
+---
+
+##### Chain of trust
+
+> How can your web browser be sure it’s really talking to `google.com`?
+>
+> - It's `A` in [`CIA`](#cryptography-primer) - authenticity.
+> - All the use cases in [summary the cases of cryptographic hash functions](#summary-the-use-cases-of-cryptographic-hash-functions) will not works.
+>
+> ---
+>
+> You may try asymmetric-key encryption:
+>
+> - Google signs a message with its private key
+> - Your browser checks whether the message really come from Google
+>   - by validating the signature with Google's public key.
+>
+> But how do you get the public key of Google?
+>
+> - What stops a malicious actor from
+>   - doing a MITM attack, and
+>   - swapping their own public key instead of Google's
+>
+> If you use encryption for the public key, how do exchange the encryption key. Now, it's an chicken-and-egg problem.
+
+To prevents MITM attack targeting public keys, TLS establishing a _chain of trust_.
+
+- The chain of trust starts by hard-coding data about a set of entities you know you can trust.
+
+  - These entities are called _root certificate authorities (root CAs)_.
+  - The hard-coding data consists the root CAs' _certificates_, which contains:
+    - a public key
+    - metadata, e.g. domain name, identifying information of the owner...
+    - a digital signature
+
+---
+
+- When you’re browsing the web, your browser and operating system come with a set of certificates for _**trusted** root CAs_ built-in, including a number of organizations around the world, such as VeriSign, DigitCert, LetsEncrypt, Amazon, and Google.
+
+  > [!TIP]
+  > For Linux, it's usually the `ca-certificates` package, which is installed at `/etc/pki/ca-trust/extracted` directory.
+
+- When you’re running apps in a microservices architecture, you typically run your own _private root CA_, and hard-code its details into your apps.
+
+  > [!TIP]
+  > To install your private root CA, see:
+  >
+  > - <https://www.redhat.com/sysadmin/ca-certificates-cli>
+  > - <https://documentation.ubuntu.com/server/how-to/security/install-a-root-ca-certificate-in-the-trust-store/>
+
+---
+
+##### How to get a TLS certificate (for a website) from a CA?
+
+![alt text](assets/tls-cert-signature.png)
+
+1. You submit a _certificate signing request (CSR)_ to the CA, specifying
+
+   - your **domain name**,
+   - identifying details about
+     - your organization, e.g., company name, contact details
+     - your **public key**,
+     - and a signature[^27].
+
+1. The CA will ask you to prove that you own the domain.
+
+   Modern CAs use the _Automatic Certificate Management Environment (ACME) protocol_ for this.
+
+   e.g. The CA may ask you to
+
+   - host a file with specific contents at a specific URL within your domain
+
+     e.g. `your-domain.com/file.txt`
+
+   - add a specific DNS record to your domain with specific contents
+
+     e.g. a `TXT` record at `your-domain.com`
+
+1. You update your domain with the requested proof.
+
+1. The CA checks your proof.
+
+1. If the CA accepts your proof, it will send you back
+
+   - a **certificate** with the data from your CSR,
+   - the **signature** of the CA.
+
+   This signature is how the CA extends the chain of trust: it’s effectively saying:
+
+   > "If you trust me as a root CA, then you can trust that the public key in this certificate is valid for this domain."
+
+##### How the TLS certificate (for your website) is used?
+
+![alt text](assets/tls-cert-verification.png)
+
+1. You visit some website in your browser at `https://<DOMAIN>`.
+
+1. During the TLS handshake, the web server
+
+   - sends over its TLS certificate, which includes
+     - the web server’s public key
+     - a CA’s signature.
+   - signs the message with its private key.
+
+1. Your browser validates
+
+   - the TLS certificate
+     - is for the domain `<DOMAIN>`
+     - was signed by one of the root CAs you trust (using the public key of that CA).
+   - the web server actually owns the public key in the certificate (by checking the signature on the message).
+
+   If both checks pass, you can be confident that you’re really talking to `<DOMAIN>`, and not someone doing a MITM attack[^28].
+
+> [!NOTE]
+> Some root CAs don’t sign website certificates directly, but instead, they sign certificates for one or more levels of _intermediate CAs_ (extending the chain of trust), and it’s actually one of those intermediate CAs that ultimately signs the certificate for a website.
+>
+> In that case, the website returns the full certificate chain, and as long as that chain ultimately starts with a root CA you trust, and each signature along the way is valid, you can then trust the entire thing.
+
+---
 
 > [!IMPORTANT] Key takeaway #8
 >
-> You can encrypt data in transit using TLS. You get a TLS certificate from a certificate authority.
+> You can encrypt data in transit using TLS.
+>
+> You get a TLS certificate from a certificate authority (CA).
 
 ---
 
-- Public key infrastructure (PKI)
-  - Web PKI
-  - Private PKI
+##### Public key infrastructure (PKI)
+
+The system of CAs is typically referred to as _public key infrastructure (PKI)_.
+
+There are two primary types of PKIs:
+
+- **Web PKI**
+
+  Your web browser and most libraries that support HTTPS automatically know how to use the web PKI to authenticate HTTPS URLs for the public Internet.
+
+  ***
+
+  To get a TLS certificate for a website, you can use
+
+  - **Free CAs**: community-efforts to make the web more secure
+
+    e.g. [Let's Encrypt], [ZeroSSL], [CloudFlare’s free tier].
+
+  - **CAs from cloud providers**: free, completely managed for use, but can only be used with that's cloud provider's services.
+
+    e.g. [AWS Certificate Manager (ACM)], [Google-managed SSL certificates]
+
+  - **Traditional CAs, domain name registrars**: cost money
+
+    e.g. [DigiCert], [GoDaddy]
+
+    > [!TIP]
+    > Only use get TLS certificate from traditional CAs, domain registrars when:
+    >
+    > - you need a type of certificate that the free CAs don’t support, e.g. wildcard certificates
+    > - your software can’t meet the verification and renewal requirements of the free CAs.
+
+- **Private PKI**
+
+  For apps in a microservices architecture, you typically run your own private PKI.
+
+  ***
+
+  - If you use a service mesh, it already handles the PKI for you.
+
+  - If you're don't use a service mesh, you can:
+
+    - Use **self-hosted** private PKI tools:
+
+      e.g. [HashiCorp Vault] / [OpenBAO], [step-ca], [cfssl], [Caddy], [certstrap], [EJBCA], [Dogtag Certificate System], [OpenXPKI]
+
+    - Use a managed private PKI **from cloud providers**:
+
+      e.g. [AWS Private CA], [Google CA Service]
+
+    - use a managed private PKI **from a cloud-agnostic vendor**:
+
+      e.g. [Keyfactor], [Entrust PKI], [Venafi], or [AppViewX].
 
 ### Example: HTTPS with Let's Encrypt and AWS Secrets Manager
 
@@ -1671,6 +1972,25 @@ e.g. When a user adds some new data, you
 [Azure SQL Database encryption uses encryption keys from Azure Key Vault]: https://learn.microsoft.com/en-us/azure/azure-sql/database/transparent-data-encryption-tde-overview?view=azuresql&tabs=azure-portal
 [DynamoDB encryption with encryption keys from AWS KMS]: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/EncryptionAtRest.html
 [AWS S3 encryption with encryption keys from AWS KMS]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingEncryption.html
+[TLS History | Wikipedia]: https://en.wikipedia.org/wiki/Transport_Layer_Security#History_and_development
+[ZeroSSL]: https://zerossl.com/
+[CloudFlare’s free tier]: https://www.cloudflare.com/application-services/products/ssl/
+[AWS Certificate Manager (ACM)]: https://aws.amazon.com/certificate-manager/
+[Google-managed SSL certificates]: https://cloud.google.com/load-balancing/docs/ssl-certificates/google-managed-certs
+[DigiCert]: https://www.digicert.com/tls-ssl/compare-certificates
+[GoDaddy]: https://www.godaddy.com/en-ie/web-security/ssl-certificate
+[cfssl]: https://github.com/cloudflare/cfssl
+[Caddy]: https://caddyserver.com/
+[certstrap]: https://github.com/square/certstrap
+[EJBCA]: https://www.ejbca.org/
+[Dogtag Certificate System]: https://www.dogtagpki.org/wiki/PKI_Main_Page
+[OpenXPKI]: https://www.openxpki.org/
+[AWS Private CA]: https://aws.amazon.com/private-ca/
+[Google CA Service]: https://cloud.google.com/security/products/certificate-authority-service?hl=en
+[Keyfactor]: https://www.keyfactor.com/
+[Entrust PKI]: https://www.entrust.com/products/pki/managed-services/pki-as-a-service
+[Venafi]: https://venafi.com/zero-touch-pki/
+[AppViewX]: https://appviewx.com/
 
 [^1]:
     The vast majority of ciphers aim for computational security, where the resources and time it would take to break the cipher are so high, that it isn’t _feasible_ in the real world.
@@ -1720,3 +2040,7 @@ e.g. When a user adds some new data, you
 [^22]: A HSM is a physical devices that include a number of hardware and software features to safeguard your secrets and prevent tampering.
 [^23]: Data is rarely, if ever, deleted.
 [^24]: Especially as compared to live, active systems, which are usually more closely monitored.
+[^25]: In _man-in-the-middle (MITM) attacks_, a malicious actor may try to intercept your messages, read them, modify them, and impersonate either party in the exchange.
+[^26]: A nonce is a number that is incremented for every message.
+[^27]: The signature is the proof that you own the corresponding private key.
+[^28]: A malicious actor has no way to get a root CA to sign a certificate for a domain they don’t own, and they can’t modify even one bit in the real certificate without invalidating the signatures.
