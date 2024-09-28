@@ -1709,7 +1709,48 @@ To prevents MITM attack targeting public keys, TLS establishing a _chain of trus
   > - <https://www.redhat.com/sysadmin/ca-certificates-cli>
   > - <https://documentation.ubuntu.com/server/how-to/security/install-a-root-ca-certificate-in-the-trust-store/>
 
----
+##### How the TLS certificate (for your website) is used?
+
+![alt text](assets/tls-cert-verification.png)
+
+1. You visit some website in your browser at `https://<DOMAIN>`.
+
+1. During the TLS handshake, the web server
+
+   - sends over its TLS certificate, which includes
+     - the web server’s public key
+     - a CA’s signature.
+   - signs the message with its private key.
+
+1. Your browser validates
+
+   - the TLS certificate
+     - is for the domain `<DOMAIN>`
+     - was signed by one of the root CAs you trust (using the public key of that CA).
+   - the web server actually owns the public key in the certificate (by checking the signature on the message).
+
+   If both checks pass, you can be confident that you’re really talking to `<DOMAIN>`, and not someone doing a MITM attack[^28].
+
+> [!TIP]
+> A TLS certificate is a type of [public key certificate], which includes
+>
+> - the **public key** (and information about it),
+> - information about the identity of its owner (called the _subject_), and
+> - the **digital signature** of an entity that has verified the certificate's contents (called the _issuer_)
+>
+> ---
+>
+> If the device examining the certificate
+>
+> - trusts the issuer and
+> - finds the signature to be a valid signature of that issuer,
+>
+> then it can use the included public key to communicate securely with the certificate's subject.
+
+> [!NOTE]
+> Some root CAs don’t sign website certificates directly, but instead, they sign certificates for one or more levels of _intermediate CAs_ (extending the chain of trust), and it’s actually one of those intermediate CAs that ultimately signs the certificate for a website.
+>
+> In that case, the website returns the full certificate chain, and as long as that chain ultimately starts with a root CA you trust, and each signature along the way is valid, you can then trust the entire thing.
 
 ##### How to get a TLS certificate (for a website) from a CA?
 
@@ -1749,33 +1790,6 @@ To prevents MITM attack targeting public keys, TLS establishing a _chain of trus
    This signature is how the CA extends the chain of trust: it’s effectively saying:
 
    > "If you trust me as a root CA, then you can trust that the public key in this certificate is valid for this domain."
-
-##### How the TLS certificate (for your website) is used?
-
-![alt text](assets/tls-cert-verification.png)
-
-1. You visit some website in your browser at `https://<DOMAIN>`.
-
-1. During the TLS handshake, the web server
-
-   - sends over its TLS certificate, which includes
-     - the web server’s public key
-     - a CA’s signature.
-   - signs the message with its private key.
-
-1. Your browser validates
-
-   - the TLS certificate
-     - is for the domain `<DOMAIN>`
-     - was signed by one of the root CAs you trust (using the public key of that CA).
-   - the web server actually owns the public key in the certificate (by checking the signature on the message).
-
-   If both checks pass, you can be confident that you’re really talking to `<DOMAIN>`, and not someone doing a MITM attack[^28].
-
-> [!NOTE]
-> Some root CAs don’t sign website certificates directly, but instead, they sign certificates for one or more levels of _intermediate CAs_ (extending the chain of trust), and it’s actually one of those intermediate CAs that ultimately signs the certificate for a website.
->
-> In that case, the website returns the full certificate chain, and as long as that chain ultimately starts with a root CA you trust, and each signature along the way is valid, you can then trust the entire thing.
 
 ---
 
@@ -1843,13 +1857,357 @@ There are two primary types of PKIs:
 
 ### Example: HTTPS with Let's Encrypt and AWS Secrets Manager
 
-- Get a TLS certificate from LetsEncrypt
+> [!TIP]
+> Let's Encrypt
+>
+> - formed in 2014
+> - one of the first companies to offer free TLS certificates
+> - nowadays, one of the largest CAs
 
-- Store the TLS certificate in AWS Secrets Manager
+You can get TLS certificates from Let's Encrypt using a tool called [Certbot].
 
-- Deploy EC2 instances that use the TLS certificate
+- The idiomatic way to use Certbot is to
+
+  - connect to a live webserver (e.g., using SSH),
+  - run Certbot directly on that server, and Certbot will automatically
+    - request the TLS certificate,
+    - validate domain ownership, and
+    - install the TLS certificate for you.
+
+  This approach is
+
+  - great for manually-managed websites with a single user-facing server, but it’s not as
+  - is not for automated deployments with multiple servers that could be replaced at any time.
+
+- Therefore, in this section, you’re instead going to
+  - use Certbot in "manual" mode to get a certificate onto your own computer
+  - store that certificate in AWS Secrets Manager
+  - run some servers that will know how to retrieve the certificate from AWS Secrets Manager.
+
+#### Example: Get a TLS certificate from Let's Encrypt
+
+- Install [Certbot] on your computer
+
+  Follow the [installation instructions][Certbot installation instructions]
+
+- Create a temporary folder for the TLS certificate
+
+  ```bash
+  mkdir -p /tmp/certs/live/
+  cd /tmp/certs/live/
+  ```
+
+- Use Certbot to manually request a TLS certificate
+
+  ```bash
+  certbot certonly --manual \ #     (1)
+    --config-dir . \ #              (2)
+    --work-dir . \
+    --logs-dir . \
+    --domain www.<YOUR-DOMAIN> \ #  (3)
+    --certname example \ #          (4)
+    --preferred-challenges=dns #    (5)
+  ```
+
+  - (1): Run Certbot in manual mode, where it’ll solely request a certificate and store it locally, without trying to install it on a web server for you.
+  - (2): Override the directories Certbot uses to point to the current working directory, which should be the temporary folder you just created. This ensures the TLS certificate will ultimately be written into this temporary directory.
+  - (3): Fill in your domain name here.
+  - (4): Configure Certbot to use `example` as the name of the certificate. This has no impact on the contents of the certificate itself; it just ensures the certificate is written to a subfolder with the known name `example`.
+  - (5): Configure Certbot to use DNS as the way to validate that you own the domain in (3). You’ll have to prove that you own this domain, as explained next.
+
+  ***
+
+  - Certbot will prompt you for: email...
+  - Certbot then show you instructions to prove that you own the domain
+
+    ```bash
+    Please deploy a DNS TXT record under the name:
+
+    _acme-challenge.www.<YOUR-DOMAIN>
+
+    with the following value:
+
+    <SOME-VALUE>
+    ```
+
+- Create a DNS TXT record for your domain
+
+  For the previous domain that you registered with Route 53, go to the [Route 53 hosted zone pages]:
+
+  - Click on the hosted zone for that domain
+  - Click `Create record`
+  - Fill in the record's name, type, value , TTL.
+  - Click `Create records`
+
+- Wait for the record to propagate
+
+- Head back to the terminal, and press Enter
+
+  You should see a message:
+
+  ```bash
+  Successfully received certificate.
+  Certificate is saved at: /tmp/certs/live/example/fullchain.pem
+  Key is saved at:         /tmp/certs/live/example/privkey.pem
+  ```
+
+> [!NOTE]
+> TLS certificate are usually store in `.pem` files, which contains:
+>
+> - normal text
+> - based64-encoded text
+>
+> Decode the base64 part and you get data encoded in a format call _DER (Distinguished Encoding Rules)_[^30].
+>
+> Decode the DER data and you get the original certificate data in _X.509_[^29] format.
+
+> [!TIP]
+> The easiest way to read the certificate is to tell OpenSSL to part it for you:
+>
+> ```bash
+> openssl x509 -noout -text -in /tmp/certs/live/example/fullchain.pem
+> ```
+>
+> ```bash
+> Certificate:
+>     Data:
+>         # ...
+>         Subject: C=US, ST=California, L=Los Angeles, O=Internet Corporation for Assigned Names and Numbers, CN=www.example.org
+>         Subject Public Key Info:
+>             Public Key Algorithm: rsaEncryption
+>                 Public-Key: (2048 bit)
+>                 Modulus:
+>                     00:86:85:0f:bb:0e:f9:ca:5f:d9:f5:e0:0a:32:2c:
+>                     # ...
+>                 Exponent: 65537 (0x10001)
+>     # ...
+>     Signature Algorithm: sha256WithRSAEncryption
+>     Signature Value:
+>         04:e1:6e:02:3e:0d:e3:23:46:f4:e3:96:35:05:93:35:22:02:
+>         # ...
+> ```
+>
+> - `Subject`: The entity that the certificate is belongs to.
+> - `Subject Public Key Info`: The public key belonging to the certificate subject.
+> - `Signature Algorithm`: The algorithm used for the signature.
+> - `Signature Value`: The signature itself.
+
+#### Example: Store the TLS certificate in AWS Secrets Manager
+
+> [!TIP]
+> AWS Secrets Manager is a [**general-purpose secret store**](#two-kinds-of-secret-store-for-infrastructure-secrets) that provides a way to
+>
+> - store secrets in encrypted format,
+> - access secrets via API, CLI, or a web UI, and
+> - control access to secrets via IAM.
+>
+> Under the hood, the secrets are
+>
+> - encrypted using AES and envelope encryption,
+> - with a root key stored in AWS KMS:
+>   - you can either create a custom key to use in KMS, or
+>   - if you don’t, it will use a default key created specifically for Secrets Manager in your AWS account.
+
+> [!NOTE]
+> The typical way to store secrets in AWS Secrets Manager is to format them as JSON.
+
+In this example, you will
+
+- store the
+
+  - the private key certificate tan
+  - the TLS certificate
+
+- in JSON format:
+
+  ```json
+  {
+    "cert": "<CERTIFICATE>",
+    "key": "<PRIVATE-KEY>"
+  }
+  ```
+
+---
+
+- Use [jq] to encode the certificate and the private key in JSON
+
+  ```bash
+  CERTS_JSON=$(jq -n -c -r \
+    --arg cert "$(cat live/example/fullchain.pem)" \
+    --arg key "$(cat live/example/privkey.pem)" \
+    '{cert:$cert,key:$key}')
+  ```
+
+- Use AWS CLI to store the JSON string in AWS Secrets Manager
+
+  ```bash
+  aws secretsmanager create-secret \
+    --region us-east-2 \
+    --name certificate \
+    --secret-string "$CERTS_JSON"
+  ```
+
+- Go to the [AWS Secrets Manager console] to verify that the secret's been created
+
+  - Select the secret named `certificate`
+  - Click `Retrieve secret value`
+
+- Delete the TLS certificate from your own computer
+
+  ```bash
+  certbot delete \
+    --config-dir . \
+    --work-dir . \
+    --logs-dir .
+  ```
+
+#### Example: Deploy EC2 instances that use the TLS certificate
+
+- Copy the code from [Example: Register and Configure a Domain Name in Amazon Route 53 | Chapter 7](./chap-07.md#example-register-and-configure-a-domain-name-in-amazon-route-53)
+
+  ```bash
+  cd examples
+  mkdir -p ch8/tofu/live
+  ```
+
+  ```bash
+  cp -r ch7/tofu/live/ec2-dns ch8/tofu/live/ec2-dns-tls
+  cd ch8/tofu/live/ec2-dns-tls
+  ```
+
+- Open the port `443` instead of port `80`
+
+  ```t
+  # examples/ch8/tofu/live/ec2-dns-tls/main.tf
+
+  module "instances" {
+    source = "github.com/brikis98/devops-book//ch7/tofu/modules/ec2-instances"
+
+    name          = "ec2-dns-tls-example"
+    #...
+    http_port     = 443 # (1)
+    #...
+  }
+  ```
+
+- Update the IAM role for the EC2 instances to allow them to read from AWS Secrets Manager
+
+  ```t
+  # examples/ch8/tofu/live/ec2-dns-tls/main.tf
+
+  resource "aws_iam_role_policy" "tls_cert_access" {           # (1)
+    role   = module.instances.iam_role_name
+    policy = data.aws_iam_policy_document.tls_cert_access.json
+  }
+
+
+  data "aws_iam_policy_document" "tls_cert_access" {           # (2)
+    statement {
+      effect  = "Allow"
+      actions = ["secretsmanager:GetSecretValue"]
+      resources = [
+        "arn:aws:secretsmanager:us-east-2:${local.account_id}:secret:certificate-*"
+      ]
+    }
+  }
+
+  locals {
+    account_id = data.aws_caller_identity.current.account_id
+  }
+
+  data "aws_caller_identity" "current" {}
+  ```
+
+  - (1): Attach a new IAM policy to the IAM role of the EC2 instances.
+  - (2): The IAM policy allows those instances to
+
+    - call the `GetSecretValue` API in AWS Secrets Manager,
+    - but only to fetch the secret with the name starting with `certificate-`.
+
+    > [!TIP]
+    > The full ARN includes a randomly-generated ID after the secret name
+    >
+    > If you want to be even more secure, or to use a different AWS region, you can update this code with the full ARN (which you can find in the Secrets Manager web console) instead of the `*` wildcard.
+
+- Update the server code (The Node.js code in user data script) to call `GetSecretValue` API to fetch the secret from AWS Secrets Manager
+
+  ```bash
+  # examples/ch8/tofu/live/ec2-dns-tls/user-data.sh
+
+  export CERTIFICATE=$(aws secretsmanager get-secret-value \ #  (1)
+    --region us-east-2 \
+    --secret-id certificate \
+    --output text \
+    --query SecretString)
+
+  tee app.js > /dev/null << "EOF"
+  const https = require('https'); //                            (2)
+
+  const options = JSON.parse(process.env.CERTIFICATE); //       (3)
+
+  const server = https.createServer(options, (req, res) => { // (4)
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Hello, World!\n');
+  });
+
+  const port = 443; //                                          (5)
+  server.listen(port,() => {
+    console.log(`Listening on port ${port}`);
+  });
+  EOF
+  ```
+
+  - (1): Use the AWS CLI to
+
+    - fetch the TLS certificate from AWS Secrets Manager and
+    - export it as an environment variable called `CERTIFICATE`.
+
+      > [!TIP]
+      > Using an environment variable allows you to pass the TLS certificate data to the Node.js app in memory, without ever writing secrets to disk.
+
+  - (2): Instead of using the `http` Node.js library, use the `https` library.
+
+  - (3): Read the AWS Secrets Manager data from the `CERTIFICATE` environment variable, parse it as JSON, and store it in a variable called `options`.
+
+  - (4): Use the `https` library to run an HTTPS server, and pass it the options variable as configuration.
+
+    The Node.js `https` library looks for TLS certificates under the `cert` and `key` fields in `options`: not coincidentally, these are the exact field names you used when storing the TLS certificate in AWS Secrets Manager.
+
+  - (5): Listen on port `443` rather than port `80`.
+
+---
+
+- Deploy the `ec2-dns-tls` OpenTofu module
+
+  ```bash
+  tofu init
+  tofu appy
+  ```
+
+- Grab the output variable `domain_name`
+
+- Open the `https://<DOMAIN_NAME>` to verify that the request is over an HTTPS connection.
 
 ### Get your hands dirty: Securing communications and storage
+
+- Let's Encrypt certificates expire after 90 days.
+
+  Set up _automatic renewals_ by
+
+  - running Certbot on a regular schedule and
+  - having it update
+    - the data in AWS Secrets Manager,
+    - as well as any running servers.
+
+  One way to do this is to run a Lambda function every 60 days (using [scheduled events]) which
+
+  - runs Certbot with the [certbot-dns-route53 plugin] (to automate the DNS verification),
+  - updates the data in AWS Secrets Manager,
+  - if the update is successful: redeploys all your servers, so they fetch the latest certificate value.
+
+- Instead of individual EC2 instances, try
+  - deploying an ASG with an ALB, and
+  - using AWS ACM to provision a free, auto-renewing TLS certificate for your ALB.
 
 ### End-to-End Encryption
 
@@ -1991,6 +2349,14 @@ There are two primary types of PKIs:
 [Entrust PKI]: https://www.entrust.com/products/pki/managed-services/pki-as-a-service
 [Venafi]: https://venafi.com/zero-touch-pki/
 [AppViewX]: https://appviewx.com/
+[Certbot]: https://certbot.eff.org/
+[Certbot installation instructions]: https://eff-certbot.readthedocs.io/en/latest/install.html#alternative-1-docker
+[public key certificate]: https://en.wikipedia.org/wiki/Public_key_certificate
+[Route 53 hosted zone pages]: https://console.aws.amazon.com/route53/v2/hostedzones
+[jq]: https://jqlang.github.io/jq/
+[AWS Secrets Manager console]: https://console.aws.amazon.com/secretsmanager/listsecrets
+[scheduled events]: https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/scheduled-events-invoking-lambda-example.html
+[certbot-dns-route53 plugin]: https://certbot-dns-route53.readthedocs.io/en/stable/
 
 [^1]:
     The vast majority of ciphers aim for computational security, where the resources and time it would take to break the cipher are so high, that it isn’t _feasible_ in the real world.
@@ -2044,3 +2410,5 @@ There are two primary types of PKIs:
 [^26]: A nonce is a number that is incremented for every message.
 [^27]: The signature is the proof that you own the corresponding private key.
 [^28]: A malicious actor has no way to get a root CA to sign a certificate for a domain they don’t own, and they can’t modify even one bit in the real certificate without invalidating the signatures.
+[^29]: <https://en.wikipedia.org/wiki/X.509>
+[^30]: <https://en.wikipedia.org/wiki/X.690#DER_encoding>
