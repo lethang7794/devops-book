@@ -1332,9 +1332,9 @@ A simplified version of the architecture Google described in BeyondCorp:
   - to authenticate, authorize, and encrypt every single connection.
 
   > [!NOTE]
-  > This zero-trust architect might look like the moat-and-castle architecture: both reply on a single entrypoint to the network:
+  > This zero-trust architect might look like the castle-and-moat architecture: both reply on a single entrypoint to the network:
   >
-  > - For moat-and-castle approach: it's the bastion host
+  > - For castle-and-moat approach: it's the bastion host
   > - For zero-trust approach: it's the access proxy
 
 - (In additional to the bastion host,) every single private resources is also protected:

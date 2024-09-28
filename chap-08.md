@@ -2209,27 +2209,153 @@ In this example, you will
   - deploying an ASG with an ALB, and
   - using AWS ACM to provision a free, auto-renewing TLS certificate for your ALB.
 
+> [!NOTE]
+> When you’re done experimenting, undeploy this example by running `tofu destroy`.
+
+> [!WARNING] AWS Secrets Manager is free only during the trial period
+> Don't forget to mark the `certificate` secret for deletion in the [AWS Secrets Manager console]
+
 ### End-to-End Encryption
 
 #### What is End-to-End Encryption
 
-> [!IMPORTANT] Key takeaway #9
->
-> Use end-to-end encryption to protect data so that no one other than the intended recipients can see it—not even the software provider.
+- For most companies that use the [castle-and-moat](./chap-07.md#castle-and-moat-model) networking approach, the connections are only encrypted from the outside word to the load balancers
+
+  - TLS connections are terminated after the load balancers, aka _terminating_ TLS connection
+  - all others connections within the data center are encrypted
+
+    e.g.
+
+    - Between 2 microservices
+    - Between a microservice and a data store
+
+  ![alt text](assets/tls-termination.png)
+
+- As companies move more towards the [zero-trust architecture](./chap-07.md#zero-trust-model) approach, they instead require that all network connections are encrypted (encryption-in-transit everywhere).
+
+  ![alt text](assets/tls-end-to-end.png)
+
+- The next steps is to enforce encryption-at-rest everywhere (by using full-disk encryption, data store encryption, and application-level encryption)
+
+  ![alt text](assets/encrypted-at-rest-in-transit.png)
+
+  Requiring all data to be encrypted in transit (green, closed lock) and at rest (blue, closed lock)
+
+  ***
+
+  > [!NOTE]
+  > Encrypting all data at rest and in transit used to be known as _end-to-end (E2E) encryption_.
+  >
+  > - Assuming you do a good job of protecting the underlying encryption keys, this ensures that
+  >   - all of your customer data is protected at all times,
+  >   - there is no way for a malicious actor to get access to it.
+  > - But it turns out there is one more malicious actor to consider: _you_. That is, your company, and all of its employees.
 
 ---
 
+The modern definition of _end-to-end encryption_ that applies in some cases is that
+
+- not even the company providing the software should be able to access customer data.
+
+e.g.
+
+- In messaging apps (e.g. WhatsApp, Signal), where you typically don’t want the company providing the messaging software to be able to read any of the messages.
+- In password managers (e.g. 1Password, Bitwarden), where you don’t want the company providing the password manager software to be able to read any of your passwords.
+
+With this definition of _E2E encryption_:
+
+- the _only_ people who should be able to access the data are the customers that own it
+- the data needs to be _encrypted client-side_, before it leaves the customer’s devices.
+
+  ![alt text](assets/end-to-end-encryption.png)
+
+> [!IMPORTANT] Key takeaway #9
+>
+> Use _end-to-end encryption_ to protect data so that
+>
+> - no one other than the intended recipients can see it
+> - not even the software provider.
+
+| **Model**                             |                                                             | **Encryption in Transit**                   | **Encryption at Rest**                              | **Note**                                                                                                     |
+| ------------------------------------- | ----------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **Castle-and-Moat**                   |                                                             | Only to load balancers (then terminate TLS) | N/A                                                 |                                                                                                              |
+| **Zero-Trust Architecture**           |                                                             | Every connections                           | Optional                                            |                                                                                                              |
+| **Encryption-at-Rest and in-Transit** |                                                             | Every connections                           | Full-disk, data store, application-level encryption | - Protects from external malicious actors, not from internal malicious actors                                |
+| **Modern E2E Encryption**             | Encrypted client-side before data leaves customer's devices | Every connections                           | Full-disk, data store, application-level encryption | - Protects from both external & internal malicious actors<br/>- Used in messaging apps, password managers... |
+
 #### Working with End-to-End Encryption
 
-##### What encryption key do you use for E2E encryption?
+##### Which type of data key do you use for E2E encryption?
+
+Most E2E-encrypted software uses [envelope encryption](#two-kinds-of-secret-store-for-infrastructure-secrets).
+
+- The **root key** is typically
+
+  - derived from whatever authentication method you use to access the software:
+
+    e.g. The password you use to log in to the app.
+
+  - used to encrypt & decrypt one or more **data keys**, which are stored in encrypted format, either
+
+    - on the user’s device, or
+    - in the software provider’s servers
+
+    Once the data key is decrypted, the software typically
+
+    - keeps it in memory
+    - uses it to encrypt & decrypt data client-side.
+
+- The data keys can be
+
+  - the **encryption keys** used with symmetric-key encryption:
+
+    e.g., a password manager may use AES to encrypt & decrypt your passwords.
+
+  - the **private keys** used with asymmetric-key encryption:
+
+    e.g., a messaging app may give each user
+
+    - a private key that is stored on the device and used to decrypt messages
+    - a public key that can be shared with other users to encrypt messages.
 
 ##### What data needs to be E2E encrypted and what doesn’t?
 
-##### How do you establish trust with E2E-encrypted software?
+Not all data can be encrypted client-side. There is always some minimal set of data that must be visible to the software vendor, or the software won’t be able to function at all.
 
-- The software vendor could be lying
-- The software vendor could have back-doors
-- The software could have bugs
+e.g.
+
+- For an E2E-encrypted messaging app, at a minimum, the software vendor must be able to see the recipients of every message so that the message can be delivered to those recipients.
+
+Beyond this minimum set of data, each software vendor has to walk a fine line.
+
+- The more data you encrypt client-side, the more you protect your user’s privacy and security.
+- But encrypting more client-side comes at the cost of limiting the functionality you can provide server-side.
+
+  e.g.
+
+  - For Google, the more they encrypt client-side, the harder it is to do server-side search and ad targeting.
+
+##### Can you trust E2E-encrypted software?
+
+- **The software vendor could be lying**
+
+  Many companies that claimed their software offered end-to-end encryption were later found out to be lying or exaggerating.
+
+  e.g. Although claiming that Zoom provided E2E encryption for user communication, "Zoom maintained the cryptographic keys that could allow Zoom to access the content of its customers' meetings"[^31].
+
+- **The software vendor could have back-doors**
+
+  The vendor genuinely tries to provide end-to-end encryption, but a government agency forces the vendor to install _back-doors_[^32]
+
+  e.g. After Microsoft bought Skype, despite claiming Skype is E22 encryption, Microsoft collaborated with NSA to add back-doors to Skype[^33].
+
+- **The software could have bugs**
+
+  And provide unintentional ways to bypass E2E encryption.
+
+- **The software (or hardware) could be compromised**
+
+  Technology can help, but it’s not the full solution. At some point, you need to make a judgment call to trust something, or someone, and build from there.
 
 ## Conclusion
 
@@ -2412,3 +2538,6 @@ In this example, you will
 [^28]: A malicious actor has no way to get a root CA to sign a certificate for a domain they don’t own, and they can’t modify even one bit in the real certificate without invalidating the signatures.
 [^29]: <https://en.wikipedia.org/wiki/X.509>
 [^30]: <https://en.wikipedia.org/wiki/X.690#DER_encoding>
+[^31]: <https://www.theguardian.com/world/2013/jul/11/microsoft-nsa-collaboration-user-data>
+[^32]: Back-doors are hidden methods to access the data.
+[^33]: <https://www.ftc.gov/news-events/news/press-releases/2020/11/ftc-requires-zoom-enhance-its-security-practices-part-settlement>
