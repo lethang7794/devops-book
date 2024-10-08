@@ -18,7 +18,7 @@
 
 - To meet [_scalability_ & _availability_](#scalability-and-availability) requirements, you use **partitioning** & **_replication_**.
 
-- To ensure your data isn’t lost in a [_disaster_](#backup-and-recovery) scenario, you use **snapshots**, **continuous backups**, and **_replication_**.
+- To ensure your data isn't lost in a [_disaster_](#backup-and-recovery) scenario, you use **snapshots**, **continuous backups**, and **_replication_**.
 
 ---
 
@@ -328,7 +328,7 @@ To define a schema, you use `CREATE TABLE` statement
 
 ```sql
 CREATE TABLE <table> (
-   <colunm_name>   <column_type>,
+   <column_name>   <column_type>,
    <...>
 );
 ```
@@ -860,7 +860,7 @@ The Lambda function will
   app_endpoint = "https://765syuwsz2.execute-api.us-east-2.amazonaws.com"
   db_name = "bank"
   db_port = 5432
-  db_host = "bank.c8kglmys7qwb.us-east-2.rds.amazonaws.com"
+  db_host = "bank.c8xxxxxx7qwb.us-east-2.rds.amazonaws.com"
   ```
 
 ---
