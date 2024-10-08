@@ -1170,10 +1170,10 @@ You can use CDN to cache many types of contents from your app server:
   - (a) is the same for all of your users, and
   - (b) doesn’t change often.
 
-But CDNs provides most value when be used to cache **static content**:
+But CDNs provides most value when be used to cache **static content** (static files):
 
-- HTML, CSS, JavaScript
 - images, videos, binaries
+- HTML, CSS, JavaScript
 
 e.g.
 
@@ -1190,7 +1190,118 @@ Some of the major players in the CDN space include
 
 ## File Storage: File Servers and Object Stores
 
+### Why you shouldn't store static files in a database
+
+You can store static files (as a _blob_) in a database, which
+
+- may has some benefits:
+
+  - all data is kept in a single system where you already have security controls, data backups, monitoring...
+
+- but also has many disadvantages:
+
+  - **Slower database**
+
+    Storing files in a database bloats the size of the database, which:
+
+    - makes the database itself slower
+    - makes the scalability & availability of the database worse (the database itself is already a bottleneck)
+
+  - **Slower & more expensive replicas & backups**
+
+    The bigger the database the slower & more expensive to make replicas and backups.
+
+  - **Increased latency**
+
+    Serving files from your database to a web browser requires you to
+
+    - proxy each file through an app server, which
+      - significantly increases latency
+      - compared to serving a file directly, e.g. via the `sendfile` syscall
+
+  - **CPU, memory, and bandwidth overhead**
+
+    Proxying files in a database through an app server
+
+    - increases bandwidth, CPU, and memory usage,
+    - both on the app server and the database (which makes the database even more of a bottleneck).
+
+> [!NOTE]
+> Instead of storing static files in a database, you typically store and serve them from dedicated file servers
+
 ### File Servers
+
+#### What is a file server
+
+file server
+: a server that is designed to _store & serve_ **static files** (aka _static content_), such as images, videos, binaries, JavaScript, CSS
+
+#### Why use file servers
+
+By using dedicated file servers,
+
+- all static content are handle by file servers.
+
+This allows your app servers to focus entirely on
+
+- serving _dynamic content_ (content that is different for each user & request)
+
+#### How to use file servers
+
+Files servers are usually used together with CDNs and your app server.
+
+![alt text](assets/file-server.png)
+
+Users requests first go to a CDN, which
+
+- if it is already cached, returns a response immediately
+- if not, the CDN uses
+  - file servers as origin servers for static content
+  - app servers as origin servers for dynamic content
+
+#### Which file servers to use
+
+Almost any web server software can be configured to serve files.
+
+e.g. [Apache], [Nginx], [HAProxy] [Varnish], [Lighttpd], [Caddy], [Microsoft IIS].
+
+#### The challenges when working with file servers
+
+Serving files is straightforward; the hard part is handling
+
+- **Storage**
+
+  You need to provide sufficient hard drive capacity to store the files.
+
+- **Metadata**
+
+  In additional to the files, you need to store metadata related to the files, e.g. names[^22], owner, upload date...
+
+  You could store the metadata
+
+  - on the file system next to the files themselves, or
+  - in a separate data store (e.g., a relational database), which makes it easier to query the metadata 👈 more common approach
+
+- **Security**
+
+  You need to
+
+  - control who can can create files, read files, update files, and delete files.
+  - encrypt data [at rest](chap-08.md#encryption-at-rest) and [in transit](chap-08.md#secure-communication-and-encryption-in-transit).
+
+- **Scalability & availability**
+
+  You could host all the files on a single server, but a single server is a single point of failure (as you know from [Why use an orchestration | Chapter 3](chap-03.md#why-use-an-orchestration))
+
+  To support a lot of traffic, and to be resilient to outages, you typically need to figure out how to host files across multiple servers.
+
+> [!NOTE]
+> Instead of using **file servers** and solving all these problems yourself, which requires
+>
+> - many custom toolings
+> - a lot of servers, hard drives...
+>
+> You can offload these work to a 3rd-party **object store**.
 
 ### Object Stores
 
@@ -1340,6 +1451,13 @@ Some of the major players in the CDN space include
 [Amazon CloudFront]: https://aws.amazon.com/cloudfront/
 [Google Cloud CDN]: https://cloud.google.com/cdn
 [Azure CDN]: https://azure.microsoft.com/en-us/products/cdn
+[Apache]: https://httpd.apache.org/
+[Nginx]: https://nginx.org/en/
+[HAProxy]: https://www.haproxy.org/
+[Varnish]: https://varnish-cache.org/
+[Lighttpd]: https://www.lighttpd.net/
+[Caddy]: https://caddyserver.com/
+[Microsoft IIS]: https://www.iis.net/
 
 [^1]: Ephemeral data is data that is OK to lose if that server is replaced.
 [^2]: Elastic File System
@@ -1395,3 +1513,4 @@ Some of the major players in the CDN space include
 [^19]: Valkey is a fork of Redis that was created after Redis switched from an open source license to dual-licensing
 [^20]: You can you DynamoDB as a replacement for Redis.
 [^21]: _Cache hit ratio_ is the percentage of requests that are a cache hit
+[^22]: The name metadata may be different from the file name.
