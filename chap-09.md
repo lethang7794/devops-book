@@ -932,15 +932,261 @@ After the PostgreSQL database is deployed, you use the Knex CLI to apply schema 
 
 ## Caching: Key-Value Stores and CDNs
 
+### Cache
+
+#### What is cache
+
+cache
+: a component that stores data so that future requests for that data can be served faster[^16]
+
+To achieve low latency, the cache is stored
+
+- in the **memory** (instead of on on disk)
+- in a format that optimized
+  - for **rapid retrieval**, e.g. hash table
+  - rather than flexible query mechanics, e.g. relational tables
+
+#### Uses cases for cache
+
+- **Slow queries**
+
+  If queries to your data stores take a long time, you can cache the results for faster lookups.
+
+- **Slow aggregates**
+
+  Sometimes, individual queries are fast, but you have to issue many queries, and aggregating all of them takes a long time.
+
+- **High load**
+
+  If you have a lot of load on your primary data store, queries may become slow due to contention for limited resources (CPU, memory, etc).
+
+  Using a cache to offload many of the requests can reduce load on the primary data store, and make
+
+  - those requests faster
+  - all other requests faster, too
+
+#### An simple version of cache
+
+You can have a cache by using an in-memory hash table directly in your application code:
+
+e.g.
+
+- A cache in JavaScript
+
+  ```javascript
+  const cache = {}; // (1)
+
+  function query(key) {
+    // (2)
+    if (cache[key]) {
+      return cache[key];
+    }
+
+    const result = expensiveQuery(key); // (3)
+    cache[key] = result;
+    return result;
+  }
+  ```
+
+  This is an example of _cache-aside strategy_[^17]:
+
+  - (1): The cache is a _hashtable_ (aka _map_ or _object_) that the app stores in memory.
+  - (2): When you want to perform a query, the first thing you do is
+    - check if the data you want is already **in the cache**.
+      - If so, you return it immediately (without having to wait on an expensive query).
+  - (3): If the data isn’t in the cache, you
+
+    - perform the expensive query
+
+      e.g. send a query to the primary data store
+
+    - store the result in the cache (so future lookups are fast)
+    - then return that result.
+
+---
+
+This cache - with _cache-aside strategy_ - is a "simplified" cache because:
+
+| Aspect                       | The problem                                                                                                    | Note                                                                                       |                                |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------ |
+| 1. Memory usage              | The cache will grow indefinitely, which may cause your app to run out of memory.                               | You need a _caching mechanism_ to evict data when the cache size is exceeded its limit     | Can be solved with better code |
+| 2. Concurrency               | The code doesn't handle multiple concurrent queries that all update the cache.                                 | You may have to use _synchronization_ primitives, e.g., locking                            | Can be solved with better code |
+| 3. Cold starts               | Every single time you redeploy the app, it will start with an empty cache, which may cause performance issues. | You need a way to store the cache to disk so it's _persistent_                             |                                |
+| 4. _Cache invalidation_[^18] | The code only handles read operations, but not write operations, so future queries may return stale data.      | You need some way to _update_ (when you write data) or _invalidate_ that data in the cache |                                |
+
+> [!NOTE]
+> For more complicated cases, the typical way to handle caching is by deploying a _centralized data store_ that is dedicated to caching, e.g. key-value stores, CDNs.
+>
+> With _centralized data store_:
+>
+> - You avoid cold starts
+> - You have only a single to update when do cache invalidation
+>
+>   e.g.
+>
+>   - You might do _write-through caching_, where whenever you write to your primary data store, you also update the cache.
+
 ### Key-Value Stores
+
+#### What is key-value store
+
+key-value store
+: data store that is optimized for extremely fast lookup by a key
+: ~ a distributed hash table
+: acts as a cache between your app servers & primary data store
+
+![alt text](key-value-store-1.png)
+
+#### How key-value store works
+
+Requests with the corresponding keys that:
+
+- are in the cache (aka a _cache hit_) will
+  - be returned extremely fast (without having to talk to the primary data store)
+- aren't in the cache (aka a _cache miss_) will
+  - go to the primary store
+  - be added to the cache (for future cache hits)
+
+The API for most key-value stores primarily consists of just 2 type of functions:
+
+- a function to insert a key-value pair
+- a function to lookup a value by key
+
+e.g.
+
+- With Redis, they're `SET` and `GET`
+
+  ```bash
+  $ SET key value
+  OK
+  $ GET key
+  value
+  ```
+
+Key-value stores do not require you to define a schema ahead of time, so you can store any kind of value you want.
+
+> [!CAUTION]
+> Key-value store is sometimes referred to as _schema-less_, but this is a misnomer.
+
+Typically, the values are either
+
+- simple _scalars_, e.g., strings, integers...
+- or _blobs_ that contain arbitrary data that is opaque to the key-value store.
+
+> [!WARNING]
+> Since key-value store is only aware of keys and very basic types of values, the functionality is typically limited compared to relational database.
 
 > [!IMPORTANT] Key takeaway #4
 > Use key-value stores to cache data, speeding up queries and reducing load on your primary data store.
 
+#### Which key-value store solutions are in the market
+
+You can:
+
+- self-host key value stores with Some of the major players in the key-value store space include [Redis] / [Valkey] [^19], [Memcached], [Riak KV]
+
+- or use a managed service [Redis Cloud], [Amazon ElastiCache], [Amazon DynamoDB] [^20], [Google Cloud Memorystore], [Azure Cache for Redis], and [Upstash].
+
+---
+
+After you have a key-value store deployed, many libraries can automatically use them for cache-aside and write-through caching without you having to implement those strategies manually.
+
+e.g.
+
+- WordPress has plugins that automatically integrate with [Redis][wordpress-redis] and [Memcached][wordpress-memcached]
+- Apollo GraphQL supports caching in [Redis and Memcached][Apollo GraphQL caching]
+- [Redis Smart Cache plugin] can give you automatic caching for any database you access from Java code via the Java Database Connectivity (JDBC) API.
+
 ### CDNs
+
+#### What is CDN
+
+content delivery network (CDN)
+: a group of servers - called _Points of Presence (PoPs)_ - that are distributed all over the world
+: - cache data from your _origin servers_, i.e. your app servers
+: - serve that data to your users from a PoP that is as close to that user as possible.
+: acts as a cache between your users & your app servers
+
+![alt text](assets/cdn.png)
+
+#### How CDN works
+
+When a user makes a request, it first goes to the CDN server that is closest to that user, and
+
+- if the content is already cached, the user gets a response immediately.
+- If the content isn’t already cached, the CDN forwards the request to your origin servers:
+  - fetches the content
+  - caches it (to make future requests fast)
+  - then returns a response
+
+#### Why use CDN
+
+- **Reduce latency**
+
+  CDN servers are distributed all over the world
+
+  e.g.
+
+  - Akamai has more than 4,000 PoPs in over 130 countries
+
+  which:
+
+  - allows you to serve content from locations that are physically _closer to your users_, which can significantly reduce latency (See [common latency numbers](chap-06.md#reducing-latency))
+  - without your company having to invest the time and resources to deploy and maintain app servers all over the world.
+
+- **Reduce load**
+
+  Once the CDN has cached a response for a given key, it no longer needs to
+
+  - send a request to the underlying app server for that key
+  - at least, not until the data in the cache has expired or been invalidated.
+
+  If you have a good _cache hit ratio_[^21], this can significantly reduce the load on the underlying app servers.
+
+- **Improve security**
+
+  Many CDNs these days can provide additional layers of security, such as
+
+  - a _web application firewall (WAF)_, which can inspect and filter HTTP traffic to prevent certain types of attacks, e.g. SQL injection, cross-site scripting, cross-site forgery
+  - _Distributed Denial-of-Service (DDoS) protection_, which shields you from malicious attempts to overwhelm your servers with artificial traffic generated from servers around the world.
+
+- **Other benefits**
+
+  As CDNs become more advanced, they offer more and more features that let you take advantage of their massively distributed network of PoPs:
+
+  - _edge-computing_, where the CDN allows you to run small bits of code on the PoPs, as close to your users (as close to the "edge") as possible
+  - _compression_, where the CDN automatically uses algorithms such as Gzip or Brotli to reduce the size of your static content and thereby, reduce bandwidth usage
+  - _localization_, where knowing which local PoP was used allows you to choose the language in which to serve content.
 
 > [!IMPORTANT] Key takeaway #5
 > Use CDNs to cache static content, reducing latency for your users and reducing load on your servers.
+
+#### When to use CDN
+
+You can use CDN to cache many types of contents from your app server:
+
+- _dynamic content_: content that is different for each user and request
+- _static content_: content that
+  - (a) is the same for all of your users, and
+  - (b) doesn’t change often.
+
+But CDNs provides most value when be used to cache **static content**:
+
+- HTML, CSS, JavaScript
+- images, videos, binaries
+
+e.g.
+
+- News publications can usually offload a huge portion of their traffic to CDNs, as once an article is published:
+  - every user sees the same content, and
+  - that content isn’t updated too often.
+
+#### Which CDN to use
+
+Some of the major players in the CDN space include
+
+- [CloudFlare], [Akamai], [Fastly], [Imperva]
+- [Amazon CloudFront], [Google Cloud CDN], [Azure CDN]
 
 ## File Storage: File Servers and Object Stores
 
@@ -1073,6 +1319,27 @@ After the PostgreSQL database is deployed, you use the Knex CLI to apply schema 
 [RDS Proxy]: https://aws.amazon.com/rds/proxy/
 [having RDS manage it in AWS Secrets Manager]: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html
 [using IAM for database authentication]: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.html
+[Redis]: https://redis.io/
+[Valkey]: https://valkey.io/
+[Memcached]: https://memcached.org/
+[Amazon DynamoDB]: https://aws.amazon.com/dynamodb/
+[Riak KV]: https://riak.com/products/riak-kv/
+[Redis Cloud]: https://redis.io/cloud/
+[Amazon ElastiCache]: https://aws.amazon.com/elasticache/
+[Google Cloud Memorystore]: https://cloud.google.com/memorystore
+[Azure Cache for Redis]: https://azure.microsoft.com/en-us/products/cache
+[Upstash]: https://upstash.com/
+[wordpress-redis]: https://wordpress.org/plugins/redis-cache/
+[wordpress-memcached]: https://wordpress.org/plugins/object-cache-4-everyone/
+[Apollo GraphQL caching]: https://www.apollographql.com/docs/apollo-server/performance/cache-backends
+[Redis Smart Cache plugin]: https://redis.io/blog/redis-smart-cache
+[CloudFlare]: https://www.cloudflare.com/
+[Akamai]: https://www.akamai.com/
+[Fastly]: https://www.fastly.com/
+[Imperva]: https://www.imperva.com/
+[Amazon CloudFront]: https://aws.amazon.com/cloudfront/
+[Google Cloud CDN]: https://cloud.google.com/cdn
+[Azure CDN]: https://azure.microsoft.com/en-us/products/cdn
 
 [^1]: Ephemeral data is data that is OK to lose if that server is replaced.
 [^2]: Elastic File System
@@ -1112,3 +1379,19 @@ After the PostgreSQL database is deployed, you use the Knex CLI to apply schema 
 [^13]: The _automatically-incrementing sequence_ will generate a monotonically increasing ID that is guaranteed to be unique (even in the face of concurrent inserts) for each new row.
 [^14]: Amazon’s _Relational Database Service (RDS)_ is a fully-managed service that provides a secure, reliable, and scalable way to run several different types of relational databases, including PostgreSQL, MySQL, MS SQL Server, and Oracle Database
 [^15]: <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html#UsingWithRDS.SSL.CertificatesDownload>
+[^16]: <https://en.wikipedia.org/wiki/Cache_(computing)>
+[^17]: With _cache-aside strategy_, you update the cache when data is requested, which makes future queries considerably faster.
+[^18]: Cache invalidation is one of the "two hard things in Computer Science".
+
+    Cache invalidation is one of those problems that’s much harder than it seems.
+
+    e.g.
+
+    - If you have 20 replicas of your app, all with code similar to the example cache, then every time the data in your primary data store is updated, you need to find a way to
+
+      - (a) detect the change has happened
+      - (b) invalidate or update 20 caches.
+
+[^19]: Valkey is a fork of Redis that was created after Redis switched from an open source license to dual-licensing
+[^20]: You can you DynamoDB as a replacement for Redis.
+[^21]: _Cache hit ratio_ is the percentage of requests that are a cache hit
