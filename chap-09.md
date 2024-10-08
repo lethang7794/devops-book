@@ -319,97 +319,100 @@ e.g.
 
 ### Schemas and Constraints
 
-- Relational databases require you to define a _schema_ for each table before you can read and write data to that table.
+> [!NOTE]
+> Relational databases require you to define a _schema_ for each table before you can read and write data to that table.
 
-- To define a schema, you use `CREATE TABLE` statement
+#### Defining a schema
+
+To define a schema, you use `CREATE TABLE` statement
+
+```sql
+CREATE TABLE <table> (
+   <colunm_name>   <column_type>,
+   <...>
+);
+```
+
+e.g.
+
+- Create a table called `customers` with columns called `id`, `name`, `date_of_birth`, and `balance`
 
   ```sql
-  CREATE TABLE <table> (
-     <colunm_name>   <column_type>,
-     <...>
+  CREATE TABLE customers (
+    id            SERIAL PRIMARY KEY,
+    name          VARCHAR(128),
+    date_of_birth DATE,
+    balance       INT
   );
   ```
 
+#### Schema's integrity constraints
+
+The schema includes a number of _integrity constraints_ to enforce business rules:
+
+- **Domain constraints**:
+
+  _Domain constraints_ limit what _kind of data_ you can store in the table.
+
   e.g.
 
-  - Create a table called `customers` with columns called `id`, `name`, `date_of_birth`, and `balance`
+  - Each column has a _type_, such as `INT`, `VARCHAR`, and `DATE`, so the database will prevent you from inserting data of the wrong type
+
+  - The `id` column specifies `SERIAL`, which is a _pseudo type_ (an _alias_) that gives you a convenient way to capture three domain constraints:
+    - first, it sets the type of the id column to `INT`
+    - second, it adds a `NOT NULL` constraint[^12], so the database will not allow you to insert a row which is missing a value for this column
+    - third, it sets the _default value_ for this column to an _automatically-incrementing sequence_[^13].
+
+- **Key constraints**
+
+  A _primary key_ is a column or set of columns that can be used to _uniquely_ identify each row in a table
+
+  e.g.
+
+  - The `id` column specifies `PRIMARY KEY`, which means this column is the primary key for the table, so the database will ensure that every row has a different value for this column.
+
+- **Foreign key constraints**
+
+  A _foreign key constraint_ is where a column in one table can contain values that are _references_ to a column in **another table**.
+
+  e.g. Bank customers could have more than one account, each with their own balance,
+
+  - Instead of having a single `balance` column in the `customers` table
+  - You could create a second table called `accounts`, where each row represents one account
 
     ```sql
-    CREATE TABLE customers (
-      id            SERIAL PRIMARY KEY,
-      name          VARCHAR(128),
-      date_of_birth DATE,
-      balance       INT
+    CREATE TABLE accounts (
+        account_id      SERIAL PRIMARY KEY,          (1)
+        account_type    VARCHAR(20),                 (2)
+        balance         INT,                         (3)
+        customer_id     INT REFERENCES customers(id) (4)
     );
     ```
 
----
+    The `accounts` table has 4 columns:
 
-- The schema includes a number of _integrity constraints_ to enforce business rules:
+    - 1: A unique ID for each **account** (the primary key).
+    - 2: The `account_type`: e.g., checking or savings.
+    - 3: The `balance` for the account.
+    - 4: The ID of the **customer** that owns this account.
 
-  - **Domain constraints**:
+      > [!NOTE]
+      > The `REFERENCES` keyword labels this column as a **foreign key** into the `id` column of the `customers` table.
+      >
+      > - This will prevent you from accidentally inserting a row into the `accounts` table that has an _invalid_ customer ID (i.e., one that isn’t in the `customers` table).
 
-    _Domain constraints_ limit what _kind of data_ you can store in the table.
-
-    e.g.
-
-    - Each column has a _type_, such as `INT`, `VARCHAR`, and `DATE`, so the database will prevent you from inserting data of the wrong type
-
-    - The `id` column specifies `SERIAL`, which is a _pseudo type_ (an _alias_) that gives you a convenient way to capture three domain constraints:
-      - first, it sets the type of the id column to `INT`
-      - second, it adds a `NOT NULL` constraint[^12], so the database will not allow you to insert a row which is missing a value for this column
-      - third, it sets the _default value_ for this column to an _automatically-incrementing sequence_[^13].
-
-  - **Key constraints**
-
-    A _primary key_ is a column or set of columns that can be used to _uniquely_ identify each row in a table
-
-    e.g.
-
-    - The `id` column specifies `PRIMARY KEY`, which means this column is the primary key for the table, so the database will ensure that every row has a different value for this column.
-
-  - **Foreign key constraints**
-
-    A _foreign key constraint_ is where a column in one table can contain values that are _references_ to a column in **another table**.
-
-    e.g. Bank customers could have more than one account, each with their own balance,
-
-    - Instead of having a single `balance` column in the `customers` table
-    - You could create a second table called `accounts`, where each row represents one account
-
-      ```sql
-      CREATE TABLE accounts (
-          account_id      SERIAL PRIMARY KEY,          (1)
-          account_type    VARCHAR(20),                 (2)
-          balance         INT,                         (3)
-          customer_id     INT REFERENCES customers(id) (4)
-      );
-      ```
-
-      The `accounts` table has 4 columns:
-
-      - 1: A unique ID for each **account** (the primary key).
-      - 2: The `account_type`: e.g., checking or savings.
-      - 3: The `balance` for the account.
-      - 4: The ID of the **customer** that owns this account.
-
-        > [!NOTE]
-        > The `REFERENCES` keyword labels this column as a **foreign key** into the `id` column of the `customers` table.
-        >
-        > - This will prevent you from accidentally inserting a row into the `accounts` table that has an _invalid_ customer ID (i.e., one that isn’t in the `customers` table).
-
-    > [!TIP]
-    > Foreign key constraint
-    >
-    > - is one of the defining characteristics of relational databases, as they
-    >
-    >   - allow you to define and enforce **relationships between tables**.
-    >
-    >   👉 This is what the "_relational_" in "_relational_ database" refers to.
-    >
-    > - is critical in maintaining the _referential integrity_ of your data
-    >
-    >   👉 another major reason to use a relational database as your primary source of truth.
+  > [!TIP]
+  > Foreign key constraint
+  >
+  > - is one of the defining characteristics of relational databases, as they
+  >
+  >   - allow you to define and enforce **relationships between tables**.
+  >
+  >   👉 This is what the "_relational_" in "_relational_ database" refers to.
+  >
+  > - is critical in maintaining the _referential integrity_ of your data
+  >
+  >   👉 another major reason to use a relational database as your primary source of truth.
 
 > [!IMPORTANT] Key takeaway #3
 > Use relational databases as your primary data store (the source of truth), as
@@ -516,6 +519,416 @@ The schema migration tools can be run:
 2. As a separate strep in deployment pipeline, just before you deploy the app
 
 ### Example: PostgreSQL, Lambda, and Schema Migrations
+
+In this example, you'll
+
+- Deploy PostgreSQL in AWS using RDS[^14].
+- Define the schema for this database as code using [Knex.js]
+- Deploy a Lambda function and API Gateway to run a Node.js serverless web app that
+  - uses Knex.js to connect to the PostgreSQL database over TLS
+  - run queries
+  - return the results as JSON
+
+#### Create an OpenTofu root module for PostgreSQL, Lambda, API Gateway
+
+Use the `rds-postgres` OpenTofu module to deploy PostgreSQL on RDS:
+
+- Create the folder
+
+  ```bash
+  cd examples
+  mkdir -p ch9/tofu/live/lambda-rds
+  cd ch9/tofu/live/lambda-rds
+  ```
+
+- The root module `main.tf` for deploying Postgres on RDS
+
+  ```t
+  # examples/ch9/tofu/live/lambda-rds/main.tf
+  provider "aws" {
+    region = "us-east-2"
+  }
+
+  module "rds_postgres" {
+    source = "github.com/brikis98/devops-book//ch9/tofu/modules/rds-postgres"
+
+    name              = "bank" #         (1)
+    instance_class    = "db.t4g.micro" # (2)
+    allocated_storage = 20 #             (3)
+    username          = var.username #   (4)
+    password          = var.password #   (5)
+  }
+  ```
+
+  - 1: Set the name of the RDS instance, and the logical database within it, to `bank`
+  - 2: Use a `db.t4g.micro` RDS instance (2 CPUs and 1GB of memory, is part of the AWS free tier)
+  - 3: Allocate 20 GB of disk space for the DB instance.
+  - 4: Set the username for the master database user to `var.username` (an input variable).
+  - 5: Set the password for the master database user to `var.password` (an input variable).
+
+- Add input variables for the username/password of the database
+
+  ```t
+  # examples/ch9/tofu/live/lambda-rds/variables.tf
+  variable "username" {
+    description = "Username for master DB user."
+    type        = string
+  }
+
+  variable "password" {
+    description = "Password for master DB user."
+    type        = string
+    sensitive   = true
+  }
+  ```
+
+---
+
+Use `lambda` and `api-gateway` modules to deploy a Lambda function and an API Gateway
+
+- The `main.tf` for deploying a Lambda Function and API Gateway:
+
+  ```t
+  # examples/ch9/tofu/live/lambda-rds/main.tf
+  module "app" {
+    source = "github.com/brikis98/devops-book//ch3/tofu/modules/lambda"
+
+    name        = "lambda-rds-app"
+    src_dir     = "${path.module}/src" #         (1)
+    handler     = "app.handler"
+    runtime     = "nodejs20.x"
+    memory_size = 128
+    timeout     = 5
+
+    environment_variables = { #                  (2)
+      NODE_ENV    = "production"
+      DB_NAME     = module.rds_postgres.db_name
+      DB_HOST     = module.rds_postgres.hostname
+      DB_PORT     = module.rds_postgres.port
+      DB_USERNAME = var.username
+      DB_PASSWORD = var.password
+    }
+  }
+
+  module "app_gateway" {
+    source = "github.com/brikis98/devops-book//ch3/tofu/modules/api-gateway"
+
+    name               = "lambda-rds-app" #      (3)
+    function_arn       = module.app.function_arn
+    api_gateway_routes = ["GET /"]
+  }
+  ```
+
+  - 1: The source code for the function will be in the `src` folder. You’ll see what this code looks like shortly.
+  - 2: Use environment variables to pass the Lambda function all the details about the database, including the database name, hostname, port, username, and password.
+  - 3: Create an API Gateway so you can trigger the Lambda function using HTTP requests.
+
+- Add output variables for API Gateway's endpoint, and database's name, host, port
+
+  ```t
+  output "app_endpoint" {
+    description = "API Gateway endpoint for the app"
+    value       = module.app_gateway.api_endpoint
+  }
+
+  output "db_name" {
+    description = "The name of the database"
+    value       = module.rds_postgres.db_name
+  }
+
+  output "db_host" {
+    description = "The hostname of the database"
+    value       = module.rds_postgres.hostname
+  }
+
+  output "db_port" {
+    description = "The port of the database"
+    value       = module.rds_postgres.port
+  }
+  ```
+
+#### Create schema migrations with Knex.js
+
+- Create a folder for the schema migrations
+
+  ```bash
+  mkdir -p src
+  cd src
+  ```
+
+  The schema migrations is a Node package (Knex.js uses JavaScript).
+
+- Create a `package.json`
+
+  ```json
+  {
+    "name": "lambda-rds-example",
+    "version": "0.0.1",
+    "description": "Example app 'Fundamentals of DevOps and Software Delivery'",
+    "author": "Yevgeniy Brikman",
+    "license": "MIT"
+  }
+  ```
+
+- Install dependencies
+
+  ```bash
+  npm install knex --save #   (1)
+  npm install knex --global # (2)
+  npm install pg --save #     (3)
+  ```
+
+  - (1): Install Knex.js as a dependency, so it's available to Lambda function.
+  - (2): Install Knex.js as a CLI tool.
+  - (3): Install `node-postgres` library that Knex.js use to talk to PostgreSQL.
+
+---
+
+- When Knex.js apply schema migrations, it will connect to PostgreSQL over the network.
+
+- The connection to PostgreSQL database on RDS is encrypted using TLS.
+
+  - Because the PostgreSQL database is internal, AWS use its root CA certificate to sign the TLS certificate.
+
+- To validate the database's TLS certificate, you need to:
+
+  - Download the root CA certificate[^15] that is used to sign the database TLS certificate
+
+    ```bash
+    curl https://truststore.pki.rds.amazonaws.com/us-east-1/us-east-1-bundle.pem -o src/rds-us-east-2-ca-cert.pem
+    ```
+
+  - Configure your app to trust the root CA certificate
+
+    ```javascript
+    // examples/ch9/tofu/live/lambda-rds/src/knexfile.js
+    const fs = require("fs").promises;
+
+    module.exports = {
+      // (1)
+      client: "postgresql",
+
+      connection: async () => {
+        // (2)
+        const rdsCaCert = await fs.readFile("rds-us-east-2-ca-cert.pem");
+
+        // (3)
+        return {
+          database: process.env.DB_NAME,
+          host: process.env.DB_HOST,
+          port: process.env.DB_PORT,
+          user: process.env.DB_USERNAME || process.env.TF_VAR_username,
+          password: process.env.DB_PASSWORD || process.env.TF_VAR_password,
+          ssl: { rejectUnauthorized: true, ca: rdsCaCert.toString() },
+        };
+      },
+    };
+    ```
+
+    - (1): Use the PostgreSQL library (`node-postgres`) to talk to the database.
+    - (2): Read the root CA certificate from AWS.
+    - (3): This JSON object configures the connection to
+
+      - use the database name, host, port, username, and password from the environment variables you passed to the Lambda function in the OpenTofu code,
+      - validate the TLS certificate using the CA cert you read in (2).
+
+      > [!TIP]
+      > You're using the same environment variables to pass the username and password to both the OpenTofu module and to Knex.js.
+
+---
+
+- Create your first schema migration
+
+  ```bash
+  knex migrate:make create_customers_tables
+  ```
+
+  This will create
+
+  - a `migrations` folder, and within it,
+    - a file called `<TIMESTAMP>_create_customers_table.js`, where `TIMESTAMP` is a timestamp representing when you ran the `knex migrate:make` command.
+
+- Define the schema migration for the `customers` table
+
+  ```javascript
+  // <TIMESTAMP>_create_customers_table.js
+
+  // (1)
+  exports.up = async (knex) => {
+    // (2)
+    await knex.schema.createTable("customers", (table) => {
+      table.increments("id").primary();
+      table.string("name", 128);
+      table.date("date_of_birth");
+      table.integer("balance");
+    });
+
+    // (3)
+    return knex("customers").insert([
+      { name: "Brian Kim", date_of_birth: "1948-09-23", balance: 1500 },
+      { name: "Karen Johnson", date_of_birth: "1989-11-18", balance: 4853 },
+      { name: "Wade Feinstein", date_of_birth: "1965-02-25", balance: 2150 },
+    ]);
+  };
+
+  // (4)
+  exports.down = async (knex) => {
+    return knex.schema.dropTable("customers");
+  };
+  ```
+
+With Knex.js, you define your schemas, and any updates to them, in sequential `.js` files as follows:
+
+- (1): Within each `.js` file, the `up` function is where you define how to update the database schema.
+
+- (2): This code creates the `customers` table with the exact same schema you first saw in [Defining a schema](#defining-a-schema), except
+
+  - instead of using raw SQL (`CREATE TABLE`), you use a JavaScript API (`createTable()`).
+
+- (3): This code populates the database with some initial data, adding the exact same three customers to the `customers` table that you initially saw in [Writing and Reading](#writing--reading-data), again
+
+  - using a fluent JavaScript API instead of raw SQL.
+
+- (4): Within each `.js` file, the `down` function is where you define how to _undo_ the schema changes in the `up` file.
+
+  - This gives you a way to roll back changes in case of bugs, outages, or as part of testing.
+
+  - The code here deletes the `customer` table that was created in the `up` function.
+
+#### Create the Lambda function that query PostgreSQL
+
+The Lambda function will
+
+- uses Knex.js to connect to the PostgreSQL database over TLS
+- run queries
+- return the results as JSON
+
+---
+
+- Create `app.js` - the entrypoint of the Lambda function
+
+  ```javascript
+  const knex = require("knex");
+  const knexConfig = require("./knexfile.js"); //   (1)
+  const knexClient = knex(knexConfig); //           (2)
+
+  exports.handler = async (event, context) => {
+    const result = await knexClient("customers") // (3)
+      .select()
+      .where("date_of_birth", ">", "1950-12-31");
+
+    // (4)
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ result }),
+    };
+  };
+  ```
+
+  > [!TIP]
+  > Knex.js can also be used to query the database
+
+  - (1): Load the database connection configuration from _knexfile.js_.
+  - (2): Create a Knex.js client, using the configuration from (1) to connect it to the PostgreSQL database.
+  - (3): Use the Knex.js client to perform the exact database query you saw in [Writing and Reading data](#writing--reading-data), which fetches all customers born after 1950.
+  - (4): Return the results of the query as JSON.
+
+#### Deploy the example
+
+- Set environment variables for username/password
+
+  ```bash
+  export TF_VAR_username=<username> # FILL IN
+  export TF_VAR_password=<password> # FILL IN
+  ```
+
+  > [!TIP]
+  > Save these credentials in a password manager, such as 1Password
+
+- Initialize and apply the OpenTofu module
+
+  ```bash
+  cd ..
+  tofu init
+  tofu apply
+  ```
+
+- When apply completes (which can take 5-10 minutes for RDS to be deployed), you should see the output variables:
+
+  ```bash
+  app_endpoint = "https://765syuwsz2.execute-api.us-east-2.amazonaws.com"
+  db_name = "bank"
+  db_port = 5432
+  db_host = "bank.c8kglmys7qwb.us-east-2.rds.amazonaws.com"
+  ```
+
+---
+
+After the PostgreSQL database is deployed, you use the Knex CLI to apply schema migrations.
+
+- Expose the database name, host, port to the Knex CLI (using environment variables)
+
+  ```bash
+  export DB_NAME=bank
+  export DB_PORT=5432
+  export DB_HOST=<db_host> # value of db_host output variable
+  ```
+
+- Apply the schema migrations
+
+  ```bash
+  cd src
+  knex migrate:latest
+  ```
+
+  ```bash
+  Batch 1 run: 1 migrations
+  ```
+
+  If the migrations apply successfully, your database should be ready to use.
+
+- Verify that the app is working
+
+  ```bash
+  curl https://<app_endpoint>
+  ```
+
+  ```plaintext
+  {
+    "result":[
+      {"id":2,"name":"Karen Johnson","date_of_birth":"1989-11-18","balance":4853},
+      {"id":3,"name":"Wade Feinstein","date_of_birth":"1965-02-25","balance":2150}
+    ]
+  }
+  ```
+
+### Get your hands dirty: Working with relational databases
+
+- In order to allow the Lambda function to access the PostgreSQL database, the `rds-postgres` module makes the database accessible over the public Internet, from any IP, which is not a good security posture.
+
+  Update the code to
+
+  - deploy the database and the Lambda function into the private subnets of a custom VPC, e.g. the one from [Chap 7](chap-07.md#example-create-a-vpc-in-aws)
+  - lock down the database so it’s only accessible from either a security group attached to the Lambda function or via [RDS Proxy].
+
+- The Lambda function is using the master user for the database, which means it has permissions to do anything.
+
+  Update the code to follow the principle of least privilege
+
+  - creating a more limited database user that only has the permissions the function needs, e.g., read access to one table
+  - passing the credentials of this new database user to the Lambda function.
+
+- Any secrets you pass into OpenTofu resources, such as the database master user password, are stored in OpenTofu state.
+
+  To ensure these secrets are stored securely,
+
+  - Make sure to enable encryption for your OpenTofu state backend, as in [Chap 5 - Example: Use S3 as a remote backend for OpenTofu state](chap-05.md#example-use-s3-as-a-remote-backend-for-opentofu-state).
+
+  - Alternatively, use a different approach to manage the password so it doesn’t end up in OpenTofu state at all, such as
+
+    - [having RDS manage it in AWS Secrets Manager] or
+    - [using IAM for database authentication].
 
 ## Caching: Key-Value Stores and CDNs
 
@@ -657,6 +1070,9 @@ The schema migration tools can be run:
 [Sequel]: https://sequel.jeremyevans.net/
 [Knex.js]: https://knexjs.org/
 [GORM]: https://gorm.io/
+[RDS Proxy]: https://aws.amazon.com/rds/proxy/
+[having RDS manage it in AWS Secrets Manager]: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html
+[using IAM for database authentication]: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.html
 
 [^1]: Ephemeral data is data that is OK to lose if that server is replaced.
 [^2]: Elastic File System
@@ -694,3 +1110,5 @@ The schema migration tools can be run:
 
 [^12]: <https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-NOT-NULL>
 [^13]: The _automatically-incrementing sequence_ will generate a monotonically increasing ID that is guaranteed to be unique (even in the face of concurrent inserts) for each new row.
+[^14]: Amazon’s _Relational Database Service (RDS)_ is a fully-managed service that provides a secure, reliable, and scalable way to run several different types of relational databases, including PostgreSQL, MySQL, MS SQL Server, and Oracle Database
+[^15]: <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html#UsingWithRDS.SSL.CertificatesDownload>
