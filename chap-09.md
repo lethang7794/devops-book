@@ -1942,11 +1942,11 @@ Most document stores do _NOT require_ you to
 
 ---
 
-This is sometimes referred to as _schemaless_, but that’s a bit of a misnomer.
+This is sometimes referred to as _schemaless_[^36], but that's a bit of a misnomer.
 
 There is _always_ a schema.
 
-- The more accurate term is _schema-on-read_, in which
+- The more accurate term is _schema-on-read_[^35], in which
 
   - the structure of the data (the schema) is _implicit_ 👈 (implicit schema)
   - the data only interpret the schema when the data is read 👈 schema-on-read
@@ -1954,6 +1954,11 @@ There is _always_ a schema.
 - In contrast to _schema-on-write_ - the traditional approach of relational databases, where
   - the schema is _explicit_ 👈 (explicit schema)
   - the database ensures all data conforms to it when the data is written 👈 (schema-on-write)
+
+> [!TIP] Database's schema is similar to type checking of programming language
+>
+> - Schema-on-write ~ compile-time type checking
+> - Schema-on-read ~ dynamic (run-time) type checking
 
 e.g.
 
@@ -2016,11 +2021,12 @@ e.g.
 > [!NOTE]
 > Only use document stores (schema-on-read) when
 >
-> - use need to dealing with semi-structured or non-uniform data, e.g.
+> - you need to dealing with semi-structured, non-uniform data, e.g.
 >
 >   - user-generated documents
 >   - event-tracking data
 >   - log messages
+>   - in case - for some reason - not all the items in the collections have the same structure.
 >
 > - the schema changes often[^34], or
 > - you can sacrifice some part of writing performance.
@@ -2287,3 +2293,6 @@ e.g.
     - your migration is done.
 
     Or, to be more accurate, your migration has just started, and it will happen incrementally as new data gets written.
+
+[^35]: https://www.slideshare.net/slideshow/schemaonread-vs-schemaonwrite/30346951
+[^36]: https://martinfowler.com/articles/schemaless/
