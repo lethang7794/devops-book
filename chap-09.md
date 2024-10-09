@@ -2294,5 +2294,5 @@ e.g.
 
     Or, to be more accurate, your migration has just started, and it will happen incrementally as new data gets written.
 
-[^35]: https://www.slideshare.net/slideshow/schemaonread-vs-schemaonwrite/30346951
-[^36]: https://martinfowler.com/articles/schemaless/
+[^35]: <https://www.slideshare.net/slideshow/schemaonread-vs-schemaonwrite/30346951>
+[^36]: <https://martinfowler.com/articles/schemaless/>

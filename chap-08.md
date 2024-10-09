@@ -1868,7 +1868,7 @@ You can get TLS certificates from Let's Encrypt using a tool called [Certbot].
 
 - The idiomatic way to use Certbot is to
 
-  - connect to a live webserver (e.g., using SSH),
+  - connect to a live web-server (e.g., using SSH),
   - run Certbot directly on that server, and Certbot will automatically
     - request the TLS certificate,
     - validate domain ownership, and
@@ -2181,7 +2181,7 @@ In this example, you will
 
   ```bash
   tofu init
-  tofu appy
+  tofu apply
   ```
 
 - Grab the output variable `domain_name`
