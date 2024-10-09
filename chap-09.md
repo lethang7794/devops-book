@@ -1066,7 +1066,7 @@ e.g.
 Key-value stores do not require you to define a schema ahead of time, so you can store any kind of value you want.
 
 > [!CAUTION]
-> Key-value store is sometimes referred to as _schema-less_, but this is a misnomer.
+> Key-value store is sometimes referred to as _schema-less_, but this is a misnomer (as you see in [Schema & constraints of document stores](#schemas-and-constraints-document-store)).
 
 Typically, the values are either
 
@@ -1511,51 +1511,50 @@ In this example, you will use the `s3-website` OpenTofu module to create an S3 b
 
 2. Update that HTML page to your S3 bucket (using OpenTofu `aws_s3_object` resource)
 
-- Update the `main.tf` to use `aws_s3_object` resource
+   - Update the `main.tf` to use `aws_s3_object` resource
 
-  ```t
-  provider "aws" {
-    # ...
-  }
+     ```t
+     provider "aws" {
+       # ...
+     }
 
-  module "s3_bucket" {
-    # ...
-  }
+     module "s3_bucket" {
+       # ...
+     }
 
-  resource "aws_s3_object" "content" {
-    for_each = { #                                   (1)
-      "index.html" = "text/html"
-      "styles.css" = "text/css"
-      "cover.png"  = "image/png"
-    }
+     resource "aws_s3_object" "content" {
+       for_each = { #                                   (1)
+         "index.html" = "text/html"
+         "styles.css" = "text/css"
+         "cover.png"  = "image/png"
+       }
 
-    bucket        = module.s3_bucket.bucket_name #   (2)
-    key           = each.key #                       (3)
-    source        = "content/${each.key}" #          (4)
-    etag          = filemd5("content/${each.key}") # (5)
-    content_type  = each.value #                     (6)
-    cache_control = "public, max-age=300" #          (7)
-  }
-  ```
+       bucket        = module.s3_bucket.bucket_name #   (2)
+       key           = each.key #                       (3)
+       source        = "content/${each.key}" #          (4)
+       etag          = filemd5("content/${each.key}") # (5)
+       content_type  = each.value #                     (6)
+       cache_control = "public, max-age=300" #          (7)
+     }
+     ```
 
-  - (1): Have the `aws_s3_object` resource loop over a map where
+     - (1): Have the `aws_s3_object` resource loop over a map where
 
-    - the key is a file to upload from the _content_ folder
-    - the value is the content type for that file.
+       - the key is a file to upload from the _content_ folder
+       - the value is the content type for that file.
 
-  - (2): Upload the files to the S3 bucket you created earlier.
-  - (3): For each file, use the key in the map as its path within the S3 bucket.
-  - (4): Read the contents of each file from the `content` folder.
-  - (5): Set the _entity tag (ETag)_[^25] to the MD5 hash of each file’s contents.
+     - (2): Upload the files to the S3 bucket you created earlier.
+     - (3): For each file, use the key in the map as its path within the S3 bucket.
+     - (4): Read the contents of each file from the `content` folder.
+     - (5): Set the _entity tag (ETag)_[^25] to the MD5 hash of each file’s contents.
 
-    - This is also used by OpenTofu to know when the file has changed, so it uploads a new version when you run `apply`.
+       - This is also used by OpenTofu to know when the file has changed, so it uploads a new version when you run `apply`.
 
-  - (6): Set the _content type_[^26] for each file to the value in the map.
+     - (6): Set the _content type_[^26] for each file to the value in the map.
+     - (7): Set the _cache control_[^27] value for each file to:
 
-  - (7): Set the _cache control_[^27] value for each file to:
-
-    - The `public` directive[^28]
-    - The `max-age=300` directive[^29]
+       - The `public` directive[^28]
+       - The `max-age=300` directive[^29]
 
 > [!WARNING] Watch out for snakes: Don’t upload files to S3 using OpenTofu in production
 >
@@ -1697,14 +1696,342 @@ In this example, you will use the OpenTofu module `cloudfront-s3-website` to dep
 
 ## Semi-Structured Data and Search: Document Stores
 
-### Reading and Writing Data -
+### What is Semi-Structured Data
 
-### ACID Transactions -
+When you need to dealing with:
 
-### Schemas and Constraints -
+- _user-generated data_ with unpredictable structure, that you can't pre-define schema
+- search across those user-generated data, including _full-text search_, _fuzzy search_, _faceted search_...
+
+  > [!NOTE]
+  > Those data that
+  >
+  > - does not obey the tabular structure of data models associated with relational databases or other forms of data tables,
+  > - but nonetheless contains tags or other markers to separate semantic elements and enforce hierarchies of records and fields within the data.
+  >
+  > is known as _semi-structured data_
+
+you
+
+- can't use relational database, which only works well when the data
+
+  - has clear, consistent, predictable structure
+  - can be stored in tables with well-defined schemas
+
+- need to use a _document store_
+
+### What is Document Store
+
+document store
+: similar to a key-value store, except that values are
+: - richer data structures called _documents_
+: - understood, process by the document store
+
+---
+
+### Which Document Store to use
+
+There are 2 type of document stores:
+
+- General-purpose document store: [MongoDB], [CouchDB], [Couchbase], [Google Firestore].
+- Search-optimized[^30] document store:
+  - [Elasticsearch] / [OpenSearch] [^31], [Amazon OpenSearch]
+  - [Algolia], [Apache Solr], [Apache Lucene].
+
+### Working with Document Store
+
+#### Reading and Writing Data (Document Store)
+
+To understand how to read and writing data to a document store, let's use MongoDB as an example:
+
+- MongoDB allows you to store **JSON documents** in _collections_.
+
+  > [!TIP]
+  > It's similar to how a relational database allows you to store **rows** in _tables_.
+
+- MongoDB does _NOT_ require you to
+
+  - define a schema for your documents.
+
+  > [!TIP]
+  > With MongoDB, you can store JSON data in any format you want.
+
+---
+
+- To read and write data, you use the _MongoDB Query Language (MQL)_, which is similar to JavaScript.
+
+  e.g.
+
+  - To write a JSON document into the `bank` collection, you can use the `insertOne` function:
+
+    ```js
+    db.bank.insertOne({
+      name: "Brian Kim",
+      date_of_birth: new Date("1948-09-23"),
+      balance: 1500,
+    });
+    ```
+
+  - To write two JSON documents into the `bank` collection, you use the `insertMany` function:
+
+    ```js
+    db.bank.insertMany([
+      {
+        name: "Karen Johnson",
+        date_of_birth: new Date("1989-11-18"),
+        balance: 4853,
+      },
+
+      {
+        name: "Wade Feinstein",
+        date_of_birth: new Date("1965-02-25"),
+        balance: 2150,
+      },
+    ]);
+    ```
+
+  - To read all data back from the `bank` collection, you can use the `find` function (without any arguments)
+
+    ```js
+    db.bank.find();
+    ```
+
+    ```js
+    [
+      {
+        _id: ObjectId("66e02de6107a0497244ec05e"),
+        name: "Brian Kim",
+        date_of_birth: ISODate("1948-09-23T00:00:00.000Z"),
+        balance: 1500,
+      },
+      {
+        _id: ObjectId("66e02de6107a0497244ec05f"),
+        name: "Karen Johnson",
+        date_of_birth: ISODate("1989-11-18T00:00:00.000Z"),
+        balance: 4853,
+      },
+      {
+        _id: ObjectId("66e02de6107a0497244ec060"),
+        name: "Wade Feinstein",
+        date_of_birth: ISODate("1965-02-25T00:00:00.000Z"),
+        balance: 2150,
+      },
+    ];
+    ```
+
+    > [!NOTE]
+    > You get back the exact documents you inserted, except for one new field: `_id`.
+    >
+    > The `_id` field - added to every document by MongoDB - is used as
+    >
+    > - a unique identifier
+    > - a key for lookups (similar to a key-value store).
+
+  - To look up a document by ID, you also use `find` function:
+
+    ```js
+    db.bank.find({ _id: ObjectId("66e02de6107a0497244ec05e") });
+    ```
+
+    ```js
+    {
+      _id: ObjectId('66e02de6107a0497244ec05e'),
+      name: 'Brian Kim',
+      date_of_birth: ISODate('1948-09-23T00:00:00.000Z'),
+      balance: 1500
+    }
+    ```
+
+  > [!NOTE]
+  > For both of key-value store and document store, you get the "value" by looking up a "key".
+  >
+  > The key different between key-value stores and document stores is:
+  >
+  > - Key-value stores treat values as _opaque_
+  > - Document stores treat values as _transparent_ values, which is fully understood and processed.
+  >
+  > |         | Key-value store                          | Document store              |
+  > | ------- | ---------------------------------------- | --------------------------- |
+  > | "key"   | key set by you                           | "key" set by document store |
+  > | "value" | _opaque value_ (simple scalars or blobs) | _transparent value_         |
+
+  ***
+
+- Compare to a key-value store, with MongoDB, you can look up values with richer query functionality:
+
+  e.g.
+
+  - To look up customers born after 1950, you also use `find` function
+
+    ```js
+    db.bank.find({ date_of_birth: { $gt: new Date("1950-12-31") } });
+    ```
+
+    ```js
+    [
+      {
+        _id: ObjectId("66e02de6107a0497244ec05f"),
+        name: "Karen Johnson",
+        date_of_birth: ISODate("1989-11-18T00:00:00.000Z"),
+        balance: 4853,
+      },
+      {
+        _id: ObjectId("66e02de6107a0497244ec060"),
+        name: "Wade Feinstein",
+        date_of_birth: ISODate("1965-02-25T00:00:00.000Z"),
+        balance: 2150,
+      },
+    ];
+    ```
+
+  - To deduct $100 from all customers, you use `updateMany` function
+
+    ```js
+    db.bank.updateMany(
+      {}, //                          (1)
+      { $inc: { balance: -100 } }, // (2)
+    );
+    ```
+
+    - (1): The first argument is a **filter** to narrow down which documents to update.
+
+      - In this case, it's an empty object, which doesn't have any filter effect.
+
+    - (2): The second argument is the **update operation** to perform.
+
+      - In this case, the update operation uses the `$inc` operator to
+        - increment all balances by -100,
+        - thereby deducting $100 from all customers.
+
+> [!WARNING]
+> Document stores
+>
+> - offers richer querying and update functionality (compare to a key-value store)
+> - but has 2 major limitations, that is (for most document stores)
+>
+>   1. Do not support working with multiple collections, which means
+>
+>      - there is no support for joins[^32].
+>
+>   2. Don’t support ACID transactions.
+
+#### ACID Transactions (Document Store)
+
+Most document stores don’t support ACID transactions[^33].
+
+- You might get atomicity for updates on a single document.
+
+  e.g.
+
+  - When you update one document with `updateOne` function
+
+- But you rarely get atomicity for updates to multiple documents.
+
+  e.g.
+
+  - If MongoDB crashes in the middle of the updateMany operation, the code might deduct $100 from some customers but not others.
+
+> [!WARNING]
+> Again, be aware that most document stores don't support ACID transactions.
+
+#### Schemas and Constraints (Document Store)
+
+Most document stores do _NOT require_ you to
+
+- define a schema or constraints up front.
+
+---
+
+This is sometimes referred to as _schemaless_, but that’s a bit of a misnomer.
+
+There is _always_ a schema.
+
+- The more accurate term is _schema-on-read_, in which
+
+  - the structure of the data (the schema) is _implicit_ 👈 (implicit schema)
+  - the data only interpret the schema when the data is read 👈 schema-on-read
+
+- In contrast to _schema-on-write_ - the traditional approach of relational databases, where
+  - the schema is _explicit_ 👈 (explicit schema)
+  - the database ensures all data conforms to it when the data is written 👈 (schema-on-write)
+
+e.g.
+
+- To parse data from the `bank` collection in the previous section, you might use the following Java code:
+
+  ```java
+  public class Customer {
+      private String name;
+      private int balance;
+      private Date dateOfBirth;
+  }
+  ```
+
+  This Java class defines the schema and constraint of the data:
+
+  - Which field should be in the data?
+  - Which data type of each field?
+
+  In other words, it's the schema-on-read:
+
+  - Either the data matches the `Customer` data structure
+  - Or you will get an error.
+
+---
+
+With schema-on-read, the data store don't need to ensure the data to any structure while writing, so
+
+- you can insert & store any data in the data store.
+
+e.g.
+
+- You can insert a document with a subtle "error" into the `bank` collection
+
+  ```js
+  db.bank.insertOne({
+    name: "Jon Smith",
+    birth_date: new Date("1991-04-04"), // (1)
+    balance: 500,
+  });
+  ```
+
+  - MongoDB will let you insert this data without any complaints.
+  - But when you try to parse this data with the `Customer` class, you may get an error.
+
+> [!WARNING]
+> With document stores, you can insert any data without any constraints (as of [relational databases](#schemas-integrity-constraints)), so you may end up with a lot of errors:
+>
+> e.g.
+>
+> - Without domain constraints, you might have:
+>   - typos in field names
+>   - null/empty values for required fields
+>   - incorrect types of fields...
+> - Without foreign key constraints, yo might:
+>   - reference non-existent documents in other collections.
+
+> [!TIP]
+> Those errors with document stores can be prevented if you use a relational database.
+
+> [!NOTE]
+> Only use document stores (schema-on-read) when
+>
+> - use need to dealing with semi-structured or non-uniform data, e.g.
+>
+>   - user-generated documents
+>   - event-tracking data
+>   - log messages
+>
+> - the schema changes often[^34], or
+> - you can sacrifice some part of writing performance.
+
+---
 
 > [!IMPORTANT] Key takeaway #7
-> Use document stores for semi-structured and non-uniform data, where you can’t define a schema ahead of time, or for search, when you need free-text search, faceted search, etc.
+> Use document stores
+>
+> - for semi-structured and non-uniform data, where you can’t define a schema ahead of time,
+> - or for search, when you need full-text search, faceted search, etc.
 
 ## Analytics: Columnar Databases
 
@@ -1777,7 +2104,7 @@ In this example, you will use the OpenTofu module `cloudfront-s3-website` to dep
   |                                  |                                                               | - Reducing load on your **servers**.                                  |
   | **File servers & object stores** | Serve static content                                          | Allowing your app **servers** to focus on serving dynamic content.    |
   | **Document stores**              | For semi-structured & non-uniform data                        | Where you can’t define a schema ahead of time                         |
-  |                                  | For search                                                    | When you need free-text search, faceted search...                     |
+  |                                  | For search                                                    | When you need full-text search, faceted search...                     |
   | **Columnar databases**           | For time-series data, big data, fast data, data warehouses... | To quickly perform aggregate operations on columns.                   |
   | **Message queues**               | Run tasks in the background                                   | Guarantees that tasks are completed and executed in a specific order. |
   | **Event streams**                |                                                               | Build highly-scalable, decoupled, event-driven architectures.         |
@@ -1791,6 +2118,8 @@ In this example, you will use the OpenTofu module `cloudfront-s3-website` to dep
 ---
 
 - Ensure your data stores are securely backed up to protect against data loss and data corruption, protect your backups, test your backup strategy regularly, and follow the 3-2-1 rule.
+
+---
 
 [choose boring technologies]: https://boringtechnology.club/
 [Amazon EBS]: https://aws.amazon.com/ebs
@@ -1853,6 +2182,16 @@ In this example, you will use the OpenTofu module `cloudfront-s3-website` to dep
 [s3_website]: https://github.com/laurilehmijoki/s3_website
 [custom domain name and TLS certificate]: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cnames-and-https-procedures.html
 [only allow the contents of the S3 bucket to be accessed via CloudFront]: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html
+[MongoDB]: https://www.mongodb.com/
+[CouchDB]: https://couchdb.apache.org/
+[Couchbase]: https://www.couchbase.com/
+[Google Firestore]: https://firebase.google.com/docs/firestore
+[Elasticsearch]: https://www.elastic.co/elasticsearch
+[OpenSearch]: https://opensearch.org/
+[Amazon OpenSearch]: https://aws.amazon.com/opensearch-service/
+[Algolia]: https://www.algolia.com/
+[Apache Solr]: https://solr.apache.org/
+[Apache Lucene]: https://lucene.apache.org/
 
 [^1]: Ephemeral data is data that is OK to lose if that server is replaced.
 [^2]: Elastic File System
@@ -1905,7 +2244,7 @@ In this example, you will use the OpenTofu module `cloudfront-s3-website` to dep
       - (a) detect the change has happened
       - (b) invalidate or update 20 caches.
 
-[^19]: Valkey is a fork of Redis that was created after Redis switched from an open source license to dual-licensing
+[^19]: Valkey is a fork of Redis that was created after Redis switched from an open source license to dual-licensing.
 [^20]: You can you DynamoDB as a replacement for Redis.
 [^21]: _Cache hit ratio_ is the percentage of requests that are a cache hit
 [^22]: The name metadata may be different from the file name.
@@ -1930,3 +2269,21 @@ In this example, you will use the OpenTofu module `cloudfront-s3-website` to dep
 
 [^28]: The _`public` directive_ tells shared caches that this is a public resource that they can safely cache.
 [^29]: The _`max-age=300` directive_ tells shared caches and web browsers that they can cache this content for up to 300 seconds (5 minutes).
+[^30]: These _**search-optimized** document store_
+
+    - build search indices on top of the documents,
+    - to support full-text search, fuzzy search, faceted search...
+
+[^31]: [OpenSearch] is a fork of [Elasticsearch] that was created after Elasticsearch switched from an open source license to dual-licensing.
+[^32]: There are some exceptions, such as MongoDB, which has support for joins via the lookup operator, although it’s more limited than the types of joins you get with relational databases.
+[^33]:
+    Again, there are some exceptions, such as MongoDB, which has support for distributed transactions, though again, it’s more limited than what you get with relational databases.
+
+    Moreover, transactions are not the default, but something you have to remember to use, which is quite error-prone.
+
+[^34]: With schema-on-read, when the schema's changed, all you have to do is
+
+    - update your application code to be able to handle both the new data format and the old one, and
+    - your migration is done.
+
+    Or, to be more accurate, your migration has just started, and it will happen incrementally as new data gets written.
