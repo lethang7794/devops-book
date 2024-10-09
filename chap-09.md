@@ -1390,7 +1390,310 @@ These features is why even companies who otherwise keep everything on-prem often
 
 ### Example: Serving Files With S3 and CloudFront
 
-> [!WARNING] Watch out for snakes: don’t upload files to S3 using OpenTofu in production
+#### Create an S3 bucket configured for website hosting
+
+> [!NOTE]
+> The `s3-website` OpenTofu module
+>
+> - in [sample code repo] at `ch9/tofu/modules/s3-website` folder
+> - will:
+>
+>   - creates an S3 bucket
+>   - makes its contents publicly accessible
+>   - configures it as a website, which means it can support
+>     - redirects
+>     - error pages
+>     - accessing logging, and so on.
+
+In this example, you will use the `s3-website` OpenTofu module to create an S3 bucket configured for website hosting
+
+- Create an folder for the root module
+
+  ```bash
+  cd examples
+  mkdir -p ch9/tofu/live/static-website
+  cd ch9/tofu/live/static-website
+  ```
+
+- The `main.tf` root module
+
+  ```t
+  # examples/ch9/tofu/live/static-website/main.tf
+
+  provider "aws" {
+    region = "us-east-2"
+  }
+
+  module "s3_bucket" {
+    source = "github.com/brikis98/devops-book//ch9/tofu/modules/s3-website"
+
+    # TODO: fill in your own bucket name!
+    name           = "fundamentals-of-devops-static-website" # (1)
+    index_document = "index.html" #                            (2)
+  }
+  ```
+
+  - (1): The name to use for the S3 bucket.
+
+    > [!NOTE]
+    > S3 bucket names must be globally unique, so you’ll have to fill in your own bucket name here.
+
+  - (2): The suffix to use for directory requests.
+
+    - If you set this to `index.html`, a request for the directory `/foo` will return the contents of `/foo/index.html`.
+    -
+
+- Proxy the `s3_website_endpoint` from `s3_bucket` to root module
+
+  ```t
+  # examples/ch9/tofu/live/static-website/outputs.tf
+  output "s3_website_endpoint" {
+    description = "The endpoint for the website hosted in the S3 bucket"
+    value       = module.s3_bucket.website_endpoint
+  }
+  ```
+
+#### Upload static content to the S3 bucket
+
+1. Create a simple HTML page
+
+   - Create the `content` folder within the `static-website` folder:
+
+     ```bash
+     mkdir -p content
+     ```
+
+   - Create 3 files in `content` folder
+
+     - `index.html`
+
+       ```html
+       <!-- examples/ch9/tofu/live/static-website/content/index.html -->
+       <html lang="en">
+         <head>
+           <title>Fundamentals of DevOps and Software Delivery</title>
+           <link rel="stylesheet" href="styles.css" />
+         </head>
+         <body>
+           <h1>Hello, World!</h1>
+           <p>
+             This is a static website hosted on S3, with CloudFront as a CDN.
+           </p>
+           <img
+             src="cover.png"
+             alt="Fundamentals of DevOps and Software Delivery"
+           />
+         </body>
+       </html>
+       ```
+
+     - `style.css`
+
+       ```css
+       /* examples/ch9/tofu/live/static-website/content/style.css */
+       html {
+         max-width: 70ch;
+         margin: 3em auto;
+       }
+
+       h1,
+       p {
+         color: #1d1d1d;
+         font-family: sans-serif;
+       }
+       ```
+
+     - `cover.png` (`examples/ch9/tofu/live/static-website/content/cover.png`)
+
+       Copy any `png` image to the content folder, and name it `cover.png`.
+
+---
+
+2. Update that HTML page to your S3 bucket (using OpenTofu `aws_s3_object` resource)
+
+- Update the `main.tf` to use `aws_s3_object` resource
+
+  ```t
+  provider "aws" {
+    # ...
+  }
+
+  module "s3_bucket" {
+    # ...
+  }
+
+  resource "aws_s3_object" "content" {
+    for_each = { #                                   (1)
+      "index.html" = "text/html"
+      "styles.css" = "text/css"
+      "cover.png"  = "image/png"
+    }
+
+    bucket        = module.s3_bucket.bucket_name #   (2)
+    key           = each.key #                       (3)
+    source        = "content/${each.key}" #          (4)
+    etag          = filemd5("content/${each.key}") # (5)
+    content_type  = each.value #                     (6)
+    cache_control = "public, max-age=300" #          (7)
+  }
+  ```
+
+  - (1): Have the `aws_s3_object` resource loop over a map where
+
+    - the key is a file to upload from the _content_ folder
+    - the value is the content type for that file.
+
+  - (2): Upload the files to the S3 bucket you created earlier.
+  - (3): For each file, use the key in the map as its path within the S3 bucket.
+  - (4): Read the contents of each file from the `content` folder.
+  - (5): Set the _entity tag (ETag)_[^25] to the MD5 hash of each file’s contents.
+
+    - This is also used by OpenTofu to know when the file has changed, so it uploads a new version when you run `apply`.
+
+  - (6): Set the _content type_[^26] for each file to the value in the map.
+
+  - (7): Set the _cache control_[^27] value for each file to:
+
+    - The `public` directive[^28]
+    - The `max-age=300` directive[^29]
+
+> [!WARNING] Watch out for snakes: Don’t upload files to S3 using OpenTofu in production
+>
+> Using the `aws_s3_object` resource to upload files to an S3 bucket is convenient for simple examples and learning, but don't use it for production use-cases:
+>
+> - If you have a large number of files, you may end up with performance and throttling issues with the `aws_s3_object` resource.
+> - You typically want to put static content through an _asset pipeline_ which provides functionality such as minification, fingerprinting, and compression, none of which you can do with OpenTofu.
+
+> [!NOTE]
+> In production, to upload files to S3, you should use either
+>
+> - an _asset pipeline_ built into your web framework, or
+>
+>   e.g. [Ruby on Rails Asset Pipeline] with the [asset_sync Gem]
+>
+> - a library designed to efficiently sync images with S3
+>
+>   e.g. [s3_website].
+
+#### Deploy S3 bucket and static content to S3 bucket
+
+- Initialize and apply OpenTofu root module
+
+  ```bash
+  tofu init
+  tofu apply
+  ```
+
+- Verify that your website (hosted on S3) is up and running
+
+  Use a web browser to open `http://<s3_website_endpoint>`
+
+  > [!NOTE]
+  > Websites hosted on AWS S3 only support HTTP.
+  >
+  > To add HTTPS, you need to use AWS CloudFront.
+
+#### Deploy CloudFront as a CDN in front of the S3 bucket
+
+> [!NOTE]
+> The OpenTofu module `cloudfront-s3-website`
+>
+> - in [sample code repo] at `ch9/tofu/modules/cloudfront-s3-website` folder
+> - will
+>   - create a globally-distributed CloudFront _distribution_
+>   - configure your static website in S3 as an **origin**
+>   - set up a **domain name** & **TLS** certificate
+>   - plugs in some basic **caching** settings
+
+In this example, you will use the OpenTofu module `cloudfront-s3-website` to deploy CloudFront as a CDN in front of the S3 bucket:
+
+- Update `main.tf` to use `cloudfront-s3-website` module
+
+  ```t
+  provider "aws" {
+    # ...
+  }
+
+  module "s3_bucket" {
+    # ...
+  }
+
+  resource "aws_s3_object" "content" {
+    # ...
+  }
+
+  module "cloudfront" {
+    source = "github.com/brikis98/devops-book//ch9/tofu/modules/cloudfront-s3-website"
+
+    bucket_name             = module.s3_bucket.bucket_name #      (1)
+    bucket_website_endpoint = module.s3_bucket.website_endpoint # (2)
+
+    min_ttl     = 0 #                                             (3)
+    max_ttl     = 300
+    default_ttl = 0
+
+    default_root_object = "index.html" #                          (4)
+  }
+  ```
+
+  - (1): Pass in the S3 bucket name, which is mostly used as the unique ID within the CloudFront distribution.
+  - (2): Pass in the S3 bucket website endpoint.
+
+    - CloudFront will use this as the origin, sending requests to it for any content that isn’t already cached.
+
+  - (3): Configure the _time-to-live (TTL)_ settings for the cache, which specifies the minimum, maximum, and default amount of time, in seconds, that objects are allowed to
+
+    - remain in the CloudFront cache
+    - before CloudFront
+      - sends a new request to the origin server
+      - to check if the object has been updated.
+
+    The preceding code configures CloudFront to
+
+    - rely on the response headers (e.g., the cache control header) for caching instructions,
+    - but never caching content for more than 5 minutes.
+
+    This is a convenient setting for testing, as it ensures you don’t have to wait more than 5 minutes to see the latest version of your content.
+
+  - (4): Configure CloudFront to
+    - return the contents of `index.html`
+    - whenever someone makes a request to the **root** of your CloudFront distribution’s domain name.
+
+- Add CloudFront distribution domain name as an output variable
+
+  ```t
+  # examples/ch9/tofu/live/static-website/outputs.tf
+  output "cloudfront_domain_name" {
+    description = "The domain name of the CloudFront distribution"
+    value       = module.cloudfront.domain_name
+  }
+  ```
+
+---
+
+- Re-apply OpenTofu module
+
+  ```bash
+  tofu apply
+  ```
+
+  > [!TIP]
+  > CloudFront distribution can take 2-10 minutes to deploy.
+
+- Verify you can access the website via HTTPS at `https://<cloudfront_domain_name>`
+
+### Get your hands dirty: S3 and CloudFront
+
+- Update the code to configure CloudFront to use a [custom domain name and TLS certificate].
+
+  You could
+
+  - use `static.<YOUR-DOMAIN>` as the domain name, where `<YOUR-DOMAIN>` is the domain name you registered in Route 53 in [Chapter 7](chap-07.md#example-register-and-configure-a-domain-name-in-amazon-route-53)
+  - use [AWS Certificate Manager (ACM)](chap-08.md#public-key-infrastructure-pki) to provision a free, automatically-renewing certificate for this domain
+
+- The `s3-website` module makes the S3 bucket publicly accessible.
+
+  However, as you have a CDN in front of the S3 bucket, you can update the code to [only allow the contents of the S3 bucket to be accessed via CloudFront].
 
 ## Semi-Structured Data and Search: Document Stores
 
@@ -1545,6 +1848,11 @@ These features is why even companies who otherwise keep everything on-prem often
 [Wasabi]: https://wasabi.com/
 [Backblaze]: https://www.backblaze.com/
 [Amazon Athena]: https://aws.amazon.com/athena/
+[Ruby on Rails Asset Pipeline]: https://guides.rubyonrails.org/asset_pipeline.html
+[asset_sync Gem]: https://github.com/AssetSync/asset_sync
+[s3_website]: https://github.com/laurilehmijoki/s3_website
+[custom domain name and TLS certificate]: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cnames-and-https-procedures.html
+[only allow the contents of the S3 bucket to be accessed via CloudFront]: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html
 
 [^1]: Ephemeral data is data that is OK to lose if that server is replaced.
 [^2]: Elastic File System
@@ -1603,3 +1911,22 @@ These features is why even companies who otherwise keep everything on-prem often
 [^22]: The name metadata may be different from the file name.
 [^23]: You used _Simple Storage Service (S3)_ in [Chapter 5](chap-05.md#example-use-s3-as-a-remote-backend-for-opentofu-state) to store OpenTofu state files.
 [^24]: <https://cloud.google.com/blog/products/storage-data-transfer/understanding-cloud-storage-11-9s-durability-target>
+
+[sample code repo]: https://github.com/brikis98/devops-book
+
+[^25]: The _Etag_ is sent as an HTTP response header to web browsers so they know if a file has changed, and they need to download the latest version, or if the file is unchanged, and they can use a locally-cached copy.
+[^26]:
+    The _content type_ is sent as an HTTP response header to web browsers so they know how to display the contents of the file
+
+    e.g. Browsers know to render
+
+    - `text/html` as HTML,
+    - `image/png` as a PNG image...
+
+[^27]: _Cache control_ is sent as an HTTP response header, which:
+
+    - is used by browsers and shared caches (e.g., CDNs)
+    - to figure out how to cache the response.
+
+[^28]: The _`public` directive_ tells shared caches that this is a public resource that they can safely cache.
+[^29]: The _`max-age=300` directive_ tells shared caches and web browsers that they can cache this content for up to 300 seconds (5 minutes).
