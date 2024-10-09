@@ -1305,6 +1305,86 @@ Serving files is straightforward; the hard part is handling
 
 ### Object Stores
 
+#### What is Object Store
+
+object store
+: aka _blob store_
+: a system designed to
+: - store _opaque objects_ (blobs)
+: - often in the form of files with associated metadata.
+: ~ file server as a service (from cloud providers)
+
+#### Which Object Store to use
+
+The major players in this space are
+
+- [Amazon S3] [^23], [Google Cloud Storage], [Azure Blob Storage]
+- [CloudFlare R2], [Wasabi], [Backblaze].
+
+#### Why use Object Store
+
+1. Object stores provide out-of-the-box solutions to the [challenges with file servers](#the-challenges-when-working-with-file-servers):
+
+   - **Storage**
+
+     Object stores provide nearly unlimited disk space, usually for dirt-cheap prices.
+
+     e.g.
+
+     - Amazon S3 is around two cents per gigabyte per month, with a generous free tier.
+
+   - **Metadata**
+
+     Most object stores allow you to associate metadata with each file you upload.
+
+     e.g.
+
+     - S3 allows you to configure both
+       - system-defined metadata (e.g., standard HTTP headers such as entity tag
+       - content type, as you’ll see later in this blog post)
+       - user-defined metadata (arbitrary key-value pairs).
+
+   - **Security**
+
+     Most object stores offer fine-grained access controls and encryption.
+
+     e.g.
+
+     - S3 provides
+       - IAM for access control,
+       - TLS for encryption in transit
+       - AES (using a KMS) for encryption at rest.
+
+   - **Scalability & availability**
+
+     Object stores typically provide scalability and availability at a level few companies can hope to achieve.
+
+     e.g.
+
+     - S3 Standard provides
+       - unlimited scalability
+       - 99.99% availability
+       - 99.999999999% durability[^24].
+
+2. Many object stores also provide many other useful features:
+
+- **replication** across data centers in different regions
+- **search & analytics** across all the files you store in the object store
+
+  e.g.
+
+  - [Amazon Athena] allows allows you to use SQL to query CSV, JSON, ORC, Avro, or Parquet files stored in S3
+
+- integration with compute to help **automate workflows**
+
+  e.g.
+
+  - you can have S3 automatically trigger a Lambda function each time you upload a file
+
+- automatic archival or deletion of older files (to save money)
+
+These features is why even companies who otherwise keep everything on-prem often turn to the cloud and object stores for file storage.
+
 > [!IMPORTANT] Key takeaway #6
 > Use file servers and object stores to serve static content, allowing your app servers to focus on serving dynamic content.
 
@@ -1458,6 +1538,13 @@ Serving files is straightforward; the hard part is handling
 [Lighttpd]: https://www.lighttpd.net/
 [Caddy]: https://caddyserver.com/
 [Microsoft IIS]: https://www.iis.net/
+[Amazon S3]: https://aws.amazon.com/s3/
+[Google Cloud Storage]: https://cloud.google.com/storage?hl
+[Azure Blob Storage]: https://azure.microsoft.com/en-us/products/storage/blobs
+[CloudFlare R2]: https://www.cloudflare.com/developer-platform/r2/
+[Wasabi]: https://wasabi.com/
+[Backblaze]: https://www.backblaze.com/
+[Amazon Athena]: https://aws.amazon.com/athena/
 
 [^1]: Ephemeral data is data that is OK to lose if that server is replaced.
 [^2]: Elastic File System
@@ -1514,3 +1601,5 @@ Serving files is straightforward; the hard part is handling
 [^20]: You can you DynamoDB as a replacement for Redis.
 [^21]: _Cache hit ratio_ is the percentage of requests that are a cache hit
 [^22]: The name metadata may be different from the file name.
+[^23]: You used _Simple Storage Service (S3)_ in [Chapter 5](chap-05.md#example-use-s3-as-a-remote-backend-for-opentofu-state) to store OpenTofu state files.
+[^24]: <https://cloud.google.com/blog/products/storage-data-transfer/understanding-cloud-storage-11-9s-durability-target>
