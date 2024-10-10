@@ -2059,7 +2059,7 @@ In order to allow services communicate over the network, you have to make follow
 
 ### Service Discovery
 
-Althought service discovery may looks easy
+Although service discovery may looks easy
 
 - to talk with service B, service A only needs service B's IP address
 

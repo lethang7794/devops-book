@@ -2217,10 +2217,250 @@ It looks simple, but in fact, it's a lot more complicated:
 
 ## Asynchronous Processing: Queues and Streams
 
+In chap 7, you've learned that with microservices,
+
+- you need to figure out [service discovery](chap-07.md#service-discovery), so your services can know which endpoint they use talk to another service.
+- these microservices are interacting _synchronously_.
+
+  e.g. When service A needs to talk to service B
+
+  - 1: Service A figure out the endpoint of service B by using service discovery (or service mesh).
+  - 2: Using that endpoint, service A
+    - 2.1: sends an request to service B
+    - 2.2: 👈 Service B process the request _immediately_
+    - 2.3: wait for service B to response
+
+  > [!WARNING]
+  > If
+  >
+  > - service A can't figure the endpoint of service B, or
+  > - service B doesn't response
+  >
+  > then it's a fail request.
+
+---
+
+In chap 6, you've also known that there are other [ways to breakup codebase into services](chap-06.md#how-to-break-up-codebase-into-services), one of them is _event-driven architecture_, which use a different approach for communication - the services interacts _asynchronously_ (instead of synchronously).
+
+e.g.
+
+- A simple version of asynchronously communication look like this:
+
+  When service A needs to talk to service B:
+
+  - 1: Service A figure out the endpoint of service B by using service discovery (or service mesh).
+  - 2: Service A sends a asynchronous messages to service B, then move on (without waiting for response)
+  - 3: Service B can process that message at its own packet.
+  - 4: If a response is needed, service B send a new asynchronous message to service.
+
+  > [!WARNING]
+  > In this simple version, service B could:
+  >
+  > - have a bug 👉 process a messages multiple times
+  > - out-of-memory or crash 👉 lost all messages
+  >
+  > Both ways would cause negative consequence for your business.
+
+---
+
+- To ensures each messages is (eventually) processed only once:
+
+  - You don't typically just
+    - send the messages from service A directly to service B
+    - have service B hold the messages on its memory, which could:
+      - used up on the memory of service B
+      - cause a losing of all unprocessed messages (if service B crash)
+  - Instead,
+    - service A sends messages to
+    - service B reads messages from
+
+  a shared data store designed to facilitate asynchronous communication by:
+
+  - (1) **persisting messages to disk** 👈 no more lost messages
+  - (2) **tracking the state of those messages** 👈 no more processing a messages more than once...
+
+---
+
+There are 2 type of data store that can do this:
+
+- Message queues
+- Event streams
+
 ### Message Queues
 
+#### What is Message Queue
+
+message queue
+: a data store that can be used for asynchronous communication between:
+: - _producers_, who **write** messages to the queue,
+: - _consumers_, who **read** messages from the queue
+
+> [!NOTE]
+> Many producers and consumers can use the queue, but
+>
+> - each message is processed only once, by a single consumer.
+>
+> For this reason, this messaging pattern is often called one-to-one, or point-to-point, communications.
+
+#### Which Message Queue to use
+
+Some of the most popular message queues are:
+
+- [RabbitMQ], [ActiveMQ], [ZeroMQ]
+- [Amazon SQS] [^45], [Google Cloud Tasks], [Azure Queue Storage]
+
+#### How Message Queue Works
+
+![alt text](assets/message-queue.png)
+
+The typical process of using a queue is:
+
+1. A producer, such as service A, _publishes a message_ to the queue.
+2. The queue _persists the message_ to disk.
+
+   > [!NOTE]
+   > This ensures the message will eventually be processed, even if the queue or either service has an outage.
+
+3. A consumer, such as service B, periodically _polls the queue_ to see if there are new messages.
+4. When there is a new message, the queue _returns the message_ to service B.
+
+   > [!NOTE]
+   > The queue may record that the message is "in progress" so that no other consumer can read the message at the same time.
+
+5. Service B _processes the message_.
+6. Once the message has been successfully processed, service B _deletes the message_ from the queue.
+
+   > [!NOTE]
+   > This ensures that the message is only processed one time.
+
+#### When to use Message Queues
+
+Queues are most often used for
+
+- tasks that run in the background,
+- (as opposed to tasks you do during a live request from a user).
+
+e.g.
+
+- Process images
+
+  When users upload images,
+
+  - if you need to process each image
+
+    e.g.
+
+    - create copies of the image in different sizes for web, mobile, thumbnail previews...
+
+  - you may want to do that in the background, rather than making the user wait for it.
+
+  To do that,
+
+  - Your frontend server
+    - stores the original image on a file server
+    - adds a message to a queue with the location of the image
+  - Later on, a separate consumer
+    - reads the message from the queue,
+    - downloads the image from the file server,
+    - processes the image, and
+    - when it’s done, deletes the message from the queue.
+
+- Encoding videos, sending email campaigns, delivering notifications, generating reports, and order processing.
+
+#### Why use Message Queues
+
+Using queues for asynchronous communication between services provides several key benefits:
+
+- **Handle traffic spikes**
+
+  A queue acts as a buffer between your services, which allows you to deal with spikes in traffic.
+
+  e.g.
+
+  - If traffic from service A suddenly increased by 10x:
+
+    - With service A and B were communicating synchronously, then
+      - B might not be able to keep up with the load, and
+      - you’d have outages and lost messages.
+    - With the queue in between,
+      - service A can write as many messages as it wants, and
+      - service B can process them at whatever rate it can handle.
+
+- **Decoupling**
+
+  - With synchronous communication, every service needs to know the interface to talk to every other service.
+
+    - In a large company,
+
+      - one service may use JSON over HTTP,
+      - a second may use Protocol Buffers over HTTP/2,
+      - a third may use gRPC,
+      - a fourth may work with one service discovery mechanism,
+      - a fifth doesn’t support service discovery, and
+      - a sixth may be part of a service mesh that requires mTLS.
+
+      Connecting all these disparate services together may be a massive undertaking.
+
+  - With asynchronous communication via a message queue,
+    - each service solely needs to know how to talk to one thing, the API used by the message queue,
+    - so it gives you a decoupled, standardized mechanism for communication.
+
+- **Guarantee tasks are completed**
+
+  - With synchronous communication,
+
+    If service A sends a message to service B, but never
+
+    - gets a response, or
+    - gets an error,
+
+    What do you do? Most synchronous code doesn’t handle those case at all, and just errors out.
+
+    - If this is during a live request from a user, the user might get a weird error message, which isn’t a great product experience.
+    - If this is during a task running in the background, the task might be lost entirely.
+
+    You could update your synchronous code with **retry logic**, but this might result in
+
+    - service B processing the message **multiple times**, or,
+    - if service B is **overloaded**, it might make the problem worse.
+
+  - Using asynchronous communication with a message queue allows you to guarantee that
+
+    - each task is (eventually) completed,
+    - even in the face of outages, crashes, and other problems,
+    - as the queue persists message data and metadata (e.g., whether that message has been processed).
+
+    > [!WARNING]
+    > Most message queues - a type of distributed systems - provide _at least once_ delivery[^46], so:
+    >
+    > - The consumers might receive a message more than once.
+    >
+    > ***
+    >
+    > But you can write the consumers to be _idempotent_, so
+    >
+    > - if the consumers see the same message more than once,
+    >   - it can handle it correctly.
+
+- **Guarantee ordering and priority**
+
+  Some message queues can guarantee
+
+  - not only _at least once_ delivery,
+  - but also that messages are delivered in a specific order
+
+    e.g.
+
+    - Some queues can guarantee that messages are delivered in the order they were received, known as _first-in, first out (FIFO)_
+    - Some queues allow you to specify a priority for each message, guaranteeing messages with the highest priorities are delivered first (_priority queues_).
+
+---
+
 > [!IMPORTANT] Key takeaway #9
-> Use message queues to run tasks in the background, with guarantees that tasks are completed and executed in a specific order.
+> Use message queues to run **tasks in the background**, with guarantees that tasks are
+>
+> - _completed_
+> - _executed_ in a specific order.
 
 ### Event Streams
 
@@ -2408,6 +2648,12 @@ It looks simple, but in fact, it's a lot more complicated:
 [Qlik]: https://www.qlik.com/us
 [Matillion]: https://www.matillion.com/
 [Integrate.io]: https://www.integrate.io/
+[RabbitMQ]: https://www.rabbitmq.com/
+[ActiveMQ]: https://activemq.apache.org/
+[ZeroMQ]: https://zeromq.org/
+[Amazon SQS]: https://aws.amazon.com/sqs/
+[Google Cloud Tasks]: https://cloud.google.com/tasks
+[Azure Queue Storage]: https://azure.microsoft.com/en-us/products/storage/queues
 
 [^1]: Ephemeral data is data that is OK to lose if that server is replaced.
 [^2]: Elastic File System
@@ -2518,3 +2764,5 @@ It looks simple, but in fact, it's a lot more complicated:
 [^42]: Amazon EMR (previously called Amazon Elastic MapReduce) is a managed cluster platform that simplifies running big data frameworks, such as [Apache Hadoop](https://aws.amazon.com/elasticmapreduce/details/hadoop) and [Apache Spark](https://aws.amazon.com/elasticmapreduce/details/spark)
 [^43]: Data warehouses are often column-oriented, and use specialized schemas (e.g., star and snowflake schemas) optimized for analytics.
 [^44]: With data warehouse, all of your data in one place, so you can perform a variety of analytics, generate reports, and so on.
+[^45]: Amazon Simple Queue Service (SQS)
+[^46]: In distributed systems theory, guaranteeing a message is delivered _exactly once_ is provably impossible (if you’re curious why, look up the _Two Generals Problem_).

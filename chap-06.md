@@ -80,6 +80,8 @@ markmap:
 
 #### Reducing Latency
 
+##### What is latency
+
 - Data needs to travel from users's device to your servers and back.
 
   - This is measured with a _TCP packet round trip_ (from your server and user device) - aka _network latency_.
@@ -104,6 +106,8 @@ markmap:
       | Read (Sequentially)   | $1 MB$    | from HDD                                        |       |         | 5,000       |        |
       | TCP packet round trip | $1.5 KB$  | from California to New York<br/>(1 continent)   |       |         | **40,000**  | 40 ms  |
       | TCP packet round trip | $1.5 KB$  | from California to Australia<br/>(2 continents) |       |         | **183,000** | 183 ms |
+
+##### How to reduce latency
 
 - If you have users around the world,
 
@@ -1129,6 +1133,8 @@ This is another place where, if it hurst, you need to do it more often:
 
 #### Breaking A Codebase Into Multiple Services
 
+##### What is a service
+
 | Before                                                                 | After                                                         |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------- |
 | ![Before](./assets/break-up-codebase-services-before.png)              | ![After](./assets/break-up-codebase-services-after.png)       |
@@ -1137,8 +1143,6 @@ This is another place where, if it hurst, you need to do it more often:
 | All the parts of the codebase                                          | Each part of the codebase (a service):                        |
 | - run in a single process                                              | - runs in a separate process (typically on a separate server) |
 | - communicate via in-memory function calls                             | - communicates by sending messages over the network           |
-
----
 
 A service has all properties of a library:
 
@@ -1150,7 +1154,7 @@ with an additional property:
 
 - You can only talk to a service via messages over the network (via messages)
 
----
+##### How to break up codebase into services
 
 There are many approaches to build services:
 
@@ -1160,7 +1164,7 @@ There are many approaches to build services:
 | Microservices                       | Build smaller, more fine-grain services that handle one domain within a company                | - One service to handle user profiles<br/>- One service to handle search<br/>- One service to do fraud detection |
 | Event-driven architecture           | Instead of interacting _synchronously_[^15], services interact _asynchronously_[^16]           |                                                                                                                  |
 
----
+##### Why breaking a codebase into services
 
 The advantages of breaking a codebase into services:
 
