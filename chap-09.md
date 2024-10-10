@@ -2043,10 +2043,177 @@ e.g.
 
 ### Columnar Database Basics
 
+#### What is columnar database
+
+columnar databases
+: Aka _column-oriented databases_
+: Databases used in _online analytic processing (OLAP) system_
+: Look similar to relational databases:
+: - store data in tables that consist of rows and columns,
+: - they usually have you define a schema ahead of time, and
+: - sometimes, they support a query language that looks similar to SQL.
+: However, there are a few major differences:
+: - Most columnar databases do not support ACID transactions, joins, foreign key constraints, and many other relational database's key features.
+: - They are are column-oriented to optimize for operations across columns
+
+> [!TIP]
+> Relational databases are typically row-oriented, which means they are optimized for operations across rows of data.
+
+#### How columnar database works
+
+##### How databases store data
+
+The serialized data may be stored different depending on the type of database.
+
+---
+
+e.g. A `books` table
+
+| id  | title         | genre  | year_published |
+| --- | ------------- | ------ | -------------- |
+| 1   | Clean Code    | Tech   | 2008           |
+| 2   | Code Complete | Tech   | 1993           |
+| 3   | The Giver     | Sci-fi | 1993           |
+| 4   | World War Z   | Sci-fi | 2006           |
+
+- In a row-oriented relational database,
+
+  - the serialized data may look like this:
+
+    ```plaintext
+    [1] Clean Code,tech,2008
+    [2] Code Complete,tech,1993
+    [3] The Giver,sci-fi,1993
+    [4] World War Z,sci-fi,2006
+    ```
+
+    The values in **each row** will be _kept together_
+
+- In a column-oriented database,
+
+  - the serialized data of the same data may look like this:
+
+    ```plaintext
+    [title] Clean Code:1,Code Complete:2,The Giver:3,World War Z:4
+    [genre] tech:1,2,sci-fi:3,4
+    [year_published] 2008:1,1993:2,3,2006:4
+    ```
+
+    All the values in a single **column** are laid out _sequentially_, with
+
+    - the column values as keys, e.g. `1993`
+    - the IDs as values, e.g. `2,3`
+
+##### How databases query data
+
+For previous `books` collections,
+
+- To look up all the books published in 1993, you can use the following query:
+
+  ```sql
+  SELECT * FROM books WHERE year_published = 1993;
+  ```
+
+  ```plaintext
+   id |     title     | genre  | year_published
+  ----+---------------+--------+----------------
+    2 | Code Complete | tech   |           1993
+    3 | The Giver     | sci-fi |           1993
+  ```
+
+  > [!NOTE]
+  > This query use `SELECT *`, which - without indices - will read:
+  >
+  > - the `year_published` column of all rows 👉 to find the matching rows
+  > - every single column of any matching rows 👉 to return the data
+
+  Under the hood, there is a different in how the data is read:
+
+  - With row-oriented storage:
+
+    - The data for each column (of a row) is laid out sequentially on the hard drive
+
+    👉 Since sequential reads is faster, row-oriented storage will be faster (for this type of query)
+
+  - With column-oriented storage:
+
+    - the data for each column (of a row) is scattered across the hard drive
+
+    👉 Since random reads is slower, column-oriented storage will be slower (for this type of query)
+
+- To compute an aggregation, for example, the number of books published in 1993, you use the following query:
+
+  ```sql
+  SELECT COUNT(*) FROM books WHERE year_published = 1993;
+  ```
+
+  ```plaintext
+   count
+  -------
+       2
+  ```
+
+  > [!NOTE]
+  > This query use `COUNT(*)`, which will read:
+  >
+  > - only the `year_published` column of all rows to find the match rows
+
+  - With row-oriented storage:
+
+    - The data for each column (of a row) is laid out sequentially on the hard drive, but each row is scattered across the hard drive
+
+    👉 This requires jumping all over the hard drive to read the `year_published` value for each row, so row-oriented storage will be slower (for this type of query).
+
+  - With column-oriented storage:
+
+    - All the data for `year_published` column is laid out sequentially.
+
+    👉 Since sequentially reads is faster, column-oriented storage will be faster (for this type of query).
+
+  > [!TIP]
+  > When you’re doing analytics, aggregate functions such as `COUNT`, `SUM`, `AVG` come up all the time, so the column-oriented approach is used in a large number of analytics use cases
+
 ### Analytics Use Cases
 
+The analytics space is massive, this book only list a few of the most common categories of tools:
+
+| Analytics Uses Cases               | Description                                                                                                   | Popular tools                                                                                                                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| General-purpose columnar databases | Data stores used for a wide variety of use cases                                                              | [Cassandra], [Google Bigtable], [HBase], [Kudu]                                                                                                                                   |
+| Time-series databases              | Data stores designed for storing & analyzing _time-series data_[^39] (e.g. metrics, logs)                     | [InfluxDB], [Amazon Timestream], [Prometheus], [Riak TS], [Timescale], [Honeycomb]                                                                                                |
+| Big data systems                   | Systems designed to process _big data_[^40]                                                                   | - MapReduce model[^37] / [Hadoop] [^38], [Cloudera]<br/>- [Amazon EMR] [^42], [Google Dataproc], [Azure HDInsight]                                                                |
+| Fast data systems                  | Systems designed to do _stream processing_[^41]                                                               | - Apache's [Spark], [Flink], [Storm], [Samza], [Beam], [Druid], [Pinot]<br/>- [Amazon Data Firehose]                                                                              |
+| Data warehouses                    | A _data warehouse_ is a central repository[^43] where you integrate data from all of your other systems[^44]. | - [Snowflake]<br/>- [Amazon Redshift], [Google BigQuery], [Azure Synapse Analytics]<br/>- [Apache Hive], [Oracle Enterprise Data Warehouse], [Teradata], [Informatica], [Vertica] |
+
 > [!IMPORTANT] Key takeaway #8
-> Use columnar databases for time-series data, big data, fast data, data warehouses, and anywhere else you need to quickly perform aggregate operations on columns.
+> Use columnar databases for
+>
+> - time-series data
+> - big data
+> - fast data
+> - data warehouses
+> - and anywhere else you need to quickly perform aggregate operations on columns.
+
+> [!TIP]
+> A data warehouse looks like this
+> ![alt text](assets/data-warehouse.png).>
+
+It looks simple, but in fact, it's a lot more complicated:
+
+- each arrow from the various systems to the data warehouse are actually complicated background process known as _extract, transform, and load (ETL)_, where you
+
+  - use specialized software, e.g.
+    - [Apache Airflow], [Oracle Data Integrator], [SQL Server Integration Services]
+    - [AWS Glue], [Google Cloud Dataflow], [Azure Data Factory]
+    - [Stitch] [Qlik], [Informatica], [Matillion], [Integrate.io]
+  - to
+    - extract data from one system that uses one format,
+    - transform it into the format used by another system (cleaning up and standardizing the data along the way),
+    - then load it into that other system
+
+- there are
+  - not only arrows from each system to the data warehouse
+  - but also arrows between these systems, too, which now representing _background jobs_, _event-based communication_... 👈 aka _asynchronous processing_
 
 ## Asynchronous Processing: Queues and Streams
 
@@ -2198,6 +2365,50 @@ e.g.
 [Algolia]: https://www.algolia.com/
 [Apache Solr]: https://solr.apache.org/
 [Apache Lucene]: https://lucene.apache.org/
+[Cassandra]: https://cassandra.apache.org/
+[Google Bigtable]: https://cloud.google.com/bigtable
+[HBase]: https://hbase.apache.org/
+[Kudu]: https://kudu.apache.org/
+[InfluxDB]: https://www.influxdata.com/
+[Amazon Timestream]: https://aws.amazon.com/timestream/
+[Prometheus]: https://prometheus.io/
+[Riak TS]: https://riak.com/products/riak-ts/
+[Timescale]: https://www.timescale.com/
+[Honeycomb]: https://www.honeycomb.io/
+[MapReduce]: https://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf
+[Hadoop]: https://hadoop.apache.org/
+[Cloudera]: https://www.cloudera.com/
+[Amazon EMR]: https://aws.amazon.com/emr/
+[Google Dataproc]: https://cloud.google.com/dataproc
+[Azure HDInsight]: https://azure.microsoft.com/en-us/products/hdinsight
+[Spark]: https://spark.apache.org/
+[Flink]: https://flink.apache.org/
+[Storm]: https://storm.apache.org/
+[Samza]: https://samza.apache.org/
+[Beam]: https://beam.apache.org/
+[Druid]: https://druid.apache.org/
+[Pinot]: https://pinot.apache.org/
+[Amazon Data Firehose]: https://aws.amazon.com/firehose/
+[Snowflake]: https://www.snowflake.com/
+[Amazon Redshift]: https://aws.amazon.com/redshift/
+[Google BigQuery]: https://cloud.google.com/bigquery
+[Azure Synapse Analytics]: https://azure.microsoft.com/en-us/products/synapse-analytics
+[Apache Hive]: https://hive.apache.org/
+[Oracle Enterprise Data Warehouse]: https://www.oracle.com/ie/autonomous-database/enterprise-data-warehouse/
+[Teradata]: https://www.teradata.com/
+[Informatica]: https://www.informatica.com/
+[Vertica]: https://www.vertica.com/
+[Apache Airflow]: https://airflow.apache.org/
+[Oracle Data Integrator]: https://www.oracle.com/uk/middleware/technologies/data-integrator.html
+[SQL Server Integration Services]: https://learn.microsoft.com/en-us/sql/integration-services/sql-server-integration-services
+[AWS Glue]: https://aws.amazon.com/glue/
+[Azure Data Factory]: https://learn.microsoft.com/en-us/azure/data-factory/
+[Google Cloud Dataflow]: https://cloud.google.com/products/dataflow
+[Stitch]: https://www.stitchdata.com/
+[Qlik]: https://www.qlik.com/us
+[Informatica]: https://www.informatica.com/
+[Matillion]: https://www.matillion.com/
+[Integrate.io]: https://www.integrate.io/
 
 [^1]: Ephemeral data is data that is OK to lose if that server is replaced.
 [^2]: Elastic File System
@@ -2296,3 +2507,15 @@ e.g.
 
 [^35]: <https://www.slideshare.net/slideshow/schemaonread-vs-schemaonwrite/30346951>
 [^36]: <https://martinfowler.com/articles/schemaless/>
+[^37]: In 2004, Google released a paper on [MapReduce], which described their approach to batch processing huge amounts of data using distributed systems. This kicked off a wave of big data tools.
+[^38]: [Hadoop] is an open source [MapReduce] implementation.
+[^39]: It’s very common to perform aggregate queries on time-series data (e.g., show me the average response time for this web service).
+[^40]: _Big data_ refers to data sets that are too large or complex to be dealt with by traditional data-processing application software (e.g. relational databases, document stores)
+[^41]: _Stream processing_ is
+
+    - generating analytics from large data sets
+    - by running continuously to incrementally process streams of data on a _near real-time_ basis (e.g., in milliseconds)
+
+[^42]: Amazon EMR (previously called Amazon Elastic MapReduce) is a managed cluster platform that simplifies running big data frameworks, such as [Apache Hadoop](https://aws.amazon.com/elasticmapreduce/details/hadoop) and [Apache Spark](https://aws.amazon.com/elasticmapreduce/details/spark)
+[^43]: Data warehouses are often column-oriented, and use specialized schemas (e.g., star and snowflake schemas) optimized for analytics.
+[^44]: With data warehouse, all of your data in one place, so you can perform a variety of analytics, generate reports, and so on.
