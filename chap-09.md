@@ -2406,7 +2406,6 @@ It looks simple, but in fact, it's a lot more complicated:
 [Google Cloud Dataflow]: https://cloud.google.com/products/dataflow
 [Stitch]: https://www.stitchdata.com/
 [Qlik]: https://www.qlik.com/us
-[Informatica]: https://www.informatica.com/
 [Matillion]: https://www.matillion.com/
 [Integrate.io]: https://www.integrate.io/
 
