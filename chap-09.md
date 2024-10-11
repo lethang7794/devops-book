@@ -2462,7 +2462,278 @@ Using queues for asynchronous communication between services provides several ke
 > - _completed_
 > - _executed_ in a specific order.
 
+> [!NOTE]
+> Message queues are used for
+>
+> - one-to-one communication
+> - between a producer and a consumer
+>
+> For one-to-many communication between a producer and many consumers, you need to use event streams.
+
 ### Event Streams
+
+#### What is Event Stream
+
+event stream
+: aka _event streaming platform_
+: A **data store** that
+: - is similar to a message queue
+: - allows services to _communicate asynchronously_
+: The main difference is:
+: - a message queue allows each message to be consumed by a single consumer
+: - an event stream allows each message to be consumed by _multiple consumers_
+
+#### Which Event Stream to use
+
+Some of the most popular event streaming tools include:
+
+- [Apache Kafka], [Confluent]
+- From cloud providers:
+  - Amazon [MSK] [^48], [Kinesis], [EventBridge],
+  - Google Cloud [Managed Service for Kafka], [Pub/Sub],
+  - Azure [HDInsight][Azure HDInsight] [^47]
+- [Apache Pulsar], [NATS] , [Redpanda]
+
+#### How Event Stream works
+
+![alt text](assets/event-streaming.png)
+
+The typical process of using event streaming is:
+
+1. A producer, such as service A, _publishes a message_ to the event stream.
+
+2. The event stream _persists the message_ to disk.
+
+   > [!NOTE]
+   > This ensures the message will eventually be processed, even if the event stream or any other service has an outage.
+
+   > [!TIP]
+   > Under the hood, the messages are recorded in a log, which is an append-only, totally-ordered sequence of records, ordered by time:
+   > ![alt text](assets/event-log.png)
+
+3. One or more consumers, such as services B, C, and D, _polls the event streaming_ platform to see if there are new messages.
+
+4. For each consumer:
+
+   - The streaming platform records that consumer’s _offset_ in the log: that is, what was the last message that consumer saw.
+
+   - When there is a new message past that offset, the streaming platform _returns that message_ to the consumer (i.e., service B, C, or D).
+
+5. Services B, C, and D _process messages_ they receive.
+
+6. Once a service has successfully processed a message, it _updates its offset_ in the streaming platform log.
+
+   > [!NOTE]
+   > This ensures the service won’t see the same message again.
+
+> [!TIP]
+> You can use a simple version of event stream as a replacement for a message queue, which allow:
+>
+> - Service A to send a message specifically destined for service B
+
+#### Event Driven Architecture
+
+##### What is Event Driven Architecture
+
+The primary use case of an event stream is:
+
+- Every service publishes a stream of events that
+
+  - represent important data points or changes in state in that service
+  - but aren’t necessarily designed for any one specific recipient
+
+- This allows multiple other services to
+
+  - subscribe & react to whatever streams of events are relevant to them
+
+This is known as an _event-driven architecture_.
+
+##### When to use Message Queue and Event Driven Architecture
+
+The difference between
+
+- messages in a message queue
+- events in an event stream
+
+has a profound impact on how you build your services.
+
+With _event-driven architecture_:
+
+- You have a dramatically simplified connectivity
+- You can add new services — new consumers — _without having to modify any existing producers_.
+
+---
+
+Example 1:
+
+The more realistic version of data warehouse architecture in [Analytics Use Cases](#analytics-use-cases) looks like this:
+
+- Without an event stream:
+
+  ![alt text](assets/system-communication.png)
+
+  As the number of services grows,
+
+  - the number of connections between them — whether those are synchronous messages or asynchronous messages via a message queue — grows even faster.
+
+  If you have N services, you end up with roughly $N^2$ connections, across a huge variety of interfaces and protocols that often require complicated ETL.
+
+  Setting up and maintaining all these connections can be a massive undertaking.
+
+- With an event stream:
+
+  ![alt text](assets/system-communication-event-streaming.png)
+
+  You can connect $N$ services
+
+  - with $N$ connections - each service has one connection to the event streaming platform
+
+  - instead of $N^2$
+
+  > [!TIP]
+  > This is similar to a **network switch** that allows you to
+  >
+  > - connect N computers with N cables (each computer has one cable connected to the switch)
+  > - instead of N2 (with a hub)
+  >
+  > See [Physical Private Networks | Chap 7](chap-07.md#physical-private-networks)
+
+---
+
+Example 2:
+
+- With an architecture where services message each other directly:
+
+  Service A
+
+  - sends the message `a new image has been uploaded to location X, please process that image` to service B.
+
+  6 months later, you want to
+
+  - add a new service C to scan images for inappropriate content.
+
+  > [!WARNING]
+  > In order for this service C to do its job, you have to
+  >
+  > - update service A to
+  >   - send an additional message `a new image has been uploaded to location X, please scan that image for inappropriate content` to service C.
+
+- With an event-driven architecture, where:
+
+  Service A
+
+  - doesn’t have to know about the existence of other services at all; - merely publishes important events, such as "a new image has been uploaded to location X."
+
+  Perhaps on day one, service B
+
+  - subscribes to this event stream,
+  - is able to process each image
+
+  6 months later, when you add service C, it can
+
+  - subscribe to the same event stream to
+  - start scanning images for inappropriate content — without any need to modify service A.
+
+  > [!NOTE]
+  > You could add dozens more services that consume service A’s event stream, again, with no need for A to be aware of them at all.
+
+---
+
+In an event-driven architecture,
+
+- Every service publishes important events:
+
+  e.g.
+
+  - `a new user has registered`
+  - `a user clicked a button`
+  - `an order has been placed`
+  - `a server is down` ...
+
+- Any other service can
+
+  - subscribe to any of these events streams to
+  - perform a variety of actions:
+
+    e.g.
+
+    - update a search index
+    - detect fraudulent activity
+    - generate a report
+    - send out a notification...
+
+  Moreover, each time a service subscribes to an event stream, it can choose to:
+
+  1. Start at **offset 0** in that stream (of the event bus - See [How Event Stream Works](#how-event-stream-works)):
+
+     - effectively "going back in time"
+
+     then processing all the historical events from that event stream
+
+     e.g.
+
+     - all images that have ever been uploaded
+     - all users that have ever registered
+
+     (until it catches up to the latest offset)
+
+  2. Start immediately at the **latest offset**
+     then just process new events.
+
+##### Why use an Event Driven Architecture
+
+Event-driven architectures provide a large number of benefits:
+
+- **All the benefits of a message queue**
+
+  Event streams offer most of the [same benefits as message queues](#why-use-message-queues): they help you
+
+  - handle traffic spikes
+  - decouple services
+  - guarantee tasks are completed
+  - guarantee task ordering
+
+- **Even stronger decoupling**
+
+  Message queues provide
+
+  - a limited amount of decoupling
+
+    - by allowing services to interact with a single interface - the queue
+
+  - but some coupling remains, as
+
+    - each service must be aware of other services to send them messages.
+
+  Event stream provides
+
+  - decoupling
+    - by allowing services to interact with a single interface - the event stream
+  - but it is even more decoupled, as
+    - publishers don’t need to be aware of consumers at all.
+
+  This unlocks remarkable flexibility and scalability in your architecture.
+
+- **Monitoring**
+
+  Event streams turns out to be an excellent way to implement monitoring (including metrics and logs):
+
+  - To know what a service is doing (aka _visibility_), just looks at the event stream from that service
+  - To help visualize your monitoring data, you can
+    - hook up various dashboards, log aggregators, alerting systems as consumers
+
+  You’ll learn more about monitoring in Chapter 10 [TODO].
+
+- **ETL and stream processing**
+
+  In [Analytics Use Cases](#analytics-use-cases), you learned about big data, fast data, and data warehouses.
+
+  Event streams play a key role in each of these.
+
+  - Event streams gives you a single, standardize way to do ETL.
+  - Fast data is all about processing streams of data; well, the event stream is what provides those streams of data!
+
+---
 
 > [!IMPORTANT] Key takeaway #10
 > Use event streams to build highly-scalable, decoupled, event-driven architectures.
@@ -2654,6 +2925,16 @@ Using queues for asynchronous communication between services provides several ke
 [Amazon SQS]: https://aws.amazon.com/sqs/
 [Google Cloud Tasks]: https://cloud.google.com/tasks
 [Azure Queue Storage]: https://azure.microsoft.com/en-us/products/storage/queues
+[Apache Kafka]: https://kafka.apache.org/
+[Confluent]: https://www.confluent.io/
+[MSK]: https://aws.amazon.com/msk/
+[Kinesis]: https://aws.amazon.com/kinesis/
+[EventBridge]: https://aws.amazon.com/eventbridge/
+[Managed Service for Kafka]: https://cloud.google.com/products/managed-service-for-apache-kafka
+[Pub/Sub]: https://cloud.google.com/pubsub
+[Apache Pulsar]: https://pulsar.apache.org/
+[NATS]: https://nats.io/
+[Redpanda]: https://www.redpanda.com/
 
 [^1]: Ephemeral data is data that is OK to lose if that server is replaced.
 [^2]: Elastic File System
@@ -2766,3 +3047,5 @@ Using queues for asynchronous communication between services provides several ke
 [^44]: With data warehouse, all of your data in one place, so you can perform a variety of analytics, generate reports, and so on.
 [^45]: Amazon Simple Queue Service (SQS)
 [^46]: In distributed systems theory, guaranteeing a message is delivered _exactly once_ is provably impossible (if you’re curious why, look up the _Two Generals Problem_).
+[^47]: Azure [Azure HDInsight] is also used for big data system as in [Analytics Use Cases](#analytics-use-cases).
+[^48]: Amazon [Managed Streaming for Kafka (MSK)][MSK]
