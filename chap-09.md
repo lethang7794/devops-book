@@ -2740,17 +2740,354 @@ Event-driven architectures provide a large number of benefits:
 
 ## Scalability and Availability
 
+In terms of scalability & availability:
+
+- the data store is the biggest bottleneck
+- especially for stateful software
+
+Over the years, there have been many attempts, but there’s
+
+- no one-size-fits-all solution
+- no silver bullet
+
+that can magically solve scalability & availability challenges.
+
 ### Relational Databases
+
+To scale a relational databases, you can do a:
+
+- _vertical scaling_[^50], which is easier but has [limitation](chap-03.md#why-use-an-orchestration)
+
+- _horizontal scaling_[^51], which is harder because most relational databases historically intended to be run on a single server[^49].
+
+To horizontally scale a relational database —or any data store — there are two primary strategies:
+
+- _Replication_
+
+  _Replication_ involves copying the same data to multiple servers called _replicas_.
+
+  - By having multiple replicas that can handle read traffic (aka _read replicas_):
+
+    - you're scale up your relational database to handle more read traffic.
+
+    > [!WARNING]
+    > Replication doesn't solve scalability for write traffic.
+    >
+    > - All write traffic must go to the primary database (aka _write replica_).
+
+    > [!NOTE] Why using replication if it doesn't solve scalability for write traffic?
+    > Because there are many types of software that have vastly more reads than writes.
+
+  A good side effect of using replication to solve scalability is you also achieve _high availability_ (aka _fault tolerance_):
+
+  - These read replicas
+    - serve live traffic (👈 aka _active replicas_),
+    - also increase your uptime.
+
+  > [!NOTE]
+  > You can also use replication to provide _high availability_ without handling more load (i.e. without having scalability):
+  >
+  > In this case, the replicas
+  >
+  > - doesn't handle any live traffic
+  > - but can be swapped in quickly if the primary database goes down (👈 aka _standby replica_)
+
+- _Partitioning_ (aka _sharding_)
+
+  Whereas
+
+  - _replication_ is copying the **same data** to multiple servers,
+  - _partitioning_ is copying **different subsets of the data** to multiple servers, where each of those servers can handle both reads and writes.
+
+  The goal of partitioning is to
+
+  - divide your data set deterministically between _n_ servers so
+  - each one only has to handle $1/n^{th}$ of the total load.
+
+  e.g.
+
+  - For the previous bank example,
+    - If you had grown to 10 million customers, you could partition them across 10 servers, so
+      - all the data for customers with `id` $0 - 1,000,000$ would be on server 0
+      - all the data for customers with `id` $1,000,001 - 2,000,000$ would be on server 1
+      - and so on.
+    - If the bank had a website where most of the pages only showed data for one customer at a time, then each database would only have to handle ~ $1/10$ of the load, which is a huge win.
+
+  Partitioning effectively turns a single-node database into a distributed system, which
+
+  - helps with availability & scalability
+  - but it comes at a cost:
+
+    With partitioning,
+
+    - you lose the ability to
+
+      - use auto-incrementing sequences,
+      - queries across data in different partitions,
+      - use foreign key constraints across data in different partitions.
+
+    - You even lose ACID transactions for data in different partitions:
+
+      e.g.
+
+      - If a customer with `id` $50$ wanted to transfer money to a customer with `id` $3,000,000$, since the data for each customer lives in a separate partition, you couldn’t perform this update in a single transaction.
+
+    - Moreover, your relational databases
+      - might have _hot spots_[^52] that
+        - requires you to do _re-balancing_, which is difficult & expensive
 
 > [!IMPORTANT] Key takeaway #11
 > Use replication and partitioning to make relational databases more scalable and highly available.
 
+> [!TIP]
+> If you're using relational databases, replication & partitioning can take you remarkably far (although it's not easy).
+>
+> e.g.
+>
+> - Meta uses MySQL as its primary data store
+>   - for its 3+ billion users
+>   - consisting thousands of servers, hosting millions of shards, storing petabytes of data[^53].
+> - Figma spent nine months to horizontally shard Postgres[^54]
+> - Dropbox scaled from 4k to 40 million users with MySQL[^55].
+>
+> An easier option is to move away from relation databases.
+
 ### NoSQL and NewSQL Databases
 
-> [!IMPORTANT] Key takeaway #12
-> Use NoSQL and NewSQL databases when your scalability and availability requirements exceed what you can do with a relational database—but only if you can invest in the time and expertise of deploying and maintaining a distributed data store.
+#### NoSQL databases
+
+##### Why invent NoSQL databases
+
+In the mid-to-late 2000s, the challenges with scalability and high availability for relational databases led to
+
+- the creation of a number of _non-relational databases_, often called NoSQL[^56] databases[^57].
+
+##### How NoSQL databases were born
+
+The early inspirations for NoSQL included
+
+- Google’s 2006 paper on [BigTable], a distributed storage system that was designed to handle "petabytes of data across thousands of commodity servers"
+- Amazon’s 2007 paper on [Dynamo], a "highly available key-value storage system that some of Amazon’s core services use to provide an always-on experience"
+
+The actual term "NoSQL"
+
+- came after these papers,
+- originating as a Twitter hashtag (`#NoSQL`) for a 2009 meetup in San Francisco to
+  - discuss "open source, distributed, non-relational databases"[^58].
+
+##### What type of NoSQL there are
+
+The primary types of data stores that fall under the NoSQL umbrella are
+
+- key-value stores
+- document stores
+- columnar databases
+
+all of which you’ve already seen in this blog post.
+
+##### Tradeoff of NoSQL databases
+
+Most NoSQL databases were designed from the ground up for
+
+- scalability & availability
+
+so the default deployment often includes replication & partitioning.
+
+e.g.
+
+- MongoDB is typically deployed in a cluster that consists of multiple shards, where each shard has
+
+  - a primary (for writes)
+  - one or more replicas (for reads),
+  - plus dedicated servers that handle query routing, auto-sharding, and auto-re-balancing.
+
+###### The advantage of NoSQL databases
+
+By using NoSQL databases, you get a highly scalable & available data store.
+
+###### The disadvantages of NoSQL databases
+
+- NoSQL databases are _distributed systems_, which are complicated.
+
+- The sacrifice of key features from relational databases:
+  - ACID transactions
+  - referential integrity,
+  - a flexible query language (SQL) that supports joins.
+
+> [!WARNING]
+> For some uses cases, these sacrifices because of using NoSQL databases don't justify the benefits.
+
+#### NewSQL databases
+
+In the mid-to-late 2010s, there is a new breed of relational database, often called _NewSQL_, that
+
+- provide better availability & scalability.
+- while tried to retain the strengths of a relational database (ACID transactions, SQL...)
+
+Some of the major players in this space include
+
+- [Google Spanner], [Amazon Aurora]
+- [CockroachDB], [YugabyteDB], [VoltDB]
+
+Under the hood, these are also all complex distributed systems that
+
+- use **replication & partitioning** to achieve high scalability and availability,
+- but they try to use **new techniques** to not sacrifice too many relational database benefits along the way.
+
+#### Are NoSQL and NewSQL Databases Mature
+
+Remember:
+
+- "Good software takes at least a decade to develop".
+- Data storage technology is complex and might take more than a decade.
+
+As of the writing of this book (2024):
+
+- Most NoSQL data stores are 10-15 years old, so they are just starting to become mature and reliable systems.
+- Most NewSQL systems are still less than 10 years old, so they are still relatively young (at least as far as data storage technologies go).
+
+> [!WARNING]
+> Both NoSQL an& NewSQL databases are typically complex distributed systems, they face challenges that may take even more time.
+
+#### What is The Risk when using NoSQL & NewSQL Database
+
+It takes a decade or two to build a reliable data store, and finding a way to sustainably pay developers during all that time is tricky.
+
+Many data store companies have shut down.
+
+e.g.
+
+- [RethinkDB], [FoundationDB], GenieDB, ScaleDB...
+
+It's a huge problem if your company relies on these technologies for storing your most valuable asset!
+
+> [!TIP]
+> Comparing to a data store that just came out in the last few years, a data store that has been around 20+ years is
+>
+> - not only more mature than,
+> - but also more likely to still be around another 20 years from now>
+>
+> (This is called the [Lindy effect]).
 
 ### Distributed Systems
+
+#### CAP Theorem and Distributed Data Store
+
+In database theory, the **CAP theorem** states that any _distributed data store_ can provide only _two of the following three_ guarantees:
+
+- **Consistency \(C\)**
+
+  Every read receives the _most recent_ write.
+
+- **Availability (A)**
+
+  Every request receives a _response_, even if
+
+  - some servers are down.
+
+- **Partition tolerance \(P\)**
+
+  The distributed system _continues to work_ even if
+
+  - there is a break in communications (aka a _partition_[^59]) between some of the servers
+
+> [!NOTE]
+> In practice, all real-world distributed systems
+>
+> - have to provide partition tolerance - they have to pick P - or they're useless at hyper-scale
+> - which force them to choose between consistency \(C\) or availability (A)
+
+---
+
+##### Tradeoff of Distributed Data Stores
+
+In practice:
+
+- Some systems, such as HBase and Redis, pick C, so
+
+  - they try to keep data consistent on all nodes
+  - but during a network partition, they lose availability.
+
+  > [!WARNING]
+  > If you use a data store that picks C, you have to accept that
+  >
+  > - From time to time, that data store will be down.
+
+- Other systems, such as Cassandra, Riak, and CouchDB, pick A, so
+
+  - they have availability
+  - but during a network partition, different nodes may end up with different data
+
+  > [!NOTE]
+  > They can't guarantee consistency \(C\),
+  >
+  > - but they try their best to have _eventually consistent_.
+
+  > [!WARNING]
+  > If you use a data store that picks A, you have to accept that:
+  >
+  > - You only have eventually consistent and might receive _stale_ data (whether with or without there is a partition)
+  >
+  > ***
+  >
+  > This is confusing for both programmers and users:
+  >
+  > e.g.
+  >
+  > - You just updated some data, but after refreshing the page, you still see the old data).
+
+> [!TIP]
+> Some systems, such as MongoDB, allow you
+>
+> - to pick C or A depending on the use case
+> - by tuning for availability or consistency via configuration settings.
+
+##### Distributed systems introduce many new failure modes
+
+At some point, every data store will fail.
+
+The question is:
+
+- how many different ways can the system fail
+- how easy is it to understand and fix each one
+
+---
+
+- For a single-node system - e.g a relational database -
+  - The number & complexity of failure modes is far lower.
+- For a distributed NoSQL or NewSQL system (with multiple writers, auto-sharding, auto-re-balancing, eventual consistency, consensus algorithms...):
+  - The number & complexity of failure modes is a lot higher.
+
+> [!WARNING]
+> The complexity of the many different failure modes was one of the main reasons:
+>
+> - [Pinterest had to move off Cassandra]
+> - [Etsy had to move off MongoDB]
+
+### When to use Relational Database - NoSQL, NewSQL, distributed system
+
+For these technology, you need to understand
+
+- what they are good at, what they are not good at
+- the risks you are taking on
+
+e.g.
+
+- If you have extreme scale and availability requirements that you can’t handle with a relational database,
+
+  - and you have a team willing to put in the time and effort to deploy and maintain a NoSQL or NewSQL database,
+  - then by all means, go for it.
+
+- But if you’re a tiny startup, with virtually no traffic, using a complex distributed data store right out of the gate might not be the right way to spend your limited resources.
+
+---
+
+> [!IMPORTANT] Key takeaway #12
+> Use NoSQL and NewSQL databases when
+>
+> - your **scalability & availability** requirements exceed what you can do with a relational database
+>
+> but only if you can invest in the time and expertise of deploying & maintaining a **distributed** data store.
 
 ## Backup and Recovery
 
@@ -2935,6 +3272,19 @@ Event-driven architectures provide a large number of benefits:
 [Apache Pulsar]: https://pulsar.apache.org/
 [NATS]: https://nats.io/
 [Redpanda]: https://www.redpanda.com/
+[distributed relational databases]: https://en.wikipedia.org/wiki/Relational_database#Distributed_relational_databases
+[BigTable]: http://research.google.com/archive/bigtable.html
+[Dynamo]: https://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf
+[Google Spanner]: https://cloud.google.com/spanner
+[Amazon Aurora]: https://aws.amazon.com/rds/aurora/
+[CockroachDB]: https://www.cockroachlabs.com/
+[YugabyteDB]: https://www.yugabyte.com/
+[VoltDB]: https://www.voltactivedata.com/
+[Pinterest had to move off Cassandra]: https://highscalability.com/scaling-pinterest-from-0-to-10s-of-billions-of-page-views-a/
+[Etsy had to move off MongoDB]: https://mcfunley.com/why-mongodb-never-worked-out-at-etsy
+[RethinkDB]: https://rethinkdb.com/blog/rethinkdb-shutdown/
+[FoundationDB]: https://www.wired.com/2015/03/apple-pulls-plug-tech-company-runs/
+[Lindy effect]: https://en.wikipedia.org/wiki/Lindy_effect
 
 [^1]: Ephemeral data is data that is OK to lose if that server is replaced.
 [^2]: Elastic File System
@@ -3049,3 +3399,51 @@ Event-driven architectures provide a large number of benefits:
 [^46]: In distributed systems theory, guaranteeing a message is delivered _exactly once_ is provably impossible (if you’re curious why, look up the _Two Generals Problem_).
 [^47]: Azure [Azure HDInsight] is also used for big data system as in [Analytics Use Cases](#analytics-use-cases).
 [^48]: Amazon [Managed Streaming for Kafka (MSK)][MSK]
+[^49]: There were attempts to make relational databases distributed, which are known as [distributed relational databases].
+[^50]: _Vertical scaling_ (aka _scale up/down_) means
+
+    - adding/removing resources (CPUs, memory or storage...)
+    - to/from a single computer
+
+    See <https://en.wikipedia.org/wiki/Scalability#Vertical_or_scale_up>
+
+[^51]: _Horizontally scaling_ (aka _scale out/in_) means
+
+    - adding or removing nodes, e.g. a computer, a VM
+    - to a distributed software application.
+
+[^52]:
+    A _hot spot_ is a partition that get a disproportionately higher percentage of traffic and become overloaded.
+
+    Your relational database might have hotpots
+
+    - if you don’t partition your data correctly, or
+    - if your access patterns change
+
+[^53]:
+    Meta created _MySQL Raft_, a consensus engine that turns MySQL into a "true distributed system".
+    See: [Building and deploying MySQL Raft at Meta](https://engineering.fb.com/2023/05/16/data-infrastructure/mysql-raft-meta/)
+
+[^54]: <https://www.figma.com/blog/how-figmas-databases-team-lived-to-tell-the-scale/>
+[^55]: <https://www.sitepoint.com/scaling-lessons-learned-at-dropbox-from-4k-to-40-million/>
+[^56]:
+    _NoSQL_, which at various times stood for **Non-SQL** or **Not-Only-SQL**,
+
+    - is a fuzzy term that refers to
+    - databases that do not use SQL or the relational model.
+
+[^57]: Over the years, there have been many types of non-relational databases,
+
+    - most of which failed to gain wide adoption
+
+      e.g.,
+
+      - object databases in the 90s,
+      - XML databases in the early 2000s
+
+    - but NoSQL in particular typically refers to
+      - a breed of databases that were built in the late 2000s,
+        - primarily by Internet companies struggling to adapt relational databases to unprecedented demands in performance, availability, and data volume.
+
+[^58]: "open source, distributed, non-relational databases" is still the best definition of NoSQL that we have.
+[^59]: e.g. because the network is down
