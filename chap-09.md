@@ -3091,18 +3091,262 @@ e.g.
 
 ## Backup and Recovery
 
+### Why Backup Data
+
+Remember, your data is one of the most valuable assets of your company.
+
+- Losing data can do tremendous damage, or even put you out of business.
+- There are 3 ways you lose your data:
+
+  1. **Data loss**
+
+     The data is not longer existed:
+
+     - The server, or hard-drive dies
+     - Someone accidentally or maliciously delete the data
+
+     e.g.
+
+     - A developer running `DROP TABLE` on a test database, but in fact it's the production database.
+
+  2. **Data corruption**
+
+     The data
+
+     - is corruption (due to a software bug, human error or malicious actor)
+     - can't be read
+
+     e.g.
+
+     - Data migration process going wrong and writing data to wrong tables/columns.
+
+  3. **Inaccessible data**
+
+     The data is still there, but you can no longer access it.
+
+     e.g.
+
+     - You lost the encryption key
+     - Ransomware has encrypted it
+
+- To prevent losing data:
+  - you "simply" backup them:
+    - make copies of your data
+    - store those copies elsewhere
+  - if something goes wrong,
+    - you can restore from one of those copy
+
 ### Backup Strategies
+
+| Backup Strategy                                    | Scheduled disk backups                                                                                                           | Scheduled data store backups                                                                         | Continuous data store backups                                                                                                    | Data store replication                                                                               |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Description                                        | Take a snapshot of the entire hard drive on a regular schedule (e.g., daily)                                                     | Natively back up just the data in that data store (rather than the entire hard drive)                | Take a snapshot after every single change, e.g. `INSERT`, `UPDATE`                                                               | The replicas used for as a failover or handle load is a full copy of your data.                      |
+| How it works                                       | Use another backup vendor software to backup the whole disk (OS, data store...)                                                  | e.g. Dump the data store as SQL dump (all SQL statements that represents the data store)             | Use a _write-ahead log (WAL)_ to store the changes, before execute these changes to the actual data. The snapshot is of the WAL. | Also based on WAL, ~ continuous backup                                                               |
+|                                                    |                                                                                                                                  |                                                                                                      |                                                                                                                                  |                                                                                                      |
+| Protect against data loss                          | Support                                                                                                                          | Support                                                                                              | Support                                                                                                                          | Support                                                                                              |
+| Protect against data corruption                    | Support                                                                                                                          | Support                                                                                              | Support                                                                                                                          | Not support                                                                                          |
+| Protect against inaccessible data                  | Not support                                                                                                                      | Support: Use a different encryption key                                                              | Support: Use a different encryption key                                                                                          | Not support                                                                                          |
+|                                                    |                                                                                                                                  |                                                                                                      |                                                                                                                                  |                                                                                                      |
+| Portable                                           | Moderate: Some backup software gives you snapshots that can move to servers in different hosting environment (cloud, on-premise) | High: Support moving to a different server/OS/hosting environment...                                 | Low: Can't backup to different server, OS, hosting environment                                                                   | Low                                                                                                  |
+| Reliability                                        | High: When boot from a disk snapshot, you get the exact data store configuration, version                                        | Moderate: Vendor software may introduce backward incompatible changes                                | Low: There is more chance of incompatible breaking changes from vendor software                                                  | Low                                                                                                  |
+| Consistent                                         | Inconsistent: Data store may have data buffered in memory or only partially written to disk                                      | High                                                                                                 | High                                                                                                                             | Consistent                                                                                           |
+| Overhead                                           | Storage: OS...<br/>CPU, memory: While backup process running                                                                     | Storage: Less, can use incremental backups to reduces further;<br/>CPU, memory: Less                 | Storage: Depend on the modification pattern;<br/>CPU, memory: For every changes                                                  | Storage: Depend on the modification pattern;<br/>CPU, memory: For every changes                      |
+|                                                    |                                                                                                                                  |                                                                                                      |                                                                                                                                  |                                                                                                      |
+| Backup data between snapshots                      | Not support                                                                                                                      | Not support                                                                                          | Support                                                                                                                          | Support                                                                                              |
+| Support by data store                              | Not support                                                                                                                      | Popular                                                                                              | Not popular                                                                                                                      | Not popular                                                                                          |
+| Note                                               |                                                                                                                                  | The most popular way to backup data store                                                            | Gold standard, use it when it's available                                                                                        |                                                                                                      |
+| \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_ | \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_                             | \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_ | \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_                             | \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_ |
 
 ### Backup Best Practices
 
+#### The 3-2-1 backup rule
+
+With 3-2-1 backup rule, you should have at least:
+
+| Rule                           | Example                                   | Type of disaster protect from       |
+| ------------------------------ | ----------------------------------------- | ----------------------------------- |
+| **3 copies**                   | Original/production + 2 more copies       | A failure of the production         |
+| **2 different types of media** | Magnetic HDD, SSD, tape                   | A failure of the storage technology |
+| **1 copy offside**             | In another AWS region (from the original) | A failure of an entire region       |
+
+#### Test your backups regularly
+
+Ensure that
+
+- the **step-by-step process** of how to restore from a backup is documented
+
+  > [!TIP]
+  > When you need to restore from a backup, you're in a stressful situation with limit time, any mistakes will make things worse.
+
+- you run through this process regularly both manually and automatically.
+
+  > [!WARNING]
+  > If you don't run your backup process regularly, there is a big chance that it doesn't work, because of many reason:
+  >
+  > - Hardware/Software
+  > - People
+
+  e.g.
+
+  - Have practice sessions a few times per year for your team to practice recovering from a backup,
+  - Have an automated tests that frequently, e.g. nightly
+    - restores a system from backup
+    - check that everything works as expected
+      e.g. The queries against the backup should return the same data as the original.
+
+#### Protect your backups
+
+> [!WARNING]
+> Any one has access to these backup also has access to your production data.
+
+Ensure that your back ups have multiple layers of protection:
+
+- Be encrypted
+- Stored on servers in a private network
+- Accessible only by authorized parties
+- Be carefully monitored...
+
+---
+
 > [!IMPORTANT] Key takeaway #13
-> Ensure your data stores are securely backed up to protect against data loss and data corruption, protect your backups, test your backup strategy regularly, and follow the 3-2-1 rule.
+> To protect against data loss & data corruption:
+>
+> - Ensure your data stores are securely backed up follow the 3-2-1 rule.
+> - Protect your backups,
+> - Test your backup strategy regularly
 
 ### Example: Backups and Read Replicas with PostgreSQL
 
+- Use the [Example: PostgreSQL, Lambda, and Schema Migrations](#example-postgresql-lambda-and-schema-migrations) as the starting point
+
+  ```t
+  # examples/ch9/tofu/live/lambda-rds/main.tf
+  provider "aws" {
+    region = "us-east-2"
+  }
+
+  module "rds_postgres" {
+    source = "github.com/brikis98/devops-book//ch9/tofu/modules/rds-postgres"
+
+    name              = "bank"
+    instance_class    = "db.t4g.micro"
+    allocated_storage = 20
+    username          = var.username
+    password          = var.password
+  }
+  ```
+
+- Enable automatic backups for PostgreSQL
+
+  ```t
+  module "rds_postgres" {
+    # ... (other params omitted) ...
+
+    backup_retention_period = 14            (1)
+    backup_window           = "04:00-05:00" (2)
+  }
+  ```
+
+  - 1: Setting this to a value greater than zero enables daily snapshots.
+
+    The preceding code configures RDS to retain those snapshots for 14 days.
+
+    > [!NOTE]
+    > Older snapshots will be deleted automatically, saving you on storage costs.
+
+  - 2: Configure the snap-shotting process to run from 4-5AM UTC.
+
+    > [!WARNING]
+    > Any data written between snapshots could be lost.
+
+    > [!TIP]
+    > You should typically set this to a time when
+    >
+    > - load on the database tends to be lower
+    > - or after you run an important business process at some specific time every day.
+
+- Add a read replica with a second module block that uses the `rds-postgres` module
+
+  ```t
+  module "rds_postgres_replica" {
+    source = "github.com/brikis98/devops-book//ch9/tofu/modules/rds-postgres"
+
+    name                = "bank-replica"                 (1)
+    replicate_source_db = module.rds_postgres.identifier (2)
+    instance_class      = "db.t4g.micro"                 (3)
+  }
+  ```
+
+  - 1: Since the primary database is called `bank` name the replica `bank-replica`.
+  - 2: Set the `replicate_source_db` parameter to the identifier of the primary database.
+
+    - This is the setting that configures this database instance as a read replica.
+
+  - 3: Run the replica on the same micro RDS instance that is part of the AWS free tier.
+
+- Update the Lambda function to talk to read replica
+
+  ```t
+  module "app" {
+    source = "github.com/brikis98/devops-book//ch3/tofu/modules/lambda"
+    # ... (other params omitted) ...
+
+    environment_variables = {
+      DB_HOST = module.rds_postgres_replica.hostname
+      # ... (other env vars omitted) ...
+    }
+  }
+  ```
+
+  > [!NOTE]
+  > The schema migration still you the primary database instance
+
+---
+
+- Re-apply the OpenTofu module
+
+  ```bash
+  cd examples/ch9/tofu/live/lambda-rds
+  tofu apply
+  ```
+
+- Wait for the replica to be deployed (5-15 minutes), head over to [RDS console] to the replica is deployed.
+
+- Head over to [Lambda console]
+
+  - Click `lambda-rds-app` function
+  - Select `Configuration` tab
+  - Click on `Environment variables` section on the left side
+
+  Verify the `DB_HOST` has been set to replica's URL.
+
+- Verify the Lamda function is working
+
+  ```bash
+  curl https://<app_endpoint>
+  ```
+
+### Get your hands dirty: Backup and recovery
+
+- Test your backups! If you don’t test them, they probably don’t work.
+
+  Once your RDS instance takes a snapshot,
+
+  - find its ID in the [RDS snapshots console], and
+  - pass that ID into the `snapshot_identifier` parameter of the `rds-postgres` module to restore the database from that snapshot.
+
+- Enable [continuous backups] for your database.
+- Replicate your backups [to another AWS region or account] for extra durability.
+
+> [!NOTE]
+> When you’re done testing, commit your code, and run `tofu destroy` to clean everything up.
+
+> [!TIP]
+> When you destroy everything, the `rds-postgres` module will take one final snapshot of the database, which is a handy failsafe in case you delete a database by accident.
+
 ## Conclusion
 
-- Keep your applications stateless. Store all your data in dedicated data stores.
+- Keep your applications stateless. Store all your data in dedicated data stors.
 
 - Don’t roll your own data stores: always use mature, battle-tested, proven off-the-shelf solutions.
 
@@ -3285,6 +3529,11 @@ e.g.
 [RethinkDB]: https://rethinkdb.com/blog/rethinkdb-shutdown/
 [FoundationDB]: https://www.wired.com/2015/03/apple-pulls-plug-tech-company-runs/
 [Lindy effect]: https://en.wikipedia.org/wiki/Lindy_effect
+[RDS console]: https://console.aws.amazon.com/rds/home
+[Lambda console]: https://console.aws.amazon.com/lambda/home?#/functions
+[RDS snapshots console]: https://console.aws.amazon.com/rds/home?#snapshots-list:tab
+[continuous backups]: https://docs.aws.amazon.com/aws-backup/latest/devguide/point-in-time-recovery.html
+[to another AWS region or account]: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ReplicateBackups.html
 
 [^1]: Ephemeral data is data that is OK to lose if that server is replaced.
 [^2]: Elastic File System
