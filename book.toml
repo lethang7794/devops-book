@@ -1,0 +1,15 @@
+[book]
+authors = ["Le Quang Thang"]
+language = "en"
+multilingual = false
+src = ""                     # Root of repo
+title = "DevOps Book"
+
+[preprocessor.alerts]
+
+[output.html]
+smart-punctuation = true
+
+site-url = "/devops-book/"
+git-repository-url = "https://github.com/lethang7794/devops-book"
+edit-url-template = "https://github.com/lethang7794/devops-book/edit/master{path}"
