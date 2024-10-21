@@ -8,6 +8,10 @@ title = "DevOps Book"
 [preprocessor.alerts]
 
 [output.html]
+additional-css = ["./theme/css/catppuccin.css"]
+default-theme = "latte"
+preferred-dark-theme = "macchiato"
+
 smart-punctuation = true
 
 site-url = "/devops-book/"
