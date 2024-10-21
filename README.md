@@ -2,7 +2,7 @@
 
 Read the book:
 
-- at [Fundamentals of DevOps and Software Delivery | O'Reilly Library](https://learning.oreilly.com/library/view/fundamentals-of-devops/9781098174583).
+- at [Fundamentals of DevOps and Software Delivery - O'Reilly Library](https://learning.oreilly.com/library/view/fundamentals-of-devops/9781098174583).
 - or as [blog posts](https://www.gruntwork.io/fundamentals-of-devops) on Gruntwork.io.
 
 | Chapter    | Title                                                                   | Notes                             | The blog on Gruntwork                                                                                                                |
