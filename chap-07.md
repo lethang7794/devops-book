@@ -2093,7 +2093,7 @@ e.g.
 - Service A have a config file with hard-coded IP address of the servers where B is deployed.
 
 > [!NOTE]
-> This workds as long as the IP address used by B don't change too ofter, such as
+> This works as long as the IP address used by B don't change too ofter, such as
 >
 > - an on-prem data center
 > - in the cloud but you're using private _static_ IP address for B's virtual servers
