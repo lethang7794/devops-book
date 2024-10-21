@@ -7,6 +7,9 @@ title = "DevOps Book"
 
 [preprocessor.alerts]
 
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
 [output.html]
 additional-css = ["./theme/css/catppuccin.css"]
 default-theme = "latte"
@@ -17,3 +20,8 @@ smart-punctuation = true
 site-url = "/devops-book/"
 git-repository-url = "https://github.com/lethang7794/devops-book"
 edit-url-template = "https://github.com/lethang7794/devops-book/edit/master{path}"
+
+additional-js = [
+  ".mdbook/mermaid/mermaid.min.js",
+  ".mdbook/mermaid/mermaid-init.js",
+]
