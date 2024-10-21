@@ -10,8 +10,10 @@ title = "DevOps Book"
 [preprocessor.mermaid]
 command = "mdbook-mermaid"
 
+[preprocessor.pagetoc]
+
 [output.html]
-additional-css = ["./theme/css/catppuccin.css"]
+additional-css = ["theme/css/catppuccin.css", "theme/pagetoc.css"]
 default-theme = "latte"
 preferred-dark-theme = "macchiato"
 
@@ -24,4 +26,5 @@ edit-url-template = "https://github.com/lethang7794/devops-book/edit/master{path
 additional-js = [
   ".mdbook/mermaid/mermaid.min.js",
   ".mdbook/mermaid/mermaid-init.js",
+  "theme/pagetoc.js",
 ]
