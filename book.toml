@@ -12,6 +12,8 @@ command = "mdbook-mermaid"
 
 [preprocessor.pagetoc]
 
+[preprocessor.yml-header]
+
 [output.html]
 additional-css = ["theme/css/catppuccin.css", "theme/pagetoc.css"]
 default-theme = "latte"
