@@ -1,10 +1,10 @@
-# Sample workflow for building and deploying a Jekyll site to GitHub Pages
-name: Deploy Jekyll with GitHub Pages dependencies preinstalled
+# Simple workflow for building and deploying a mdBook site to GitHub Pages
+name: Deploy mdBook site to GitHub Pages
 
 on:
   # Runs on pushes targeting the default branch
   push:
-    branches: ["main"]
+    branches: [$default-branch]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -25,18 +25,41 @@ jobs:
   # Build job
   build:
     runs-on: ubuntu-latest
+    env:
+      MDBOOK_VERSION: 0.4.4
+      MDBOOK_ADMONISH: 1.17.0                                                                                                                               │
+      MDBOOK_ALERTS: 0.6.8                                                                                                                                  │
+      MDBOOK_MERMAID: 0.14.0                                                                                                                                │
+      MDBOOK_PAGETOC: 0.2.0                                                                                                                                 │
+      MDBOOK_TOC: 0.14.2                                                                                                                                    │
+      MDBOOK_YML_HEADER: 0.1.4
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install mdBook and its processors
+        run: |
+          curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf -y | sh
+          rustup update
+          cargo install --version ${MDBOOK_VERSION}    mdbook
+          cargo install --version ${MDBOOK_ADMONISH}   mdbook-admonish
+          cargo install --version ${MDBOOK_ALERTS}     mdbook-alerts
+          cargo install --version ${MDBOOK_MERMAID}    mdbook-mermaid
+          cargo install --version ${MDBOOK_PAGETOC}    mdbook-pagetoc
+          cargo install --version ${MDBOOK_TOC}        mdbook-toc
+          cargo install --version ${MDBOOK_YML_HEADER} mdbook-yml-header
+
       - name: Setup Pages
+        id: pages
         uses: actions/configure-pages@v5
-      - name: Build with Jekyll
-        uses: actions/jekyll-build-pages@v1
-        with:
-          source: ./
-          destination: ./_site
+
+      - name: Build with mdBook
+        run: mdbook build
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./book
 
   # Deployment job
   deploy:
