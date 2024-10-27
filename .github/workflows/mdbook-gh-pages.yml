@@ -45,10 +45,11 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-binstall,mdbook@${{ env.MDBOOK_VERSION }}
+      - run: echo ""mdbook-admonish@${{ env.MDBOOK_ADMONISH }},mdbook-alerts@${{ env.MDBOOK_ALERTS }},mdbook-mermaid@${{ env.MDBOOK_MERMAID }},mdbook-pagetoc@${{ env.MDBOOK_PAGETOC }},mdbook-toc@${{ env.MDBOOK_TOC }},mdbook-yml-header@${{ env.MDBOOK_YML_HEADER }}""
       - name: Install mdBook processors
         uses: taiki-e/install-action@v2
         with:
-          tool: "mdbook-admonish@${{ env.MDBOOK_ADMONISH }},mdbook-alerts@${{ env.MDBOOK_ALERTS }},mdbook-mermaid@${{ env.MDBOOK_MERMAID }},mdbook-pagetoc@${{ env.MDBOOK_PAGETOC }},mdbook-toc@${{ env.MDBOOK_TOC }},mdbook-yml-header@${{ env.MDBOOK_YML_HEADER }}"
+          tool: mdbook-admonish@${{ env.MDBOOK_ADMONISH }}
 
       - name: Setup Pages
         id: pages
