@@ -27,11 +27,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MDBOOK_VERSION: 0.4.40
-      MDBOOK_ADMONISH: 1.17.0                                                                                                                               │
-      MDBOOK_ALERTS: 0.6.8                                                                                                                                  │
-      MDBOOK_MERMAID: 0.14.0                                                                                                                                │
-      MDBOOK_PAGETOC: 0.2.0                                                                                                                                 │
-      MDBOOK_TOC: 0.14.2                                                                                                                                    │
+      MDBOOK_ADMONISH: 1.17.0
+      MDBOOK_ALERTS: 0.6.8
+      MDBOOK_MERMAID: 0.14.0
+      MDBOOK_PAGETOC: 0.2.0
+      MDBOOK_TOC: 0.14.2
       MDBOOK_YML_HEADER: 0.1.4
     steps:
       - name: Checkout
@@ -45,11 +45,10 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-binstall,mdbook@${{ env.MDBOOK_VERSION }}
-      - run: echo ""mdbook-admonish@${{ env.MDBOOK_ADMONISH }},mdbook-alerts@${{ env.MDBOOK_ALERTS }},mdbook-mermaid@${{ env.MDBOOK_MERMAID }},mdbook-pagetoc@${{ env.MDBOOK_PAGETOC }},mdbook-toc@${{ env.MDBOOK_TOC }},mdbook-yml-header@${{ env.MDBOOK_YML_HEADER }}""
       - name: Install mdBook processors
         uses: taiki-e/install-action@v2
         with:
-          tool: mdbook-admonish@${{ env.MDBOOK_ADMONISH }}
+          tool: mdbook-admonish@${{ env.MDBOOK_ADMONISH }},mdbook-alerts@${{ env.MDBOOK_ALERTS }},mdbook-mermaid@${{ env.MDBOOK_MERMAID }},mdbook-pagetoc@${{ env.MDBOOK_PAGETOC }},mdbook-toc@${{ env.MDBOOK_TOC }},mdbook-yml-header@${{ env.MDBOOK_YML_HEADER }}
 
       - name: Setup Pages
         id: pages
