@@ -26,7 +26,7 @@ git-repository-url = "https://github.com/lethang7794/devops-book"
 edit-url-template = "https://github.com/lethang7794/devops-book/edit/master{path}"
 
 additional-js = [
-  ".mdbook/mermaid/mermaid.min.js",
-  ".mdbook/mermaid/mermaid-init.js",
+  "theme/mermaid/mermaid.min.js",
+  "theme/mermaid/mermaid-init.js",
   "theme/pagetoc.js",
 ]
