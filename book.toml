@@ -5,7 +5,7 @@ multilingual = false
 src = ""                     # Root of repo
 title = "DevOps Book"
 
-[preprocessor.alerts]
+[preprocessor.callouts]
 
 [preprocessor.mermaid]
 command = "mdbook-mermaid"
