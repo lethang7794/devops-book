@@ -3,7 +3,7 @@ authors = ["Le Quang Thang"]
 language = "en"
 multilingual = false
 src = ""                     # Root of repo
-title = "DevOps Book"
+title = "Notes for DevOps Book"
 
 [preprocessor.callouts]
 
