@@ -24,7 +24,7 @@ smart-punctuation = true
 
 site-url = "/devops-book/"
 git-repository-url = "https://github.com/lethang7794/devops-book"
-edit-url-template = "https://github.com/lethang7794/devops-book/edit/master{path}"
+edit-url-template = "https://github.com/lethang7794/devops-book/edit/main{path}"
 
 additional-js = [
   "theme/mermaid/mermaid.min.js",
