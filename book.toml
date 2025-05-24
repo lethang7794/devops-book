@@ -6,6 +6,7 @@ src = ""                     # Root of repo
 title = "Notes for DevOps Book"
 
 [preprocessor.callouts]
+[preprocessor.alerts]
 
 [preprocessor.mermaid]
 command = "mdbook-mermaid"
